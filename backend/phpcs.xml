@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<ruleset name="School ERP Backend">
+    <description>PSR-12 coding standard, per the Company Development Standard §3.</description>
+
+    <arg name="basepath" value="."/>
+    <arg name="colors"/>
+    <arg name="extensions" value="php"/>
+    <arg value="p"/>
+
+    <file>app</file>
+
+    <exclude-pattern>*/ThirdParty/*</exclude-pattern>
+    <exclude-pattern>*/Views/*</exclude-pattern>
+
+    <rule ref="PSR12"/>
+</ruleset>

@@ -1,0 +1,8 @@
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+
+# Backend (CodeIgniter 4) - backend/.gitignore covers vendor/, writable/, .env
