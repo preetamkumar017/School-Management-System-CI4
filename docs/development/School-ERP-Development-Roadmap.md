@@ -38,20 +38,36 @@ version and adjust the standard if 8.3 isn't offered. Flagging rather than
 silently deciding, since upgrading PHP is a machine-wide change outside this
 project's scope.
 
-## Stage 0 — Project bootstrap (infrastructure, no business logic)
+## Stage 0 — Project bootstrap — done (2026-08-06)
 
-- `git init` — this workspace has had no version control until now; real
-  code needs it (see memory note: archive-not-delete was the workaround
-  specifically because of this gap during the docs cleanup — it stops
-  applying once history exists).
+- `git init` — done; first commit made.
 - Top-level structure: `backend/`, `database/`, `mobile/`, `docs/` (Company
-  Development Standard §1).
-- CI4 skeleton via `composer create-project codeigniter4/appstarter backend`.
-- `.env` template (never committed with real values), `.gitignore`.
-- Local MySQL 8 dev database.
-- PHPStan + PHP_CodeSniffer (PSR-12 ruleset) wired as Composer scripts.
-- PHPUnit scaffold.
-- First commit.
+  Development Standard §1) — done.
+- CI4 skeleton via `composer create-project codeigniter4/appstarter backend`
+  — done (CodeIgniter 4.7.4).
+- `App\Core\*` (Auth, RBAC, Audit, Response, Exceptions, Logging,
+  Notification, Document, Config) and `App\Modules\` directory skeleton
+  created under `backend/app/` — empty, ready for Stage 1/2 implementation.
+- `.env` created from the CI4 template (gitignored, never committed with
+  real values).
+- PHPStan (with `codeigniter/phpstan-codeigniter` for framework-aware
+  analysis — needs `bootstrapFiles: vendor/codeigniter4/framework/system/Test/bootstrap.php`
+  to resolve CI4's constants/helpers) and PHP_CodeSniffer (PSR-12 via
+  `phpcs.xml`) wired as `composer lint` / `composer analyse`; `composer ci`
+  runs lint + analyse + test together. Both pass cleanly against the fresh
+  skeleton.
+- PHPUnit scaffold present (CI4 default), 5/5 sample tests pass.
+- **Known local environment gap, not fixed:** no code-coverage driver
+  (xdebug/pcov) installed locally — `pecl install pcov` failed (no release
+  available for this PHP build) and wasn't chased further, since it's a
+  local-dev-experience nicety, not a functional blocker. PHPUnit still runs
+  and reports pass/fail correctly; it just can't produce a coverage report
+  yet. Revisit if/when coverage reporting is actually needed.
+- Local PHP is 8.2.29 vs. the Company Standard's 8.3+ target — `composer.json`
+  currently declares `"php": "^8.2"` so local dev works; reconcile with
+  Hostinger's actual available version before this matters for real (see
+  Environment note above).
+- First commit made, covering the full design doc set plus this skeleton.
 
 ## Stage 1 — Administration (minimal slice): design done, implementation next
 
@@ -148,7 +164,8 @@ prior work to reference.
 
 ## Immediate next action
 
-Stage 1's design is done (2026-08-06). Next: Stage 0 (bootstrap: git init,
-CI4 skeleton) → Stage 1 implementation (Administration minimal slice) →
-Stage 2 (Core) → Stage 3 (Academic — simplest fully-designed module, best
-first real build).
+Stage 0 (bootstrap) and Stage 1's design are both done (2026-08-06). Next:
+**Stage 1 implementation** (Administration minimal slice — migrations for
+`users`/`roles`/`audit_logs`/`refresh_tokens`, then entities/models/services/
+controllers per `docs/design/administration/Phase-2` through `Phase-5`) →
+Stage 2 (Core) → Stage 3 (Academic).
