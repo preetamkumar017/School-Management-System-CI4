@@ -20,7 +20,8 @@
         "mikey179/vfsstream": "^1.6",
         "phpstan/phpstan": "^2.2",
         "phpunit/phpunit": "^10.5.16",
-        "squizlabs/php_codesniffer": "^4.0"
+        "squizlabs/php_codesniffer": "^4.0",
+        "zircote/swagger-php": "^6.5"
     },
     "autoload": {
         "psr-4": {
@@ -46,6 +47,7 @@
         "lint": "phpcs",
         "lint:fix": "phpcbf",
         "analyse": "phpstan analyse",
+        "openapi": "php spark openapi:generate",
         "ci": [
             "@lint",
             "@analyse",

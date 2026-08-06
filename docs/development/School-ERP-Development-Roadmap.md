@@ -195,6 +195,13 @@ prior work to reference.
 - CI gate: lint + static analysis + automated tests, before any merge.
 - Code Review Checklist (§11) and, once a stage reaches a releasable state,
   the Release Checklist (§12).
+- **API docs**: every new endpoint gets an OpenAPI attribute
+  (`#[OA\Get]`/`#[OA\Post]`/etc.) directly on its Controller method — see
+  `app/Modules/Administration/Controllers/*` for the pattern established in
+  Stage 1, and `app/Core/OpenApi/Spec.php` for shared response/error
+  schemas. `composer openapi` regenerates `public/openapi.json` (gitignored
+  — a build artifact, never hand-edited or committed, per §5); the UI is at
+  `/docs/` (static page, loads the spec from `/openapi.json`).
 
 ## Immediate next action
 

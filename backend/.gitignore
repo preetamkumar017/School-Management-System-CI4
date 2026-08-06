@@ -128,3 +128,7 @@ _modules/*
 # PHPStan result cache (project-specific addition)
 /writable/phpstan/*
 !/writable/phpstan/index.html
+
+# OpenAPI spec is a generated build artifact (composer openapi) — never
+# hand-edited, never committed, so it can't silently go stale.
+/public/openapi.json

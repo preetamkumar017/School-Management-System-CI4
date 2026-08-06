@@ -7,6 +7,7 @@ namespace App\Modules\Administration\Controllers;
 use App\Core\BaseController;
 use App\Modules\Administration\Entities\AuditLog;
 use Config\Services;
+use OpenApi\Attributes as OA;
 
 /**
  * docs/design/administration/Phase-5-Controller-Design.md
@@ -15,8 +16,25 @@ use Config\Services;
  * ever happen via AuditService::record() called from inside other
  * modules' Service methods, never from an HTTP request.
  */
+#[OA\Tag(name: 'Audit Logs')]
 class AuditLogController extends BaseController
 {
+    #[OA\Get(
+        path: '/administration/audit-logs/by-entity/{entityName}/{recordId}',
+        tags: ['Audit Logs'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'entityName', in: 'path', required: true, schema: new OA\Schema(type: 'string'), example: 'Role'),
+            new OA\Parameter(name: 'recordId', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Full change history for one record, newest first.',
+                content: new OA\JsonContent(type: 'array', items: new OA\Items(ref: '#/components/schemas/AuditLogResponse')),
+            ),
+        ],
+    )]
     public function byEntity(string $entityName, int $recordId)
     {
         $rows = Services::auditService()->getHistoryFor($entityName, $recordId);
@@ -24,6 +42,23 @@ class AuditLogController extends BaseController
         return $this->respondSuccess(array_map($this->toResponse(...), $rows));
     }
 
+    #[OA\Get(
+        path: '/administration/audit-logs/by-user/{userId}',
+        tags: ['Audit Logs'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'userId', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'from', in: 'query', required: false, schema: new OA\Schema(type: 'string', format: 'date-time')),
+            new OA\Parameter(name: 'to', in: 'query', required: false, schema: new OA\Schema(type: 'string', format: 'date-time')),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Everything this user did, newest first.',
+                content: new OA\JsonContent(type: 'array', items: new OA\Items(ref: '#/components/schemas/AuditLogResponse')),
+            ),
+        ],
+    )]
     public function byUser(int $userId)
     {
         $from = $this->request->getGet('from');
