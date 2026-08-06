@@ -132,3 +132,6 @@ _modules/*
 # OpenAPI spec is a generated build artifact (composer openapi) — never
 # hand-edited, never committed, so it can't silently go stale.
 /public/openapi.json
+
+# phpstan-codeigniter's DB schema cache (regenerated automatically)
+/tmp/

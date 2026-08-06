@@ -539,6 +539,129 @@ use OpenApi\Attributes as OA;
     ],
     type: 'object',
 )]
+#[OA\Schema(
+    schema: 'FeeHeadRequest',
+    description: 'Same shape for create and update.',
+    required: ['fee_head_name', 'is_taxable'],
+    properties: [
+        new OA\Property(property: 'fee_head_name', type: 'string'),
+        new OA\Property(property: 'is_taxable', type: 'boolean'),
+        new OA\Property(property: 'gst_rate', type: 'number', format: 'float', nullable: true, description: 'Required (0-28) when is_taxable is true.'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'FeeHeadResponse',
+    properties: [
+        new OA\Property(property: 'fee_head_id', type: 'integer'),
+        new OA\Property(property: 'fee_head_name', type: 'string'),
+        new OA\Property(property: 'is_taxable', type: 'boolean'),
+        new OA\Property(property: 'gst_rate', type: 'number', format: 'float', nullable: true),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'FeeStructureCreateRequest',
+    required: ['class_id', 'fee_head_id', 'academic_session_id', 'category', 'amount'],
+    properties: [
+        new OA\Property(property: 'class_id', type: 'integer'),
+        new OA\Property(property: 'fee_head_id', type: 'integer'),
+        new OA\Property(property: 'academic_session_id', type: 'integer'),
+        new OA\Property(property: 'category', type: 'string', enum: ['GENERAL', 'RTE']),
+        new OA\Property(property: 'amount', type: 'number', format: 'float'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'FeeStructureUpdateRequest',
+    description: 'class_id/fee_head_id/academic_session_id/category are immutable post-creation — absent here.',
+    required: ['amount'],
+    properties: [new OA\Property(property: 'amount', type: 'number', format: 'float')],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'FeeStructureResponse',
+    properties: [
+        new OA\Property(property: 'fee_structure_id', type: 'integer'),
+        new OA\Property(property: 'class_id', type: 'integer'),
+        new OA\Property(property: 'fee_head_id', type: 'integer'),
+        new OA\Property(property: 'academic_session_id', type: 'integer'),
+        new OA\Property(property: 'category', type: 'string', enum: ['GENERAL', 'RTE']),
+        new OA\Property(property: 'amount', type: 'number', format: 'float'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'InvoiceGenerateRequest',
+    required: ['student_id', 'academic_session_id', 'due_date'],
+    properties: [
+        new OA\Property(property: 'student_id', type: 'integer'),
+        new OA\Property(property: 'academic_session_id', type: 'integer'),
+        new OA\Property(property: 'due_date', type: 'string', format: 'date'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'InvoiceResponse',
+    description: 'total_amount is computed server-side, never client-supplied (ADR-007 §1).',
+    properties: [
+        new OA\Property(property: 'invoice_id', type: 'integer'),
+        new OA\Property(property: 'invoice_no', type: 'string', example: 'INV-2026-04501'),
+        new OA\Property(property: 'student_id', type: 'integer'),
+        new OA\Property(property: 'academic_session_id', type: 'integer'),
+        new OA\Property(property: 'total_amount', type: 'number', format: 'float'),
+        new OA\Property(property: 'due_date', type: 'string', format: 'date'),
+        new OA\Property(property: 'status', type: 'string', enum: ['UNPAID', 'PARTIALLY_PAID', 'PAID', 'DEFAULTER', 'CANCELLED']),
+        new OA\Property(property: 'is_locked', type: 'boolean'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'PaymentRecordRequest',
+    required: ['invoice_id', 'amount_paid', 'payment_mode'],
+    properties: [
+        new OA\Property(property: 'invoice_id', type: 'integer'),
+        new OA\Property(property: 'amount_paid', type: 'number', format: 'float'),
+        new OA\Property(property: 'payment_mode', type: 'string', enum: ['ONLINE', 'CASH', 'CHEQUE', 'BANK_TRANSFER']),
+        new OA\Property(property: 'gateway_transaction_ref', type: 'string', nullable: true),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'PaymentResponse',
+    properties: [
+        new OA\Property(property: 'payment_id', type: 'integer'),
+        new OA\Property(property: 'invoice_id', type: 'integer'),
+        new OA\Property(property: 'amount_paid', type: 'number', format: 'float'),
+        new OA\Property(property: 'payment_mode', type: 'string', enum: ['ONLINE', 'CASH', 'CHEQUE', 'BANK_TRANSFER']),
+        new OA\Property(property: 'gateway_transaction_ref', type: 'string', nullable: true),
+        new OA\Property(property: 'paid_at', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'status', type: 'string', enum: ['SUCCESS', 'FAILED', 'REFUNDED', 'VOIDED']),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'ScholarshipWaiverCreateRequest',
+    required: ['student_id', 'fee_head_id', 'waiver_type', 'waiver_amount'],
+    properties: [
+        new OA\Property(property: 'student_id', type: 'integer'),
+        new OA\Property(property: 'fee_head_id', type: 'integer'),
+        new OA\Property(property: 'waiver_type', type: 'string', enum: ['RTE', 'MERIT', 'SIBLING', 'STAFF_WARD']),
+        new OA\Property(property: 'waiver_amount', type: 'number', format: 'float'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'ScholarshipWaiverResponse',
+    properties: [
+        new OA\Property(property: 'scholarship_waiver_id', type: 'integer'),
+        new OA\Property(property: 'student_id', type: 'integer'),
+        new OA\Property(property: 'fee_head_id', type: 'integer'),
+        new OA\Property(property: 'waiver_type', type: 'string', enum: ['RTE', 'MERIT', 'SIBLING', 'STAFF_WARD']),
+        new OA\Property(property: 'waiver_amount', type: 'number', format: 'float'),
+    ],
+    type: 'object',
+)]
 final class Spec
 {
     // No instances — attributes only.

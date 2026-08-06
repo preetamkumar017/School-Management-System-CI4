@@ -39,6 +39,16 @@ use App\Modules\Examination\Services\ExamService;
 use App\Modules\Examination\Services\MarksRecordService;
 use App\Modules\Examination\Services\PromotionService;
 use App\Modules\Examination\Services\ReportCardService;
+use App\Modules\Fees\Models\FeeHeadModel;
+use App\Modules\Fees\Models\FeeStructureModel;
+use App\Modules\Fees\Models\InvoiceModel;
+use App\Modules\Fees\Models\PaymentModel;
+use App\Modules\Fees\Models\ScholarshipWaiverModel;
+use App\Modules\Fees\Services\FeeHeadService;
+use App\Modules\Fees\Services\FeeStructureService;
+use App\Modules\Fees\Services\InvoiceService;
+use App\Modules\Fees\Services\PaymentService;
+use App\Modules\Fees\Services\ScholarshipWaiverService;
 use App\Modules\Sis\Mappers\GuardianMapper;
 use App\Modules\Sis\Mappers\StudentGuardianLinkMapper;
 use App\Modules\Sis\Mappers\StudentMapper;
@@ -287,5 +297,50 @@ class Services extends BaseService
         }
 
         return new AttendanceService(new AttendanceRecordModel(), static::auditService());
+    }
+
+    public static function feeHeadService(bool $getShared = true): FeeHeadService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('feeHeadService');
+        }
+
+        return new FeeHeadService(new FeeHeadModel(), static::auditService());
+    }
+
+    public static function feeStructureService(bool $getShared = true): FeeStructureService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('feeStructureService');
+        }
+
+        return new FeeStructureService(new FeeStructureModel(), new FeeHeadModel(), static::auditService());
+    }
+
+    public static function invoiceService(bool $getShared = true): InvoiceService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('invoiceService');
+        }
+
+        return new InvoiceService(new InvoiceModel(), new ScholarshipWaiverModel(), static::auditService());
+    }
+
+    public static function paymentService(bool $getShared = true): PaymentService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('paymentService');
+        }
+
+        return new PaymentService(new PaymentModel(), new InvoiceModel(), static::auditService());
+    }
+
+    public static function scholarshipWaiverService(bool $getShared = true): ScholarshipWaiverService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('scholarshipWaiverService');
+        }
+
+        return new ScholarshipWaiverService(new ScholarshipWaiverModel(), new FeeHeadModel(), static::auditService());
     }
 }

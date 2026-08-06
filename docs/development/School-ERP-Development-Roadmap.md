@@ -376,30 +376,78 @@ Reference: `docs/design/timetable/Phase-1` through `Phase-3` and
   create → publish → attendance mark → percentage query → double-booking
   rejection, all verified over real HTTP.
 
-## Stage 6c onward — remaining undesigned modules
+## Stage 6c — Fees module implementation — DONE (2026-08-06)
 
-Not yet designed: Fees, Library, Transport, HR & Payroll, Communication,
+Reference: `docs/design/fees/Phase-1` through `Phase-3`, per
+`docs/ADR/ADR-007-fees-module-scope-decisions.md`. Depends only on
+Academic (`Class`, `AcademicSession`) and SIS (`Student`) — Appendix-G's
+FK graph was checked first, per Stage 6b's own lesson, and confirmed
+clean this time (no hidden HR/Communication chain).
+
+- **Design pass first**: ADR-007 resolves BR-FEE-003 (Transport
+  auto-linkage, undesigned, deferred), BR-FEE-004/008 (late fee/defaulter
+  — no scheduler infrastructure exists anywhere in this codebase, so both
+  are explicit-trigger Service methods, not cron jobs, with decided
+  defaults: 5% late fee, overdue = past due date and unpaid), BR-FEE-005
+  (RTE waiver — automatic *application* at invoice time, manual
+  *creation*, since the "waived fee-head list" configuration source
+  doesn't exist), BR-FEE-006 (implemented for real — DB unique
+  constraint), BR-FEE-007 (GST — not implemented, no line-item entity
+  exists in Appendix-G to itemize against), and BR-FEE-002 (Finance-Team-
+  only refund/void — not enforced, matching this codebase's consistent,
+  pre-existing posture of never having wired `PermissionChecker` into any
+  Controller in any prior stage). `docs/design/School-ERP-Module-
+  Architecture.md`'s Fees row updated to Designed.
+- **`Invoice` has no persisted line-item breakdown** — Appendix-G's own
+  entity card has no such child entity, only a `total_amount` described
+  as "sum of line items minus waivers." `InvoiceService::generateInvoice`
+  computes this server-side (sums matching `FeeStructure` rows for the
+  student's resolved class/session/category, minus matching
+  `ScholarshipWaiver`s) and persists only the total — matching the
+  approved shape exactly, no invented entity.
+- A decided additive column, `Invoice.late_fee_applied` (not in
+  Appendix-G's literal attribute list), tracks late-fee idempotency — the
+  same kind of decided addition as Academic's `locked_by_closed_exam`
+  (ADR-005 §10).
+- Migrations: `fee_heads`, `fee_structures`, `invoices`, `payments`,
+  `scholarship_waivers` — all applied.
+- Verification: 14 new PHPUnit tests (110 total) — the headline test
+  (`InvoiceTest::testGenerateInvoiceComputesTotalFromFeeStructureMinusWaivers`)
+  proves the full computation end to end against real `FeeStructure`/
+  `ScholarshipWaiver` data, not just presence/shape assertions. Also
+  covers BR-FEE-001 (payment locks the invoice, void/refund never reopen
+  it), BR-FEE-006 (duplicate gateway reference rejected), and the
+  late-fee/defaulter explicit triggers. Manually smoke-tested the full
+  flow end-to-end against the real dev server: fee head → fee structure →
+  student section-transfer → invoice generation (computed total verified)
+  → full payment → invoice locked/`PAID` → duplicate reference correctly
+  rejected.
+
+## Stage 6d onward — remaining undesigned modules
+
+Not yet designed: Library, Transport, HR & Payroll, Communication,
 Reports. Suggested order, by dependency:
 
-1. **Fees** — depends on Academic's `AcademicSession`/`Class`. Its design
-   should account for `PromotionRecord.fee_closure_confirmed`'s seam
-   (ADR-005 §3) — moving it from caller-supplied to system-computed.
-2. **HR & Payroll** — closes two seams: `TimetableEntry.employee_id`
-   validation (ADR-006 §1) and `StaffAttendanceRecord` (ADR-006 §2, likely
-   a joint pass with Attendance revisited). Also unlocks BR-TT-004/FR-16
-   Substitution, which needs staff-absence data.
-3. **Library**, **Transport**, **Communication**, **Reports** — lowest
+1. **HR & Payroll** — closes three seams left open by prior stages:
+   `TimetableEntry.employee_id` validation (ADR-006 §1),
+   `StaffAttendanceRecord` (ADR-006 §2, likely a joint pass with
+   Attendance revisited), and `PromotionRecord.fee_closure_confirmed`
+   (ADR-005 §3, moving it from caller-supplied to system-computed once
+   `PayrollRun`/fee-ledger-adjacent data exists). Also unlocks
+   BR-TT-004/FR-16 Substitution, which needs staff-absence data.
+2. **Library**, **Transport**, **Communication**, **Reports** — lowest
    inter-dependency; freely reprioritizable by business value.
    Communication also closes two seams: BR-TT-005's revision notification
    (ADR-006 §6) and BR-ATT-004's absence notification (ADR-006 §9).
+   Transport closes BR-FEE-003's auto-linkage seam (ADR-007 §3).
 
 Each follows the same design-then-implement pattern Academic/Admission/
-SIS/Examination/Timetable/Attendance now demonstrate six times over —
-those modules' design sets are the template, not just prior work to
-reference. In particular: **before assuming a stage's dependency
-ordering from the roadmap's own prose, check the actual FK graph in
-Appendix-G** — Stage 6b's own "no inter-dependency" assumption was wrong,
-caught only by reading the entity cards directly.
+SIS/Examination/Timetable/Attendance/Fees now demonstrate seven times
+over — those modules' design sets are the template, not just prior work
+to reference. Keep checking Appendix-G's actual FK graph before assuming
+a module's dependency ordering — Stage 6b's own assumption was wrong;
+Stage 6c's was confirmed correct only by actually checking, not by
+extrapolating from the pattern.
 
 ## Ongoing, every stage
 
@@ -419,13 +467,12 @@ caught only by reading the entity cards directly.
 
 ## Immediate next action
 
-Stages 0 through 6b are done (2026-08-06) — Academic, Admission, SIS
-(with Confirm Enrollment), Examination (ADR-005), and Timetable/Attendance
-(ADR-006, including the real BR-ATT-006 ↔ Examination eligibility wiring)
-are all real, working, tested code (96 passing tests). Next: **Stage 6c**
-— Fees is the suggested next module (see the Stage 6c section above for
-the seam it should account for). Run it through the same
-Requirement → Design → Approval sequence the last two modules went
-through (ADR-005/ADR-006 as templates), and check Appendix-G's actual FK
-graph for the entity before assuming its dependency ordering — don't
-trust this document's own prose blindly, per Stage 6b's own lesson.
+Stages 0 through 6c are done (2026-08-06) — Academic, Admission, SIS
+(with Confirm Enrollment), Examination (ADR-005), Timetable/Attendance
+(ADR-006), and Fees (ADR-007) are all real, working, tested code (110
+passing tests). Next: **Stage 6d** — HR & Payroll is the suggested next
+module, since it closes the most open seams (see the Stage 6d section
+above). Run it through the same Requirement → Design → Approval sequence
+the last three modules went through (ADR-005/ADR-006/ADR-007 as
+templates), and check Appendix-G's actual FK graph for the entity before
+assuming its dependency ordering.

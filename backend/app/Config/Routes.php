@@ -142,3 +142,32 @@ $routes->group('api/v1/attendance', ['namespace' => 'App\Modules\Attendance\Cont
     $routes->get('records/(:num)', 'AttendanceController::show/$1');
     $routes->get('records', 'AttendanceController::index');
 });
+
+// docs/design/fees/Phase-3-Service-Controller-Design.md
+$routes->group('api/v1/fees', ['namespace' => 'App\Modules\Fees\Controllers'], static function (RouteCollection $routes): void {
+    $routes->post('fee-heads', 'FeeHeadController::create');
+    $routes->patch('fee-heads/(:num)', 'FeeHeadController::update/$1');
+    $routes->get('fee-heads/(:num)', 'FeeHeadController::show/$1');
+    $routes->get('fee-heads', 'FeeHeadController::index');
+
+    $routes->post('fee-structures', 'FeeStructureController::create');
+    $routes->patch('fee-structures/(:num)', 'FeeStructureController::update/$1');
+    $routes->get('fee-structures/(:num)', 'FeeStructureController::show/$1');
+    $routes->get('fee-structures', 'FeeStructureController::index');
+
+    $routes->post('invoices', 'InvoiceController::create');
+    $routes->post('invoices/(:num)/apply-late-fee', 'InvoiceController::applyLateFee/$1');
+    $routes->post('invoices/(:num)/flag-defaulter', 'InvoiceController::flagDefaulter/$1');
+    $routes->get('invoices/(:num)', 'InvoiceController::show/$1');
+    $routes->get('invoices', 'InvoiceController::index');
+
+    $routes->post('payments', 'PaymentController::create');
+    $routes->post('payments/(:num)/void', 'PaymentController::void/$1');
+    $routes->post('payments/(:num)/refund', 'PaymentController::refund/$1');
+    $routes->get('payments/(:num)', 'PaymentController::show/$1');
+    $routes->get('payments', 'PaymentController::index');
+
+    $routes->post('scholarship-waivers', 'ScholarshipWaiverController::create');
+    $routes->get('scholarship-waivers/(:num)', 'ScholarshipWaiverController::show/$1');
+    $routes->get('scholarship-waivers', 'ScholarshipWaiverController::index');
+});
