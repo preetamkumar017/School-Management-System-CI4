@@ -64,3 +64,19 @@ $routes->group('api/v1/academic', ['namespace' => 'App\Modules\Academic\Controll
     $routes->delete('class-subject-map/(:num)/(:num)', 'ClassSubjectMapController::delete/$1/$2');
     $routes->get('class-subject-map/by-class/(:num)', 'ClassSubjectMapController::byClass/$1');
 });
+
+// docs/design/admission/Phase-5-Controller-Design.md
+$routes->group('api/v1/admission', ['namespace' => 'App\Modules\Admission\Controllers'], static function (RouteCollection $routes): void {
+    $routes->post('applications', 'ApplicationController::create');
+    $routes->post('applications/(:num)/verify', 'ApplicationController::verify/$1');
+    $routes->post('applications/(:num)/shortlist', 'ApplicationController::shortlist/$1');
+    $routes->post('applications/(:num)/waitlist', 'ApplicationController::waitlist/$1');
+    $routes->post('applications/(:num)/reject', 'ApplicationController::reject/$1');
+    $routes->get('applications/(:num)', 'ApplicationController::show/$1');
+    $routes->get('applications', 'ApplicationController::index');
+
+    $routes->post('seat-allocations', 'SeatAllocationController::create');
+    $routes->patch('seat-allocations/(:num)', 'SeatAllocationController::update/$1');
+    $routes->get('seat-allocations/(:num)', 'SeatAllocationController::show/$1');
+    $routes->get('seat-allocations', 'SeatAllocationController::index');
+});

@@ -166,15 +166,40 @@ approved, no dependency beyond Core).
   now — there is no `exams` table yet (Examination is Stage 6, undesigned).
   This is documented in the Model's own docblock, not a silent gap.
 
-## Stage 4 — Admission module implementation
+## Stage 4 — Admission module implementation — DONE (2026-08-06)
 
 Reference: `docs/design/admission/Phase-1` through `Phase-7` (fully
 approved). Depends on Stage 3 (`Class`, `AcademicSession`).
 
-- Migrations: `applications`, `seat_allocations`.
-- Verification: a concurrency test proving the pessimistic row-lock on
-  `SeatAllocation`'s counters actually prevents two simultaneous
-  confirmations from both succeeding for the last open seat.
+- Migrations: `applications`, `seat_allocations` — both applied.
+- Entities/Models/Services/Controllers per Phase 2–5: `Application`
+  (create, verify, shortlist, waitlist, reject, get, list-paginated) and
+  `SeatAllocation` (create, updateCapacity, get, findForClassAndSession).
+  **Scope note, decided proactively:** Phase 4/5 explicitly exclude the
+  `SUBMITTED/VERIFIED/... → ADMITTED` transition (FR-02 Confirm
+  Enrollment, Phase 6) from Admission's own Controller/Service design —
+  it depends on SIS's `StudentService::createStudentStub`, which doesn't
+  exist until Stage 5. There is no circular dependency: Stage 4 ships
+  everything Phase 4/5 actually scope to it, and `SeatAllocationModel::
+  incrementSeatsFilled` (the pessimistic-lock counter method Phase 6's
+  orchestration will call) is implemented now, ready for Stage 5 to wire
+  up. `application_reference_no` generation (format `APP-{year}-{5
+  digits}`) isn't specified beyond the example in Phase 1 — implemented
+  as candidate-generation-with-retry against the DB's own unique
+  constraint as the final backstop, not a designed algorithm. Aadhaar
+  checksum (BR-ADM-006) uses the Verhoeff algorithm (the real Aadhaar
+  standard, not Luhn).
+- Verification: 12 new PHPUnit tests (51 total), including the
+  headline test this stage's own bullet asked for —
+  `SeatAllocationConcurrencyTest` proves the pessimistic row-lock on
+  `SeatAllocation`'s counters is a genuine database row lock (a second,
+  independent connection blocks on `SELECT ... FOR UPDATE` while the
+  first transaction is open, verified via a short `innodb_lock_wait_timeout`
+  rather than real thread concurrency) and that the guarded increment
+  never lets `seats_filled` exceed `total_capacity`. Also manually
+  smoke-tested end-to-end against the real dev server (all 8 endpoints,
+  including the Verhoeff-checksum validation and RTE-ceiling error
+  paths).
 
 ## Stage 5 — SIS module implementation
 
@@ -227,8 +252,13 @@ prior work to reference.
 
 ## Immediate next action
 
-Stages 0, 1, 2, and 3 are done (2026-08-06). Next: **Stage 4 — Admission
-module implementation**, per `docs/design/admission/Phase-1` through
-`Phase-7` — depends on Stage 3's `Class`/`AcademicSession`, both of which
-now exist as real Services (`Config\Services::classService()`/
-`academicSessionService()`).
+Stages 0, 1, 2, 3, and 4 are done (2026-08-06). Next: **Stage 5 — SIS
+module implementation**, per `docs/design/sis/Phase-4.2` through
+`Phase-7` — depends on Stage 3's `Section` and Stage 4's `Application`/
+`SeatAllocation`. This stage also completes Admission's own FR-02 Confirm
+Enrollment (`docs/design/admission/Phase-6`), deliberately deferred from
+Stage 4: implement SIS's `StudentService::createStudentStub`, then
+`AdmissionService`'s `ADMITTED` transition that calls it inside a single
+shared transaction (ADR-004 §5), then the full Confirm Enrollment
+integration test — the one that forces a SIS-side failure and proves
+Admission's seat count/status change roll back atomically.

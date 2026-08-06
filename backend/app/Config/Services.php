@@ -17,6 +17,10 @@ use App\Modules\Academic\Services\ClassSubjectMapService;
 use App\Modules\Academic\Services\GradingSchemeService;
 use App\Modules\Academic\Services\SectionService;
 use App\Modules\Academic\Services\SubjectService;
+use App\Modules\Admission\Models\ApplicationModel;
+use App\Modules\Admission\Models\SeatAllocationModel;
+use App\Modules\Admission\Services\ApplicationService;
+use App\Modules\Admission\Services\SeatAllocationService;
 use App\Modules\Administration\Models\AuditLogModel;
 use App\Modules\Administration\Models\RefreshTokenModel;
 use App\Modules\Administration\Models\RoleModel;
@@ -142,5 +146,23 @@ class Services extends BaseService
             new SubjectModel(),
             static::auditService(),
         );
+    }
+
+    public static function applicationService(bool $getShared = true): ApplicationService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('applicationService');
+        }
+
+        return new ApplicationService(new ApplicationModel(), static::auditService());
+    }
+
+    public static function seatAllocationService(bool $getShared = true): SeatAllocationService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('seatAllocationService');
+        }
+
+        return new SeatAllocationService(new SeatAllocationModel(), static::auditService());
     }
 }

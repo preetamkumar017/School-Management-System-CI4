@@ -245,6 +245,69 @@ use OpenApi\Attributes as OA;
     ],
     type: 'object',
 )]
+#[OA\Schema(
+    schema: 'ApplicationCreateRequest',
+    required: ['applicant_name', 'dob', 'class_applied_id', 'category'],
+    properties: [
+        new OA\Property(property: 'applicant_name', type: 'string'),
+        new OA\Property(property: 'dob', type: 'string', format: 'date'),
+        new OA\Property(property: 'class_applied_id', type: 'integer'),
+        new OA\Property(property: 'aadhaar_number', type: 'string', nullable: true, description: '12 digits, Verhoeff checksum-valid.'),
+        new OA\Property(property: 'category', type: 'string', enum: ['GENERAL', 'RTE']),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'ApplicationResponse',
+    description: 'The SUBMITTED/VERIFIED/... -> ADMITTED transition (FR-02 Confirm Enrollment) is implemented in Stage 5 alongside SIS.',
+    properties: [
+        new OA\Property(property: 'application_id', type: 'integer'),
+        new OA\Property(property: 'application_reference_no', type: 'string', example: 'APP-2026-10023'),
+        new OA\Property(property: 'applicant_name', type: 'string'),
+        new OA\Property(property: 'dob', type: 'string', format: 'date'),
+        new OA\Property(property: 'class_applied_id', type: 'integer'),
+        new OA\Property(property: 'aadhaar_number', type: 'string', nullable: true),
+        new OA\Property(property: 'category', type: 'string', enum: ['GENERAL', 'RTE']),
+        new OA\Property(property: 'status', type: 'string', enum: ['SUBMITTED', 'VERIFIED', 'SHORTLISTED', 'WAITLISTED', 'ADMITTED', 'REJECTED']),
+        new OA\Property(property: 'submitted_at', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'decided_at', type: 'string', format: 'date-time', nullable: true),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'SeatAllocationCreateRequest',
+    required: ['class_id', 'academic_session_id', 'total_capacity', 'rte_quota_capacity'],
+    properties: [
+        new OA\Property(property: 'class_id', type: 'integer'),
+        new OA\Property(property: 'academic_session_id', type: 'integer'),
+        new OA\Property(property: 'total_capacity', type: 'integer'),
+        new OA\Property(property: 'rte_quota_capacity', type: 'integer', description: 'Must not exceed 25% of total_capacity.'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'SeatAllocationUpdateRequest',
+    description: 'class_id/academic_session_id are immutable after creation — absent here.',
+    required: ['total_capacity', 'rte_quota_capacity'],
+    properties: [
+        new OA\Property(property: 'total_capacity', type: 'integer'),
+        new OA\Property(property: 'rte_quota_capacity', type: 'integer'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'SeatAllocationResponse',
+    properties: [
+        new OA\Property(property: 'seat_allocation_id', type: 'integer'),
+        new OA\Property(property: 'class_id', type: 'integer'),
+        new OA\Property(property: 'academic_session_id', type: 'integer'),
+        new OA\Property(property: 'total_capacity', type: 'integer'),
+        new OA\Property(property: 'rte_quota_capacity', type: 'integer'),
+        new OA\Property(property: 'seats_filled', type: 'integer'),
+        new OA\Property(property: 'rte_seats_filled', type: 'integer'),
+    ],
+    type: 'object',
+)]
 final class Spec
 {
     // No instances — attributes only.
