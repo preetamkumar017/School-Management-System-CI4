@@ -42,8 +42,8 @@ was resolved), not by allowing both directions to depend on each other.
 | Admission | `App\Modules\Admission` | Application (`ENT-ADM-001`), SeatAllocation (`ENT-ADM-002`) | Fully designed — see `docs/design/admission/Phase-1` through `Phase-7` | ADR-003, ADR-004 |
 | Academic | `App\Modules\Academic` | AcademicSession (`ENT-ACAD-001`), Class (`ENT-ACAD-002`), Section (`ENT-ACAD-003`), Subject (`ENT-ACAD-004`), GradingScheme (`ENT-ACAD-005`), ClassSubjectMap (junction) | Designed — see `docs/design/academic/` | ADR-001 |
 | SIS (Student Information) | `App\Modules\Sis` | Student (`ENT-SIS-001`), Guardian (`ENT-SYS-003` — reassigned from Administration, see below), StudentGuardianLink (junction) | Fully designed — see `docs/design/sis/` | ADR-002, ADR-003, ADR-004, DG-SIS-001 (Resolved) |
-| Attendance | `App\Modules\Attendance` | AttendanceRecord (`ENT-ATT-001`), StaffAttendanceRecord (`ENT-ATT-002`) | Not yet designed | — |
-| Timetable | `App\Modules\Timetable` | TimetableEntry (`ENT-TT-001`) | Not yet designed | — |
+| Attendance | `App\Modules\Attendance` | AttendanceRecord (`ENT-ATT-001`), StaffAttendanceRecord (`ENT-ATT-002`) | **Partially designed** (`AttendanceRecord` only — see `docs/design/attendance/`); `StaffAttendanceRecord` deferred to HR & Payroll's design pass (needs `Employee`/`Leave`) | ADR-006 |
+| Timetable | `App\Modules\Timetable` | TimetableEntry (`ENT-TT-001`) | Designed — see `docs/design/timetable/` | ADR-006 |
 | Examination | `App\Modules\Examination` | Exam (`ENT-EXM-001`), MarksRecord (`ENT-EXM-002`), ReportCard (`ENT-EXM-003`), PromotionRecord (`ENT-EXM-004`) | Designed — see `docs/design/examination/` | ADR-002 (BR-SIS-004 deferred here, resolved by ADR-005), ADR-005 |
 | Fees | `App\Modules\Fees` | FeeHead (`ENT-FEE-001`), FeeStructure (`ENT-FEE-002`), Invoice (`ENT-FEE-003`), Payment (`ENT-FEE-004`), ScholarshipWaiver (`ENT-FEE-005`) | Not yet designed | — |
 | Library | `App\Modules\Library` | Book (`ENT-LIB-001`), BookIssue (`ENT-LIB-002`) | Not yet designed | — |

@@ -91,6 +91,12 @@ throughout Stage 3/4 (documented then as "always false until Examination
 exists"); this ADR now provides the other half of that seam (§9 below)
 and creates the same kind of seam for Attendance to fill in later.
 
+**Closed by ADR-006 §11** (2026-08-06, same day): once Attendance existed,
+`MarksRecordService::createMarksRecord` was updated to call
+`AttendanceService::isExamEligibilityAtRisk` for real, requiring a logged
+override when a student is flagged at-risk. This paragraph is left as
+written for the historical record of what was stubbed and why.
+
 ### 3. `PromotionRecord.fee_closure_confirmed` is caller-supplied, not system-computed
 
 No Fees module exists to query a ledger balance from.

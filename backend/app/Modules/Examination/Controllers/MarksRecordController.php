@@ -33,8 +33,13 @@ class MarksRecordController extends BaseController
         $body = $this->request->getJSON(true) ?? [];
         [$examId, $studentId, $subjectId, $marksObtained, $maxMarks] = $this->validateFields($body);
 
+        $overrideReason = isset($body['override_reason']) && $body['override_reason'] !== ''
+            ? (string) $body['override_reason']
+            : null;
+
         $response = Services::marksRecordService()->createMarksRecord(
             new CreateMarksRecordRequest($examId, $studentId, $subjectId, $marksObtained, $maxMarks),
+            $overrideReason,
         );
 
         return $this->respondCreated($response->toArray());

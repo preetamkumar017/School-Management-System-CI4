@@ -40,7 +40,7 @@ class MarksRecordService
     ) {
     }
 
-    public function createMarksRecord(CreateMarksRecordRequest $request): MarksRecordResponse
+    public function createMarksRecord(CreateMarksRecordRequest $request, ?string $overrideReason = null): MarksRecordResponse
     {
         $exam = $this->requireExam($request->examId);
         $this->assertSessionMutable($exam->academic_session_id, null);
@@ -58,8 +58,30 @@ class MarksRecordService
         AppServices::studentService()->getStudent($request->studentId);
         AppServices::subjectService()->getSubject($request->subjectId);
 
-        // BR-EXM-005 eligibility precondition — stubbed pending
-        // Attendance (ADR-005 §2); always eligible today.
+        // BR-EXM-005 eligibility precondition — real check as of ADR-006
+        // §11 (Attendance now exists). A flagged student can still be
+        // marked, but only with a logged Academic Head override, exactly
+        // as BR-EXM-005's text requires.
+        $session = AppServices::academicSessionService()->getSession($exam->academic_session_id);
+
+        if (AppServices::attendanceService()->isExamEligibilityAtRisk($request->studentId, $session->startDate, (string) $exam->exam_date)) {
+            if ($overrideReason === null || trim($overrideReason) === '') {
+                throw new BusinessRuleException(
+                    'STUDENT_EXAM_ELIGIBILITY_AT_RISK',
+                    'This student is below the minimum attendance threshold (BR-ATT-006). '
+                        . 'Supply override_reason to proceed (BR-EXM-005).',
+                );
+            }
+
+            $this->auditService->record(
+                'MarksRecord',
+                $request->studentId,
+                AuditLog::ACTION_OVERRIDE,
+                null,
+                null,
+                $overrideReason,
+            );
+        }
 
         if ($this->marksRecordModel->existsByExamStudentSubject($request->examId, $request->studentId, $request->subjectId)) {
             throw new BusinessRuleException(

@@ -29,6 +29,8 @@ use App\Modules\Administration\Services\AuditService;
 use App\Modules\Administration\Services\AuthService;
 use App\Modules\Administration\Services\RoleService;
 use App\Modules\Administration\Services\UserService;
+use App\Modules\Attendance\Models\AttendanceRecordModel;
+use App\Modules\Attendance\Services\AttendanceService;
 use App\Modules\Examination\Models\ExamModel;
 use App\Modules\Examination\Models\MarksRecordModel;
 use App\Modules\Examination\Models\PromotionRecordModel;
@@ -46,6 +48,8 @@ use App\Modules\Sis\Models\StudentModel;
 use App\Modules\Sis\Services\GuardianService;
 use App\Modules\Sis\Services\StudentGuardianLinkService;
 use App\Modules\Sis\Services\StudentService;
+use App\Modules\Timetable\Models\TimetableEntryModel;
+use App\Modules\Timetable\Services\TimetableEntryService;
 use CodeIgniter\Config\BaseService;
 
 /**
@@ -265,5 +269,23 @@ class Services extends BaseService
         }
 
         return new PromotionService(new PromotionRecordModel(), static::auditService());
+    }
+
+    public static function timetableEntryService(bool $getShared = true): TimetableEntryService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('timetableEntryService');
+        }
+
+        return new TimetableEntryService(new TimetableEntryModel(), static::auditService());
+    }
+
+    public static function attendanceService(bool $getShared = true): AttendanceService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('attendanceService');
+        }
+
+        return new AttendanceService(new AttendanceRecordModel(), static::auditService());
     }
 }

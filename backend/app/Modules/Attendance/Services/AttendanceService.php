@@ -1,0 +1,192 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\Attendance\Services;
+
+use App\Core\Exceptions\BusinessRuleException;
+use App\Core\Exceptions\ValidationException;
+use App\Core\Http\RequestContext;
+use App\Modules\Administration\Entities\AuditLog;
+use App\Modules\Administration\Services\AuditService;
+use App\Modules\Attendance\DTOs\AttendanceCorrectionRequest;
+use App\Modules\Attendance\DTOs\AttendancePercentageResponse;
+use App\Modules\Attendance\DTOs\AttendanceRecordResponse;
+use App\Modules\Attendance\DTOs\CreateAttendanceRecordRequest;
+use App\Modules\Attendance\Entities\AttendanceRecord;
+use App\Modules\Attendance\Models\AttendanceRecordModel;
+use CodeIgniter\I18n\Time;
+use Config\Services as AppServices;
+
+/**
+ * docs/design/attendance/Phase-3-Service-Controller-Design.md
+ */
+class AttendanceService
+{
+    /**
+     * ADR-006 §11 — decided default (BR-ATT-006's threshold is "Client/
+     * Product Decision Required" per Appendix-C), pending a future
+     * Configuration entity.
+     */
+    private const EXAM_ELIGIBILITY_MINIMUM_PERCENTAGE = 75.0;
+
+    public function __construct(
+        private readonly AttendanceRecordModel $attendanceRecordModel,
+        private readonly AuditService $auditService,
+    ) {
+    }
+
+    public function markAttendance(CreateAttendanceRecordRequest $request): AttendanceRecordResponse
+    {
+        AppServices::studentService()->getStudent($request->studentId);
+        $entry = AppServices::timetableEntryService()->getEntry($request->timetableEntryId);
+
+        if ($entry->status !== 'PUBLISHED') {
+            throw new BusinessRuleException(
+                'TIMETABLE_ENTRY_NOT_PUBLISHED',
+                'Attendance can only be marked against a published timetable entry.',
+            );
+        }
+
+        if ($this->attendanceRecordModel->existsByStudentEntryDate($request->studentId, $request->timetableEntryId, $request->attendanceDate)) {
+            throw new BusinessRuleException(
+                'ATTENDANCE_ALREADY_MARKED',
+                'Attendance for this student/period/date already exists (BR-ATT-001).',
+            );
+        }
+
+        $id = $this->attendanceRecordModel->insert([
+            'student_id'         => $request->studentId,
+            'timetable_entry_id' => $request->timetableEntryId,
+            'attendance_date'    => $request->attendanceDate,
+            'state'              => $request->state,
+            'marked_by'          => RequestContext::userId(),
+        ], true);
+
+        $record = $this->attendanceRecordModel->find($id);
+
+        $this->auditService->record('AttendanceRecord', $id, AuditLog::ACTION_CREATE, null, $record->toRawArray());
+
+        return new AttendanceRecordResponse($record);
+    }
+
+    public function lockAttendance(int $id): AttendanceRecordResponse
+    {
+        $before = $this->requireRecord($id);
+
+        if ($before->is_locked) {
+            throw new BusinessRuleException('ATTENDANCE_ALREADY_LOCKED', 'This attendance record is already locked.');
+        }
+
+        $this->attendanceRecordModel->update($id, ['is_locked' => true]);
+        $after = $this->attendanceRecordModel->find($id);
+
+        $this->auditService->record('AttendanceRecord', $id, AuditLog::ACTION_UPDATE, $before->toRawArray(), $after->toRawArray());
+
+        return new AttendanceRecordResponse($after);
+    }
+
+    /**
+     * ADR-006 §8 — same-day correction is direct; past the same calendar
+     * day as attendance_date, a reason is required and logged as an
+     * override.
+     */
+    public function correctAttendance(int $id, AttendanceCorrectionRequest $request): AttendanceRecordResponse
+    {
+        $before = $this->requireRecord($id);
+
+        $sameDay = Time::now()->toDateString() === (string) $before->attendance_date;
+
+        if (! $sameDay && ($request->reason === null || trim($request->reason) === '')) {
+            throw new ValidationException(
+                ['reason' => 'reason is required when correcting attendance beyond the same-day edit window.'],
+            );
+        }
+
+        $this->attendanceRecordModel->update($id, ['state' => $request->state]);
+        $after = $this->attendanceRecordModel->find($id);
+
+        if ($sameDay) {
+            $this->auditService->record('AttendanceRecord', $id, AuditLog::ACTION_UPDATE, $before->toRawArray(), $after->toRawArray());
+        } else {
+            $this->auditService->record(
+                'AttendanceRecord',
+                $id,
+                AuditLog::ACTION_OVERRIDE,
+                $before->toRawArray(),
+                $after->toRawArray(),
+                $request->reason,
+            );
+        }
+
+        return new AttendanceRecordResponse($after);
+    }
+
+    public function getAttendanceRecord(int $id): AttendanceRecordResponse
+    {
+        return new AttendanceRecordResponse($this->requireRecord($id));
+    }
+
+    /**
+     * @return list<AttendanceRecordResponse>
+     */
+    public function listByTimetableEntryAndDate(int $timetableEntryId, string $date): array
+    {
+        return array_map(
+            static fn (AttendanceRecord $record): AttendanceRecordResponse => new AttendanceRecordResponse($record),
+            $this->attendanceRecordModel->findByTimetableEntryAndDate($timetableEntryId, $date),
+        );
+    }
+
+    /**
+     * FR-13: percentage = (PRESENT + LATE) / total marked records in
+     * range. Days never marked are excluded from the denominator, not
+     * treated as absent.
+     */
+    public function calculateAttendancePercentage(int $studentId, string $fromDate, string $toDate): AttendancePercentageResponse
+    {
+        $records = $this->attendanceRecordModel->findByStudentBetween($studentId, $fromDate, $toDate);
+
+        if ($records === []) {
+            return new AttendancePercentageResponse($studentId, $fromDate, $toDate, 100.0, false);
+        }
+
+        $presentOrLate = 0;
+
+        foreach ($records as $record) {
+            if (in_array($record->state, [AttendanceRecord::STATE_PRESENT, AttendanceRecord::STATE_LATE], true)) {
+                $presentOrLate++;
+            }
+        }
+
+        $percentage = round(($presentOrLate / count($records)) * 100, 2);
+
+        return new AttendancePercentageResponse(
+            $studentId,
+            $fromDate,
+            $toDate,
+            $percentage,
+            $percentage < self::EXAM_ELIGIBILITY_MINIMUM_PERCENTAGE,
+        );
+    }
+
+    /**
+     * BR-ATT-006 — called by Examination's MarksRecordService (ADR-006
+     * §11, closing the seam ADR-005 §2 left open).
+     */
+    public function isExamEligibilityAtRisk(int $studentId, string $fromDate, string $toDate): bool
+    {
+        return $this->calculateAttendancePercentage($studentId, $fromDate, $toDate)->isExamEligibilityAtRisk;
+    }
+
+    private function requireRecord(int $id): AttendanceRecord
+    {
+        $record = $this->attendanceRecordModel->find($id);
+
+        if ($record === null) {
+            throw new BusinessRuleException('ATTENDANCE_RECORD_NOT_FOUND', 'Attendance record not found.');
+        }
+
+        return $record;
+    }
+}

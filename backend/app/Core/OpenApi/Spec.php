@@ -474,6 +474,71 @@ use OpenApi\Attributes as OA;
     ],
     type: 'object',
 )]
+#[OA\Schema(
+    schema: 'TimetableEntryRequest',
+    description: 'Same shape for create and revise (BR-TT-005).',
+    required: ['section_id', 'subject_id', 'employee_id', 'day_of_week', 'period_no'],
+    properties: [
+        new OA\Property(property: 'section_id', type: 'integer'),
+        new OA\Property(property: 'subject_id', type: 'integer'),
+        new OA\Property(property: 'employee_id', type: 'integer', description: 'Not validated against an Employee table — HR & Payroll does not exist yet (ADR-006 §1).'),
+        new OA\Property(property: 'day_of_week', type: 'string', enum: ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY']),
+        new OA\Property(property: 'period_no', type: 'integer'),
+        new OA\Property(property: 'room_id', type: 'string', nullable: true),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'TimetableEntryResponse',
+    properties: [
+        new OA\Property(property: 'timetable_entry_id', type: 'integer'),
+        new OA\Property(property: 'section_id', type: 'integer'),
+        new OA\Property(property: 'subject_id', type: 'integer'),
+        new OA\Property(property: 'employee_id', type: 'integer'),
+        new OA\Property(property: 'day_of_week', type: 'string', enum: ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY', 'SATURDAY']),
+        new OA\Property(property: 'period_no', type: 'integer'),
+        new OA\Property(property: 'room_id', type: 'string', nullable: true),
+        new OA\Property(property: 'version_no', type: 'integer'),
+        new OA\Property(property: 'status', type: 'string', enum: ['DRAFT', 'PUBLISHED']),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'AttendanceRecordCreateRequest',
+    required: ['student_id', 'timetable_entry_id', 'attendance_date', 'state'],
+    properties: [
+        new OA\Property(property: 'student_id', type: 'integer'),
+        new OA\Property(property: 'timetable_entry_id', type: 'integer'),
+        new OA\Property(property: 'attendance_date', type: 'string', format: 'date'),
+        new OA\Property(property: 'state', type: 'string', enum: ['PRESENT', 'ABSENT', 'LATE']),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'AttendanceRecordResponse',
+    properties: [
+        new OA\Property(property: 'attendance_record_id', type: 'integer'),
+        new OA\Property(property: 'student_id', type: 'integer'),
+        new OA\Property(property: 'timetable_entry_id', type: 'integer'),
+        new OA\Property(property: 'attendance_date', type: 'string', format: 'date'),
+        new OA\Property(property: 'state', type: 'string', enum: ['PRESENT', 'ABSENT', 'LATE']),
+        new OA\Property(property: 'marked_by', type: 'integer'),
+        new OA\Property(property: 'is_locked', type: 'boolean'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'AttendancePercentageResponse',
+    description: 'Read-model, not a persisted entity (FR-13/BR-ATT-006).',
+    properties: [
+        new OA\Property(property: 'student_id', type: 'integer'),
+        new OA\Property(property: 'from_date', type: 'string', format: 'date'),
+        new OA\Property(property: 'to_date', type: 'string', format: 'date'),
+        new OA\Property(property: 'percentage', type: 'number', format: 'float'),
+        new OA\Property(property: 'is_exam_eligibility_at_risk', type: 'boolean'),
+    ],
+    type: 'object',
+)]
 final class Spec
 {
     // No instances — attributes only.

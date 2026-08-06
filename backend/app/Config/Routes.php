@@ -123,3 +123,22 @@ $routes->group('api/v1/examination', ['namespace' => 'App\Modules\Examination\Co
     $routes->get('promotions/(:num)', 'PromotionController::show/$1');
     $routes->get('promotions', 'PromotionController::index');
 });
+
+// docs/design/timetable/Phase-3-Service-Controller-Design.md
+$routes->group('api/v1/timetable', ['namespace' => 'App\Modules\Timetable\Controllers'], static function (RouteCollection $routes): void {
+    $routes->post('entries', 'TimetableEntryController::create');
+    $routes->post('entries/(:num)/publish', 'TimetableEntryController::publish/$1');
+    $routes->post('entries/(:num)/revise', 'TimetableEntryController::revise/$1');
+    $routes->get('entries/(:num)', 'TimetableEntryController::show/$1');
+    $routes->get('entries', 'TimetableEntryController::index');
+});
+
+// docs/design/attendance/Phase-3-Service-Controller-Design.md
+$routes->group('api/v1/attendance', ['namespace' => 'App\Modules\Attendance\Controllers'], static function (RouteCollection $routes): void {
+    $routes->post('records', 'AttendanceController::create');
+    $routes->post('records/(:num)/lock', 'AttendanceController::lock/$1');
+    $routes->post('records/(:num)/correct', 'AttendanceController::correct/$1');
+    $routes->get('records/percentage', 'AttendanceController::percentage');
+    $routes->get('records/(:num)', 'AttendanceController::show/$1');
+    $routes->get('records', 'AttendanceController::index');
+});

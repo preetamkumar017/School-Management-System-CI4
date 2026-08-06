@@ -114,14 +114,17 @@ class Filters extends BaseFilters
     public array $filters = [
         // login/refresh are the only unauthenticated API routes; every
         // other auth/* route and everything under administration/*,
-        // academic/*, admission/*, sis/*, and examination/* requires a
-        // valid access token (Company Development Standard §9).
+        // academic/*, admission/*, sis/*, examination/*, timetable/*, and
+        // attendance/* requires a valid access token (Company Development
+        // Standard §9).
         'jwtauth' => ['before' => [
             'api/v1/administration/*',
             'api/v1/academic/*',
             'api/v1/admission/*',
             'api/v1/sis/*',
             'api/v1/examination/*',
+            'api/v1/timetable/*',
+            'api/v1/attendance/*',
             'api/v1/auth/logout',
             'api/v1/auth/logout-all',
             'api/v1/auth/change-password',

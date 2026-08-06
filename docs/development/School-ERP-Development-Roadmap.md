@@ -319,25 +319,87 @@ Academic (`Class`, `AcademicSession`, `GradingScheme`, `Subject`) and SIS
   genuinely locked against further mutation via a real HTTP `PATCH`
   attempt.
 
-## Stage 6b onward — remaining undesigned modules
+## Stage 6b — Timetable and Attendance implementation — DONE (2026-08-06)
 
-Not yet designed: Attendance, Timetable, Fees, Library, Transport,
-HR & Payroll, Communication, Reports. Suggested order, by dependency:
+Reference: `docs/design/timetable/Phase-1` through `Phase-3` and
+`docs/design/attendance/Phase-1` through `Phase-3`, per
+`docs/ADR/ADR-006-timetable-and-attendance-scope-decisions.md`.
 
-1. **Attendance** + **Timetable** — depend on Academic's `Section`; no
-   inter-dependency between the two. Attendance's design should account
-   for the `BR-ATT-006`/`MarksRecordService` eligibility seam ADR-005 §2
-   left open (Examination's stub is ready for Attendance to fill in).
-2. **Fees** — depends on Academic's `AcademicSession`/`Class`. Its design
+- **The roadmap's own assumption was wrong, caught during the design
+  pass**: Stage 6b was originally planned as "Attendance + Timetable, no
+  inter-dependency between the two." Appendix-G's `AttendanceRecord` entity
+  card lists `timetable_entry_id → TimetableEntry` as a Foreign Key —
+  Attendance genuinely depends on Timetable. Built Timetable first,
+  Attendance second, in the same pass, per ADR-006.
+- **A second, deeper dependency surfaced and was deliberately not
+  chased**: `TimetableEntry.employee_id → Employee` belongs to HR &
+  Payroll, undesigned and not scheduled. Building `Employee` just to
+  satisfy one FK would have silently expanded this stage into a second,
+  unplanned module. ADR-006 §1 stubs it instead (stored, not validated) —
+  same shape as every other undesigned-module dependency this project has
+  hit (Attendance/Fees for Examination, ADR-005). `StaffAttendanceRecord`
+  (ENT-ATT-002) is deferred entirely, not stubbed — its whole reason to
+  exist (payroll reconciliation) has no meaning without `Employee`/`Leave`
+  (ADR-006 §2). BR-TT-003/004 (lab capacity, substitution) are out of
+  scope — no `Room` capacity entity, no `Substitution` entity exists
+  anywhere in the approved catalogue (ADR-006 §3, §4).
+- Migrations: `timetable_entries`, `attendance_records` — both applied.
+  `TimetableEntry` DB-enforces BR-TT-001 (`(employee_id, day_of_week,
+  period_no)` unique) and half of BR-TT-002 (`(section_id, day_of_week,
+  period_no)` unique); room double-booking is a Service-layer check
+  (`room_id` isn't in Appendix-G's own composite-index list). BR-TT-005
+  (publication lock) is a **decided** in-place mutation with
+  `version_no` increment, not a parallel history-row scheme — no versions
+  table exists anywhere in this codebase's design and `AuditLog` already
+  captures full before/after values. BR-TT-006 (weekly load ceiling)
+  implemented with a decided default (30 periods/week).
+- **Closed the seam ADR-005 §2 deliberately left open**: `AttendanceService::
+  isExamEligibilityAtRisk` (BR-ATT-006, 75% threshold, decided default) is
+  now called for real by Examination's `MarksRecordService::
+  createMarksRecord` — a new, one-way Examination → Attendance dependency
+  (allowed: Attendance has no dependency back on Examination). A flagged
+  student can still be marked, but only with `override_reason`, logged via
+  `AuditLog::ACTION_OVERRIDE`, exactly matching BR-EXM-005's "without
+  Academic Head override" text.
+- BR-ATT-002/003 (attendance lock + correction) reuse the exact
+  `override_reason` + `AuditLog::ACTION_OVERRIDE` shape Examination's
+  re-evaluation established (ADR-005 §7) — decided edit-window boundary:
+  same calendar day as `attendance_date` only.
+- Verification: 13 new PHPUnit tests (96 total) — BR-TT-001/002 double-
+  booking rejection, BR-TT-005 version increment, BR-TT-006 load-ceiling
+  enforcement (30 real inserts then a rejected 31st), BR-ATT-001 duplicate
+  rejection, BR-ATT-002/003 same-day-vs-override correction, BR-ATT-006
+  percentage calculation, and the cross-module integration test proving
+  Examination's marks-entry gate genuinely blocks (and then accepts with
+  override) an at-risk student based on real `AttendanceRecord` data.
+  Manually smoke-tested end-to-end against the real dev server: entry
+  create → publish → attendance mark → percentage query → double-booking
+  rejection, all verified over real HTTP.
+
+## Stage 6c onward — remaining undesigned modules
+
+Not yet designed: Fees, Library, Transport, HR & Payroll, Communication,
+Reports. Suggested order, by dependency:
+
+1. **Fees** — depends on Academic's `AcademicSession`/`Class`. Its design
    should account for `PromotionRecord.fee_closure_confirmed`'s seam
    (ADR-005 §3) — moving it from caller-supplied to system-computed.
-3. **HR & Payroll**, **Library**, **Transport**, **Communication**,
-   **Reports** — lowest inter-dependency; freely reprioritizable by
-   business value once Stages 1–6a and Attendance/Timetable/Fees exist.
+2. **HR & Payroll** — closes two seams: `TimetableEntry.employee_id`
+   validation (ADR-006 §1) and `StaffAttendanceRecord` (ADR-006 §2, likely
+   a joint pass with Attendance revisited). Also unlocks BR-TT-004/FR-16
+   Substitution, which needs staff-absence data.
+3. **Library**, **Transport**, **Communication**, **Reports** — lowest
+   inter-dependency; freely reprioritizable by business value.
+   Communication also closes two seams: BR-TT-005's revision notification
+   (ADR-006 §6) and BR-ATT-004's absence notification (ADR-006 §9).
 
 Each follows the same design-then-implement pattern Academic/Admission/
-SIS/Examination now demonstrate four times over — those four modules'
-design sets are the template, not just prior work to reference.
+SIS/Examination/Timetable/Attendance now demonstrate six times over —
+those modules' design sets are the template, not just prior work to
+reference. In particular: **before assuming a stage's dependency
+ordering from the roadmap's own prose, check the actual FK graph in
+Appendix-G** — Stage 6b's own "no inter-dependency" assumption was wrong,
+caught only by reading the entity cards directly.
 
 ## Ongoing, every stage
 
@@ -357,10 +419,13 @@ design sets are the template, not just prior work to reference.
 
 ## Immediate next action
 
-Stages 0 through 6a are done (2026-08-06) — Academic, Admission, SIS
-(with Confirm Enrollment), and Examination (with ADR-005's design pass)
-are all real, working, tested code (83 passing tests). Next: **Stage 6b**
-— pick one of Attendance, Timetable, or Fees (in that suggested order)
-and run it through the same Requirement → Design → Approval sequence
-Examination just went through (see ADR-005 as the template for how to
-resolve undesignated cross-module dependencies), before writing any code.
+Stages 0 through 6b are done (2026-08-06) — Academic, Admission, SIS
+(with Confirm Enrollment), Examination (ADR-005), and Timetable/Attendance
+(ADR-006, including the real BR-ATT-006 ↔ Examination eligibility wiring)
+are all real, working, tested code (96 passing tests). Next: **Stage 6c**
+— Fees is the suggested next module (see the Stage 6c section above for
+the seam it should account for). Run it through the same
+Requirement → Design → Approval sequence the last two modules went
+through (ADR-005/ADR-006 as templates), and check Appendix-G's actual FK
+graph for the entity before assuming its dependency ordering — don't
+trust this document's own prose blindly, per Stage 6b's own lesson.
