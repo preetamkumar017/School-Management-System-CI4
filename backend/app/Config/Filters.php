@@ -113,10 +113,12 @@ class Filters extends BaseFilters
      */
     public array $filters = [
         // login/refresh are the only unauthenticated API routes; every
-        // other auth/* route and everything under administration/*
-        // requires a valid access token (Company Development Standard §9).
+        // other auth/* route and everything under administration/* and
+        // academic/* requires a valid access token (Company Development
+        // Standard §9).
         'jwtauth' => ['before' => [
             'api/v1/administration/*',
+            'api/v1/academic/*',
             'api/v1/auth/logout',
             'api/v1/auth/logout-all',
             'api/v1/auth/change-password',

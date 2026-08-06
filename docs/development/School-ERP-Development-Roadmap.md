@@ -133,16 +133,38 @@ Built alongside Stage 1, against Stage 1's real tables, not stubs:
   written path works end to end (both automated and manual verification,
   see Stage 1).
 
-## Stage 3 — Academic module implementation
+## Stage 3 — Academic module implementation — DONE (2026-08-06)
 
 Reference: `docs/design/academic/Phase-1` through `Phase-6` (fully
 approved, no dependency beyond Core).
 
 - Migrations: `academic_sessions`, `classes`, `sections`, `subjects`,
-  `grading_schemes`, `class_subject_map`.
-- Entities/Models/Services/Controllers per Phase 2–5.
-- Verification: Phase 6's closure criteria — full CRUD test suite, including
-  the `GradingScheme` immutability-once-referenced behavior.
+  `grading_schemes`, `class_subject_map` — all six applied.
+- Entities/Models/Services/Controllers per Phase 2–5, all six verticals
+  (`AcademicSession`, `Class`, `Section`, `Subject`, `GradingScheme`,
+  `ClassSubjectMap`) end to end. `Class` the entity is named `AcademicClass`
+  in code — `class` is a PHP reserved word; Model/Service/Controller/DTO
+  names keep the doc's own "Class" naming since those aren't reserved.
+  Response DTOs are real classes (Phase 3's design, a deliberate departure
+  from Administration's inline-array convention), each wrapping an Entity
+  with a `toArray()` used at the Controller boundary.
+- Verification: 19 new PHPUnit feature tests in
+  `backend/tests/Feature/Academic/` (39 total with Administration's),
+  covering full CRUD plus every named business rule (session name/date
+  overlap, forward-only status transitions, class name/sequence-order
+  uniqueness, section name uniqueness within a class, subject code
+  uniqueness, grading-scheme overlapping-band rejection, duplicate
+  class-subject mapping rejection) — including Phase 6's closure-criteria
+  test, `GradingScheme` immutability once locked by a closed exam
+  (exercised directly against the Service with a stubbed
+  `isReferencedByClosedExam`, since Examination itself isn't designed yet).
+  Also manually smoke-tested end-to-end against the real dev server (all 15
+  endpoints, including the validation/business-rule error paths and the
+  regenerated `/docs/` Swagger UI) — no gaps found this time, unlike Stage
+  1+2's `last_login_at`/JSON-column surprises.
+- `GradingSchemeModel::isReferencedByClosedExam` always returns `false` for
+  now — there is no `exams` table yet (Examination is Stage 6, undesigned).
+  This is documented in the Model's own docblock, not a silent gap.
 
 ## Stage 4 — Admission module implementation
 
@@ -205,8 +227,8 @@ prior work to reference.
 
 ## Immediate next action
 
-Stages 0, 1, and 2 are done (2026-08-06). Next: **Stage 3 — Academic module
-implementation**, per `docs/design/academic/Phase-1` through `Phase-6` —
-migrations for `academic_sessions`/`classes`/`sections`/`subjects`/
-`grading_schemes`/`class_subject_map`, then entities/models/services/
-controllers. No dependency beyond Core, which now exists.
+Stages 0, 1, 2, and 3 are done (2026-08-06). Next: **Stage 4 — Admission
+module implementation**, per `docs/design/admission/Phase-1` through
+`Phase-7` — depends on Stage 3's `Class`/`AcademicSession`, both of which
+now exist as real Services (`Config\Services::classService()`/
+`academicSessionService()`).

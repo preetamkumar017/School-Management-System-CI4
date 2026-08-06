@@ -108,6 +108,143 @@ use OpenApi\Attributes as OA;
     ],
     type: 'object',
 )]
+#[OA\Schema(
+    schema: 'AcademicSessionRequest',
+    description: 'Same shape for create and update (Phase 3). status is set to PLANNED at creation and changed only via POST /{id}/status.',
+    required: ['session_name', 'start_date', 'end_date'],
+    properties: [
+        new OA\Property(property: 'session_name', type: 'string', example: '2026-27'),
+        new OA\Property(property: 'start_date', type: 'string', format: 'date'),
+        new OA\Property(property: 'end_date', type: 'string', format: 'date'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'AcademicSessionResponse',
+    properties: [
+        new OA\Property(property: 'academic_session_id', type: 'integer'),
+        new OA\Property(property: 'session_name', type: 'string'),
+        new OA\Property(property: 'start_date', type: 'string', format: 'date'),
+        new OA\Property(property: 'end_date', type: 'string', format: 'date'),
+        new OA\Property(property: 'status', type: 'string', enum: ['PLANNED', 'ACTIVE', 'CLOSED', 'ARCHIVED']),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'ClassRequest',
+    description: 'Same shape for create and update (Phase 3).',
+    required: ['class_name', 'sequence_order'],
+    properties: [
+        new OA\Property(property: 'class_name', type: 'string'),
+        new OA\Property(property: 'sequence_order', type: 'integer'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'ClassResponse',
+    properties: [
+        new OA\Property(property: 'class_id', type: 'integer'),
+        new OA\Property(property: 'class_name', type: 'string'),
+        new OA\Property(property: 'sequence_order', type: 'integer'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'SectionCreateRequest',
+    required: ['class_id', 'section_name', 'capacity'],
+    properties: [
+        new OA\Property(property: 'class_id', type: 'integer'),
+        new OA\Property(property: 'section_name', type: 'string'),
+        new OA\Property(property: 'capacity', type: 'integer'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'SectionUpdateRequest',
+    description: 'class_id is immutable after creation (Phase 3) — absent here.',
+    required: ['section_name', 'capacity'],
+    properties: [
+        new OA\Property(property: 'section_name', type: 'string'),
+        new OA\Property(property: 'capacity', type: 'integer'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'SectionResponse',
+    properties: [
+        new OA\Property(property: 'section_id', type: 'integer'),
+        new OA\Property(property: 'class_id', type: 'integer'),
+        new OA\Property(property: 'section_name', type: 'string'),
+        new OA\Property(property: 'capacity', type: 'integer'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'SubjectRequest',
+    description: 'Same shape for create and update (Phase 3).',
+    required: ['subject_name', 'subject_code'],
+    properties: [
+        new OA\Property(property: 'subject_name', type: 'string'),
+        new OA\Property(property: 'subject_code', type: 'string'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'SubjectResponse',
+    properties: [
+        new OA\Property(property: 'subject_id', type: 'integer'),
+        new OA\Property(property: 'subject_name', type: 'string'),
+        new OA\Property(property: 'subject_code', type: 'string'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'GradingSchemeCreateRequest',
+    required: ['scheme_name', 'board_type', 'grade_band_json'],
+    properties: [
+        new OA\Property(property: 'scheme_name', type: 'string'),
+        new OA\Property(property: 'board_type', type: 'string', enum: ['CBSE', 'ICSE', 'STATE_BOARD']),
+        new OA\Property(property: 'grade_band_json', type: 'object', example: ['A1' => '91-100', 'A2' => '81-90']),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'GradingSchemeUpdateRequest',
+    description: 'scheme_name is deliberately absent (Phase 4) — once locked by a closed exam, a new scheme is created instead of renaming this one.',
+    required: ['board_type', 'grade_band_json'],
+    properties: [
+        new OA\Property(property: 'board_type', type: 'string', enum: ['CBSE', 'ICSE', 'STATE_BOARD']),
+        new OA\Property(property: 'grade_band_json', type: 'object', example: ['A1' => '91-100', 'A2' => '81-90']),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'GradingSchemeResponse',
+    properties: [
+        new OA\Property(property: 'grading_scheme_id', type: 'integer'),
+        new OA\Property(property: 'scheme_name', type: 'string'),
+        new OA\Property(property: 'board_type', type: 'string', enum: ['CBSE', 'ICSE', 'STATE_BOARD']),
+        new OA\Property(property: 'grade_band_json', type: 'object'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'ClassSubjectMapRequest',
+    required: ['class_id', 'subject_id'],
+    properties: [
+        new OA\Property(property: 'class_id', type: 'integer'),
+        new OA\Property(property: 'subject_id', type: 'integer'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'ClassSubjectMapResponse',
+    properties: [
+        new OA\Property(property: 'class_id', type: 'integer'),
+        new OA\Property(property: 'subject_id', type: 'integer'),
+    ],
+    type: 'object',
+)]
 final class Spec
 {
     // No instances — attributes only.
