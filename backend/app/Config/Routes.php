@@ -72,6 +72,7 @@ $routes->group('api/v1/admission', ['namespace' => 'App\Modules\Admission\Contro
     $routes->post('applications/(:num)/shortlist', 'ApplicationController::shortlist/$1');
     $routes->post('applications/(:num)/waitlist', 'ApplicationController::waitlist/$1');
     $routes->post('applications/(:num)/reject', 'ApplicationController::reject/$1');
+    $routes->post('applications/(:num)/confirm-enrollment', 'ApplicationController::confirmEnrollment/$1');
     $routes->get('applications/(:num)', 'ApplicationController::show/$1');
     $routes->get('applications', 'ApplicationController::index');
 
@@ -79,4 +80,23 @@ $routes->group('api/v1/admission', ['namespace' => 'App\Modules\Admission\Contro
     $routes->patch('seat-allocations/(:num)', 'SeatAllocationController::update/$1');
     $routes->get('seat-allocations/(:num)', 'SeatAllocationController::show/$1');
     $routes->get('seat-allocations', 'SeatAllocationController::index');
+});
+
+// docs/design/sis/Phase-4.7-Controller-Design.md
+$routes->group('api/v1/sis', ['namespace' => 'App\Modules\Sis\Controllers'], static function (RouteCollection $routes): void {
+    // No POST / on students — createStudentStub has no public endpoint
+    // (ADR-004 §3), reachable only via Admission's Confirm Enrollment.
+    $routes->patch('students/(:num)', 'StudentController::update/$1');
+    $routes->post('students/(:num)/section-transfer', 'StudentController::sectionTransfer/$1');
+    $routes->post('students/(:num)/status', 'StudentController::changeStatus/$1');
+    $routes->get('students/(:num)', 'StudentController::show/$1');
+    $routes->get('students', 'StudentController::index');
+
+    $routes->post('guardians', 'GuardianController::create');
+    $routes->patch('guardians/(:num)', 'GuardianController::update/$1');
+    $routes->get('guardians/(:num)', 'GuardianController::show/$1');
+
+    $routes->post('student-guardian-links', 'StudentGuardianLinkController::create');
+    $routes->delete('student-guardian-links/(:num)/(:num)', 'StudentGuardianLinkController::delete/$1/$2');
+    $routes->get('student-guardian-links/by-student/(:num)', 'StudentGuardianLinkController::byStudent/$1');
 });

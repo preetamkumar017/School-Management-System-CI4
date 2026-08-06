@@ -49,6 +49,19 @@ class ApplicationModel extends BaseModel
     }
 
     /**
+     * FR-05a/BR-ADM-006 duplicate-identity re-check at Confirm Enrollment
+     * time (Phase 6 §3) — scoped to already-ADMITTED applications, since
+     * that's what "duplicate applicant already enrolled" actually means.
+     */
+    public function existsByAadhaarNumberAmongAdmittedExceptId(string $value, int $exceptId): bool
+    {
+        return $this->where('aadhaar_number', $value)
+            ->where('status', Application::STATUS_ADMITTED)
+            ->where('application_id !=', $exceptId)
+            ->countAllResults() > 0;
+    }
+
+    /**
      * @return list<Application>
      */
     public function findByStatus(string $status, ?int $classId = null): array

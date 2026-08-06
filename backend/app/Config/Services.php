@@ -29,6 +29,15 @@ use App\Modules\Administration\Services\AuditService;
 use App\Modules\Administration\Services\AuthService;
 use App\Modules\Administration\Services\RoleService;
 use App\Modules\Administration\Services\UserService;
+use App\Modules\Sis\Mappers\GuardianMapper;
+use App\Modules\Sis\Mappers\StudentGuardianLinkMapper;
+use App\Modules\Sis\Mappers\StudentMapper;
+use App\Modules\Sis\Models\GuardianModel;
+use App\Modules\Sis\Models\StudentGuardianLinkModel;
+use App\Modules\Sis\Models\StudentModel;
+use App\Modules\Sis\Services\GuardianService;
+use App\Modules\Sis\Services\StudentGuardianLinkService;
+use App\Modules\Sis\Services\StudentService;
 use CodeIgniter\Config\BaseService;
 
 /**
@@ -154,7 +163,7 @@ class Services extends BaseService
             return static::getSharedInstance('applicationService');
         }
 
-        return new ApplicationService(new ApplicationModel(), static::auditService());
+        return new ApplicationService(new ApplicationModel(), new SeatAllocationModel(), static::auditService());
     }
 
     public static function seatAllocationService(bool $getShared = true): SeatAllocationService
@@ -164,5 +173,43 @@ class Services extends BaseService
         }
 
         return new SeatAllocationService(new SeatAllocationModel(), static::auditService());
+    }
+
+    public static function studentService(bool $getShared = true): StudentService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('studentService');
+        }
+
+        return new StudentService(
+            new StudentModel(),
+            new StudentGuardianLinkModel(),
+            new StudentMapper(),
+            static::auditService(),
+        );
+    }
+
+    public static function guardianService(bool $getShared = true): GuardianService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('guardianService');
+        }
+
+        return new GuardianService(new GuardianModel(), new GuardianMapper(), static::auditService());
+    }
+
+    public static function studentGuardianLinkService(bool $getShared = true): StudentGuardianLinkService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('studentGuardianLinkService');
+        }
+
+        return new StudentGuardianLinkService(
+            new StudentGuardianLinkModel(),
+            new StudentModel(),
+            new GuardianModel(),
+            new StudentGuardianLinkMapper(),
+            static::auditService(),
+        );
     }
 }

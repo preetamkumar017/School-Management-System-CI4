@@ -201,19 +201,65 @@ approved). Depends on Stage 3 (`Class`, `AcademicSession`).
   including the Verhoeff-checksum validation and RTE-ceiling error
   paths).
 
-## Stage 5 — SIS module implementation
+## Stage 5 — SIS module implementation — DONE (2026-08-06)
 
 Reference: `docs/design/sis/Phase-4.2` through `Phase-7`, `Phase-5`
 Implementation Plan (fully approved). Depends on Stage 3 (`Section`) and
 Stage 4 (`createStudentStub` is called from Admission).
 
-- Migrations: `students`, `guardians`, `student_guardian_link`.
-- Verification: the full Confirm Enrollment integration test ADR-004
-  specifically requires — Admission calls `createStudentStub` inside its own
-  transaction, and a forced SIS-side failure rolls back Admission's seat
-  count and status change atomically (ADR-004 §5). This is the single most
-  important test in the whole system so far — it's the one everything else
-  was blocked behind before ADR-004.
+- Migrations: `students`, `guardians`, `student_guardian_link` — all
+  applied. `student_guardian_link` uses a real DB-level FK (unlike
+  Admission's/Academic's cross-module references) — both `Student` and
+  `Guardian` live inside SIS, so this is intra-module.
+- Entities/Models/Services/Controllers per Phase 4.2–4.7, all three
+  verticals (`Student`, `Guardian`, `StudentGuardianLink`) end to end.
+  SIS is the one module that keeps a dedicated Mapper class per entity
+  (`App\Modules\Sis\Mappers`) — Academic/Admission skip that layer as a
+  deliberate scope reduction, but SIS's own approved design keeps it, so
+  it's implemented as designed: `StudentMapper`/`GuardianMapper` mutate a
+  fetched Entity in place (`Model::save($entity)`), a different pattern
+  from every other module's `Model::update($id, array)` calls — both are
+  legitimate CI4 idioms, and this is the one place the codebase uses the
+  Entity-mutation style, matching what Phase 4.5 actually specifies.
+  `StudentController` has no `POST /` route — a stub is only ever created
+  via `createStudentStub`, called from Admission (ADR-004 §3), never a
+  public endpoint.
+- **This stage also completed Admission's Stage-4-deferred FR-02 Confirm
+  Enrollment** (`docs/design/admission/Phase-6`): `ApplicationService::
+  confirmEnrollment` — re-validates seat/RTE capacity and duplicate
+  Aadhaar identity, generates the Admission Number, calls `StudentService::
+  createStudentStub`, and transitions `Application.status → ADMITTED`, all
+  inside one manually-managed transaction (`Config\Database::connect()`,
+  `transStart`/`transRollback` in a catch block/`transComplete`) that
+  correctly nests with `SeatAllocationModel::incrementSeatsFilled`'s own
+  internal `transStart`/`transComplete` (CI4's `transDepth` counter only
+  commits/rolls back at the outermost call — verified this nests
+  correctly, not just assumed). New endpoint:
+  `POST /api/v1/admission/applications/{id}/confirm-enrollment` — no
+  route name was specified in any design doc, so this was decided
+  directly (matches the existing `POST .../{id}/<sub-action>` convention
+  every other Admission/Academic transition endpoint already uses).
+- Verification: 20 new PHPUnit tests (68 total), including **the full
+  Confirm Enrollment integration test ADR-004 specifically required** —
+  `ConfirmEnrollmentTest::testForcedSisFailureRollsBackSeatCountAndApplicationStatusAtomically`
+  forces a real SIS-side failure (a `Student` row pre-existing for the
+  same `application_id`, tripping `createStudentStub`'s own BR-SIS-002
+  guard) and proves the seat-count increment, the `Application.status`
+  transition, and `decided_at` all roll back together — this was the
+  single most important test in the whole system so far, the one
+  everything else was blocked behind before ADR-004. Also manually
+  smoke-tested the full flow end-to-end against the real dev server:
+  create → verify → shortlist → seat allocation → confirm-enrollment →
+  student created (DRAFT, correct `admission_number`/`application_id`,
+  `section_id` null) → seat count incremented → section-transfer →
+  activation blocked without a guardian → activation succeeds once a
+  guardian is linked.
+  One incidental finding from the dev-server run, not a Stage 5 bug:
+  `AcademicSessionService::getCurrentActiveSession()` returns whichever
+  `ACTIVE` session `findByStatus()` finds first if more than one row is
+  `ACTIVE` — nothing in Academic's own design enforces "only one session
+  ACTIVE at a time," so this is a pre-existing latent gap in Stage 3's
+  scope, not something Stage 5 introduced or is positioned to fix.
 
 ## Stage 6 — Remaining modules (each needs its own design pass first)
 
@@ -252,13 +298,10 @@ prior work to reference.
 
 ## Immediate next action
 
-Stages 0, 1, 2, 3, and 4 are done (2026-08-06). Next: **Stage 5 — SIS
-module implementation**, per `docs/design/sis/Phase-4.2` through
-`Phase-7` — depends on Stage 3's `Section` and Stage 4's `Application`/
-`SeatAllocation`. This stage also completes Admission's own FR-02 Confirm
-Enrollment (`docs/design/admission/Phase-6`), deliberately deferred from
-Stage 4: implement SIS's `StudentService::createStudentStub`, then
-`AdmissionService`'s `ADMITTED` transition that calls it inside a single
-shared transaction (ADR-004 §5), then the full Confirm Enrollment
-integration test — the one that forces a SIS-side failure and proves
-Admission's seat count/status change roll back atomically.
+Stages 0 through 5 are done (2026-08-06) — the entire Academic → Admission
+→ SIS chain (ADR-004's Confirm Enrollment included) is real, working,
+tested code. Next: **Stage 6**, which per its own section above requires
+a design pass before any implementation — pick one of Examination,
+Attendance, Timetable, or Fees (in that suggested order) and run it
+through the same Requirement → Design → Approval sequence the other five
+modules already went through, before writing any code.

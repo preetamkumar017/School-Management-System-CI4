@@ -16,11 +16,10 @@ use Config\Services;
 use OpenApi\Attributes as OA;
 
 /**
- * docs/design/admission/Phase-5-Controller-Design.md
- * Base path /api/v1/admission/applications. The Application -> ADMITTED
- * transition (FR-02 Confirm Enrollment) is deliberately not exposed here
- * — see docs/design/admission/Phase-6, implemented alongside SIS in
- * Stage 5.
+ * docs/design/admission/Phase-5-Controller-Design.md (core CRUD) and
+ * docs/design/admission/Phase-6-Service-Design-Confirm-Enrollment.md
+ * (confirm-enrollment, added in Stage 5 once SIS exists).
+ * Base path /api/v1/admission/applications.
  */
 #[OA\Tag(name: 'Applications')]
 class ApplicationController extends BaseController
@@ -147,6 +146,31 @@ class ApplicationController extends BaseController
         $response = Services::applicationService()->rejectApplication($id, new ApplicationRejectRequest());
 
         return $this->respondSuccess($response->toArray());
+    }
+
+    #[OA\Post(
+        path: '/admission/applications/{id}/confirm-enrollment',
+        tags: ['Applications'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'FR-02 Confirm Enrollment — SHORTLISTED/WAITLISTED -> ADMITTED. Creates the linked Student stub in SIS and returns its student_id alongside the updated application.',
+                content: new OA\JsonContent(ref: '#/components/schemas/ApplicationResponse'),
+            ),
+            new OA\Response(
+                response: 422,
+                description: 'APPLICATION_INVALID_STATUS_TRANSITION, NO_ACTIVE_ACADEMIC_SESSION, SEAT_ALLOCATION_NOT_FOUND, DUPLICATE_APPLICANT_IDENTITY, SEAT_CAPACITY_CEILING_REACHED, or RTE_QUOTA_CEILING_REACHED.',
+                content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse'),
+            ),
+        ],
+    )]
+    public function confirmEnrollment(int $id)
+    {
+        $result = Services::applicationService()->confirmEnrollment($id);
+
+        return $this->respondSuccess($result->toArray());
     }
 
     #[OA\Get(

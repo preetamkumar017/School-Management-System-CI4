@@ -308,6 +308,78 @@ use OpenApi\Attributes as OA;
     ],
     type: 'object',
 )]
+#[OA\Schema(
+    schema: 'StudentUpdateRequest',
+    description: 'section_id/application_id are excluded — application_id is immutable, section_id moves through POST .../section-transfer.',
+    required: ['full_name', 'dob', 'category'],
+    properties: [
+        new OA\Property(property: 'full_name', type: 'string'),
+        new OA\Property(property: 'dob', type: 'string', format: 'date'),
+        new OA\Property(property: 'category', type: 'string', enum: ['GENERAL', 'RTE']),
+        new OA\Property(property: 'aadhaar_number', type: 'string', nullable: true),
+        new OA\Property(property: 'medical_info', type: 'string', nullable: true),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'StudentResponse',
+    description: 'No public create endpoint exists — a Student stub is created only via Admission\'s Confirm Enrollment (ADR-004 §3).',
+    properties: [
+        new OA\Property(property: 'student_id', type: 'integer'),
+        new OA\Property(property: 'admission_number', type: 'string'),
+        new OA\Property(property: 'full_name', type: 'string'),
+        new OA\Property(property: 'dob', type: 'string', format: 'date'),
+        new OA\Property(property: 'aadhaar_number', type: 'string', nullable: true),
+        new OA\Property(property: 'section_id', type: 'integer', nullable: true, description: 'Null while status is DRAFT and no section has been assigned yet.'),
+        new OA\Property(property: 'application_id', type: 'integer'),
+        new OA\Property(property: 'category', type: 'string', enum: ['GENERAL', 'RTE']),
+        new OA\Property(property: 'status', type: 'string', enum: ['DRAFT', 'ACTIVE', 'PROMOTED', 'EXITED', 'ARCHIVED']),
+        new OA\Property(property: 'medical_info', type: 'string', nullable: true),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'GuardianRequest',
+    description: 'Same shape for create and update.',
+    required: ['full_name', 'relationship', 'mobile_number'],
+    properties: [
+        new OA\Property(property: 'full_name', type: 'string'),
+        new OA\Property(property: 'relationship', type: 'string', enum: ['FATHER', 'MOTHER', 'GUARDIAN', 'OTHER']),
+        new OA\Property(property: 'mobile_number', type: 'string'),
+        new OA\Property(property: 'email', type: 'string', nullable: true),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'GuardianResponse',
+    properties: [
+        new OA\Property(property: 'guardian_id', type: 'integer'),
+        new OA\Property(property: 'full_name', type: 'string'),
+        new OA\Property(property: 'relationship', type: 'string', enum: ['FATHER', 'MOTHER', 'GUARDIAN', 'OTHER']),
+        new OA\Property(property: 'mobile_number', type: 'string'),
+        new OA\Property(property: 'email', type: 'string', nullable: true),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'StudentGuardianLinkRequest',
+    required: ['student_id', 'guardian_id'],
+    properties: [
+        new OA\Property(property: 'student_id', type: 'integer'),
+        new OA\Property(property: 'guardian_id', type: 'integer'),
+        new OA\Property(property: 'is_primary_contact', type: 'boolean', default: false),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'StudentGuardianLinkResponse',
+    properties: [
+        new OA\Property(property: 'student_id', type: 'integer'),
+        new OA\Property(property: 'guardian_id', type: 'integer'),
+        new OA\Property(property: 'is_primary_contact', type: 'boolean'),
+    ],
+    type: 'object',
+)]
 final class Spec
 {
     // No instances — attributes only.
