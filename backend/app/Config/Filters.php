@@ -2,6 +2,8 @@
 
 namespace Config;
 
+use App\Filters\JwtAuthFilter;
+use App\Filters\RequestContextFilter;
 use CodeIgniter\Config\Filters as BaseFilters;
 use CodeIgniter\Filters\Cors;
 use CodeIgniter\Filters\CSRF;
@@ -34,6 +36,8 @@ class Filters extends BaseFilters
         'forcehttps'    => ForceHTTPS::class,
         'pagecache'     => PageCache::class,
         'performance'   => PerformanceMetrics::class,
+        'requestcontext' => RequestContextFilter::class,
+        'jwtauth'        => JwtAuthFilter::class,
     ];
 
     /**
@@ -72,6 +76,7 @@ class Filters extends BaseFilters
      */
     public array $globals = [
         'before' => [
+            'requestcontext', // request_id must exist before anything else runs
             // 'honeypot',
             // 'csrf',
             // 'invalidchars',
@@ -106,5 +111,15 @@ class Filters extends BaseFilters
      *
      * @var array<string, array<string, list<string>>>
      */
-    public array $filters = [];
+    public array $filters = [
+        // login/refresh are the only unauthenticated API routes; every
+        // other auth/* route and everything under administration/*
+        // requires a valid access token (Company Development Standard §9).
+        'jwtauth' => ['before' => [
+            'api/v1/administration/*',
+            'api/v1/auth/logout',
+            'api/v1/auth/logout-all',
+            'api/v1/auth/change-password',
+        ]],
+    ];
 }

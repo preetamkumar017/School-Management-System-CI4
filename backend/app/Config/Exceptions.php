@@ -2,6 +2,7 @@
 
 namespace Config;
 
+use App\Core\Exceptions\ApiExceptionHandler;
 use CodeIgniter\Config\BaseConfig;
 use CodeIgniter\Debug\ExceptionHandler;
 use CodeIgniter\Debug\ExceptionHandlerInterface;
@@ -101,6 +102,8 @@ class Exceptions extends BaseConfig
      */
     public function handler(int $statusCode, Throwable $exception): ExceptionHandlerInterface
     {
-        return new ExceptionHandler($this);
+        // This backend is a JSON API only — every response, error or not,
+        // uses the standard envelope (Company Development Standard §7).
+        return new ApiExceptionHandler($this);
     }
 }
