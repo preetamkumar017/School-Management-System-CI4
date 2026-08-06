@@ -13,6 +13,7 @@ use App\Core\BaseEntity;
  * @property string              $scheme_name
  * @property string              $board_type
  * @property array<string, string> $grade_band_json
+ * @property bool                $locked_by_closed_exam
  */
 class GradingScheme extends BaseEntity
 {
@@ -26,8 +27,9 @@ class GradingScheme extends BaseEntity
     public function __construct(?array $data = null)
     {
         $this->casts = array_merge($this->casts, [
-            'grading_scheme_id' => 'integer',
-            'grade_band_json'   => 'json-array',
+            'grading_scheme_id'     => 'integer',
+            'grade_band_json'       => 'json-array',
+            'locked_by_closed_exam' => 'boolean',
         ]);
 
         parent::__construct($data);

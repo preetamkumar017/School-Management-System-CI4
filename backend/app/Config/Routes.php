@@ -100,3 +100,26 @@ $routes->group('api/v1/sis', ['namespace' => 'App\Modules\Sis\Controllers'], sta
     $routes->delete('student-guardian-links/(:num)/(:num)', 'StudentGuardianLinkController::delete/$1/$2');
     $routes->get('student-guardian-links/by-student/(:num)', 'StudentGuardianLinkController::byStudent/$1');
 });
+
+// docs/design/examination/Phase-5-Controller-Design.md
+$routes->group('api/v1/examination', ['namespace' => 'App\Modules\Examination\Controllers'], static function (RouteCollection $routes): void {
+    $routes->post('exams', 'ExamController::create');
+    $routes->post('exams/(:num)/activate', 'ExamController::activate/$1');
+    $routes->post('exams/(:num)/lock', 'ExamController::lock/$1');
+    $routes->get('exams/(:num)', 'ExamController::show/$1');
+    $routes->get('exams', 'ExamController::index');
+
+    $routes->post('marks-records', 'MarksRecordController::create');
+    $routes->post('marks-records/(:num)/lock', 'MarksRecordController::lock/$1');
+    $routes->post('marks-records/(:num)/reevaluate', 'MarksRecordController::reevaluate/$1');
+    $routes->get('marks-records/(:num)', 'MarksRecordController::show/$1');
+    $routes->get('marks-records', 'MarksRecordController::index');
+
+    $routes->post('report-cards/publish', 'ReportCardController::publish');
+    $routes->get('report-cards/(:num)', 'ReportCardController::show/$1');
+    $routes->get('report-cards', 'ReportCardController::index');
+
+    $routes->post('promotions', 'PromotionController::create');
+    $routes->get('promotions/(:num)', 'PromotionController::show/$1');
+    $routes->get('promotions', 'PromotionController::index');
+});

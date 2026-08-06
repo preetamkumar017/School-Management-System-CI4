@@ -261,24 +261,83 @@ Stage 4 (`createStudentStub` is called from Admission).
   ACTIVE at a time," so this is a pre-existing latent gap in Stage 3's
   scope, not something Stage 5 introduced or is positioned to fix.
 
-## Stage 6 — Remaining modules (each needs its own design pass first)
+## Stage 6a — Examination module implementation — DONE (2026-08-06)
 
-Not yet designed: Attendance, Timetable, Examination, Fees, Library,
-Transport, HR & Payroll, Communication, Reports. Suggested order, by
-dependency and the deferred item each one closes:
+Reference: `docs/design/examination/Phase-1` through `Phase-5` (designed
+and implemented in the same session, per ADR-005 — see below). Closes
+ADR-002's deferred BR-SIS-004 (Historical Record Immutability). Depends on
+Academic (`Class`, `AcademicSession`, `GradingScheme`, `Subject`) and SIS
+(`Student`), both already built.
 
-1. **Examination** — closes ADR-002's deferred BR-SIS-004 (Historical
-   Record Immutability); depends on Academic's `Subject`/`GradingScheme`.
-2. **Attendance** + **Timetable** — depend on Academic's `Section`; no
-   inter-dependency between the two.
-3. **Fees** — depends on Academic's `AcademicSession`/`Class`.
-4. **HR & Payroll**, **Library**, **Transport**, **Communication**,
-   **Reports** — lowest inter-dependency; freely reprioritizable by business
-   value once Stages 1–5 and Examination/Attendance/Timetable/Fees exist.
+- **Design pass first**: `docs/ADR/ADR-005-examination-module-scope-decisions.md`
+  resolves everything Appendix-C/E left unspecified before any code was
+  written — BR-SIS-004's governing entity, BR-EXM-005's Attendance
+  dependency (stubbed, Attendance doesn't exist), `PromotionRecord.
+  fee_closure_confirmed`'s Fees dependency (caller-supplied, Fees doesn't
+  exist), the GPA formula (`min(9.99, percentage/10)` averaged, clamped to
+  fit the approved `DECIMAL(3,2)` column), class rank (standard
+  competition ranking), the BR-EXM-006 anomaly threshold (30 percentage
+  points, documented default), report-card scope (data record only, no
+  PDF — `Document`/PDF tooling don't exist), and re-evaluation (a single
+  logged action, not an `ApprovalRequest` workflow — that entity doesn't
+  exist either). `docs/design/School-ERP-Module-Architecture.md`'s
+  Examination row updated to Designed.
+- **Architecture correction caught before implementation**: the obvious
+  fix for `GradingSchemeModel::isReferencedByClosedExam` (query
+  Examination's `exams` table) would have made Academic depend on
+  Examination while Examination already depends on Academic — a cycle.
+  Resolved the same way ADR-003 resolved Admission↔SIS: Academic gained
+  an additive `locked_by_closed_exam` column and a new
+  `GradingSchemeService::lockSchemeReferencedByClosedExam` method;
+  Examination calls it (the already-established direction) when
+  `ReportCardService::publishReportCards` closes an `Exam`. The
+  dependency stays one-way. See ADR-005 §10.
+- Migrations: `exams`, `marks_records`, `report_cards`, `promotion_records`
+  — all applied, plus one additive column on Academic's `grading_schemes`.
+- Entities/Models/Services/Controllers per Phase 2–5, all four verticals
+  (`Exam`, `MarksRecord`, `ReportCard`, `PromotionRecord`). `ExamService::
+  lockExam` computes grade/GPA/class-rank and upserts `ReportCard` rows in
+  one transaction with the status transition (FR-19); `ReportCardService::
+  publishReportCards` gates on BR-EXM-001, publishes, closes the `Exam`,
+  and locks the `GradingScheme`. `MarksRecordService::reevaluate` is the
+  single logged re-evaluation action (BR-EXM-003/004). A shared
+  `ClosedSessionGuard` trait (intra-module only) enforces BR-SIS-004
+  across all four Services, requiring `override_reason` once a record's
+  `AcademicSession` is `CLOSED`/`ARCHIVED`, logged via
+  `AuditLog::ACTION_OVERRIDE` — the same mechanism Administration already
+  built, reused rather than duplicated.
+- Verification: 15 new PHPUnit tests (83 total) — GPA/rank calculation
+  against known inputs, BR-EXM-002 range validation, BR-EXM-003 lock/
+  re-evaluate, BR-EXM-006 anomaly flagging (a historical 90% mark vs. a
+  new 20% mark, correctly flagged and blocking lock until re-evaluated),
+  BR-EXM-001 publish gating, BR-SIS-001 promotion closure gating, and
+  BR-SIS-004 closed-session immutability (rejected without
+  `override_reason`, succeeds with one). Also manually smoke-tested the
+  full flow end-to-end against the real dev server: exam create →
+  activate → marks entry → lock (grade `A1`, GPA `9.5`, computed
+  correctly) → publish → confirmed the referenced `GradingScheme` is now
+  genuinely locked against further mutation via a real HTTP `PATCH`
+  attempt.
 
-Each follows the same six-phase pattern Academic/Admission/SIS already
-demonstrate — those three module's design sets are the template, not just
-prior work to reference.
+## Stage 6b onward — remaining undesigned modules
+
+Not yet designed: Attendance, Timetable, Fees, Library, Transport,
+HR & Payroll, Communication, Reports. Suggested order, by dependency:
+
+1. **Attendance** + **Timetable** — depend on Academic's `Section`; no
+   inter-dependency between the two. Attendance's design should account
+   for the `BR-ATT-006`/`MarksRecordService` eligibility seam ADR-005 §2
+   left open (Examination's stub is ready for Attendance to fill in).
+2. **Fees** — depends on Academic's `AcademicSession`/`Class`. Its design
+   should account for `PromotionRecord.fee_closure_confirmed`'s seam
+   (ADR-005 §3) — moving it from caller-supplied to system-computed.
+3. **HR & Payroll**, **Library**, **Transport**, **Communication**,
+   **Reports** — lowest inter-dependency; freely reprioritizable by
+   business value once Stages 1–6a and Attendance/Timetable/Fees exist.
+
+Each follows the same design-then-implement pattern Academic/Admission/
+SIS/Examination now demonstrate four times over — those four modules'
+design sets are the template, not just prior work to reference.
 
 ## Ongoing, every stage
 
@@ -298,10 +357,10 @@ prior work to reference.
 
 ## Immediate next action
 
-Stages 0 through 5 are done (2026-08-06) — the entire Academic → Admission
-→ SIS chain (ADR-004's Confirm Enrollment included) is real, working,
-tested code. Next: **Stage 6**, which per its own section above requires
-a design pass before any implementation — pick one of Examination,
-Attendance, Timetable, or Fees (in that suggested order) and run it
-through the same Requirement → Design → Approval sequence the other five
-modules already went through, before writing any code.
+Stages 0 through 6a are done (2026-08-06) — Academic, Admission, SIS
+(with Confirm Enrollment), and Examination (with ADR-005's design pass)
+are all real, working, tested code (83 passing tests). Next: **Stage 6b**
+— pick one of Attendance, Timetable, or Fees (in that suggested order)
+and run it through the same Requirement → Design → Approval sequence
+Examination just went through (see ADR-005 as the template for how to
+resolve undesignated cross-module dependencies), before writing any code.

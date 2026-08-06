@@ -44,7 +44,7 @@ was resolved), not by allowing both directions to depend on each other.
 | SIS (Student Information) | `App\Modules\Sis` | Student (`ENT-SIS-001`), Guardian (`ENT-SYS-003` — reassigned from Administration, see below), StudentGuardianLink (junction) | Fully designed — see `docs/design/sis/` | ADR-002, ADR-003, ADR-004, DG-SIS-001 (Resolved) |
 | Attendance | `App\Modules\Attendance` | AttendanceRecord (`ENT-ATT-001`), StaffAttendanceRecord (`ENT-ATT-002`) | Not yet designed | — |
 | Timetable | `App\Modules\Timetable` | TimetableEntry (`ENT-TT-001`) | Not yet designed | — |
-| Examination | `App\Modules\Examination` | Exam (`ENT-EXM-001`), MarksRecord (`ENT-EXM-002`), ReportCard (`ENT-EXM-003`), PromotionRecord (`ENT-EXM-004`) | Not yet designed | ADR-002 (BR-SIS-004 deferred here) |
+| Examination | `App\Modules\Examination` | Exam (`ENT-EXM-001`), MarksRecord (`ENT-EXM-002`), ReportCard (`ENT-EXM-003`), PromotionRecord (`ENT-EXM-004`) | Designed — see `docs/design/examination/` | ADR-002 (BR-SIS-004 deferred here, resolved by ADR-005), ADR-005 |
 | Fees | `App\Modules\Fees` | FeeHead (`ENT-FEE-001`), FeeStructure (`ENT-FEE-002`), Invoice (`ENT-FEE-003`), Payment (`ENT-FEE-004`), ScholarshipWaiver (`ENT-FEE-005`) | Not yet designed | — |
 | Library | `App\Modules\Library` | Book (`ENT-LIB-001`), BookIssue (`ENT-LIB-002`) | Not yet designed | — |
 | Transport | `App\Modules\Transport` | Route (`ENT-TRN-001`), Vehicle (`ENT-TRN-002`), TransportAllocation (`ENT-TRN-003`) | Not yet designed | — |

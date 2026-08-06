@@ -21,6 +21,7 @@ class GradingSchemeModel extends BaseModel
         'scheme_name',
         'board_type',
         'grade_band_json',
+        'locked_by_closed_exam',
         'created_by',
         'updated_by',
     ];
@@ -58,13 +59,22 @@ class GradingSchemeModel extends BaseModel
 
     /**
      * Input to GradingSchemeService::updateGradingScheme's immutability
-     * check (Phase 4). Examination is not designed/implemented yet, so
-     * there is no `exams` table to join against — this always reports
-     * false until Examination (Stage 6) exists, deliberately, rather than
-     * guessing at a schema that isn't designed.
+     * check (Phase 4). Reads the scheme's own locked_by_closed_exam
+     * column rather than querying Examination's exams table directly —
+     * Academic must not depend on Examination, which already depends on
+     * Academic (ADR-005 §10). Examination sets this column via
+     * GradingSchemeService::lockSchemeReferencedByClosedExam when it
+     * closes an Exam that references this scheme.
      */
     public function isReferencedByClosedExam(int $schemeId): bool
     {
-        return false;
+        $scheme = $this->find($schemeId);
+
+        return $scheme !== null && $scheme->locked_by_closed_exam;
+    }
+
+    public function markLockedByClosedExam(int $schemeId): void
+    {
+        $this->update($schemeId, ['locked_by_closed_exam' => true]);
     }
 }

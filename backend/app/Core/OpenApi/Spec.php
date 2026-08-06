@@ -380,6 +380,100 @@ use OpenApi\Attributes as OA;
     ],
     type: 'object',
 )]
+#[OA\Schema(
+    schema: 'ExamCreateRequest',
+    required: ['exam_name', 'class_id', 'academic_session_id', 'grading_scheme_id', 'exam_date'],
+    properties: [
+        new OA\Property(property: 'exam_name', type: 'string'),
+        new OA\Property(property: 'class_id', type: 'integer'),
+        new OA\Property(property: 'academic_session_id', type: 'integer'),
+        new OA\Property(property: 'grading_scheme_id', type: 'integer'),
+        new OA\Property(property: 'exam_date', type: 'string', format: 'date'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'ExamResponse',
+    properties: [
+        new OA\Property(property: 'exam_id', type: 'integer'),
+        new OA\Property(property: 'exam_name', type: 'string'),
+        new OA\Property(property: 'class_id', type: 'integer'),
+        new OA\Property(property: 'academic_session_id', type: 'integer'),
+        new OA\Property(property: 'grading_scheme_id', type: 'integer'),
+        new OA\Property(property: 'exam_date', type: 'string', format: 'date'),
+        new OA\Property(property: 'status', type: 'string', enum: ['CONFIGURED', 'ACTIVE', 'LOCKED', 'CLOSED']),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'MarksRecordCreateRequest',
+    required: ['exam_id', 'student_id', 'subject_id', 'max_marks'],
+    properties: [
+        new OA\Property(property: 'exam_id', type: 'integer'),
+        new OA\Property(property: 'student_id', type: 'integer'),
+        new OA\Property(property: 'subject_id', type: 'integer'),
+        new OA\Property(property: 'marks_obtained', type: 'number', format: 'float', nullable: true, description: 'NULL = absent.'),
+        new OA\Property(property: 'max_marks', type: 'number', format: 'float'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'MarksRecordResponse',
+    properties: [
+        new OA\Property(property: 'marks_record_id', type: 'integer'),
+        new OA\Property(property: 'exam_id', type: 'integer'),
+        new OA\Property(property: 'student_id', type: 'integer'),
+        new OA\Property(property: 'subject_id', type: 'integer'),
+        new OA\Property(property: 'marks_obtained', type: 'number', format: 'float', nullable: true),
+        new OA\Property(property: 'max_marks', type: 'number', format: 'float'),
+        new OA\Property(property: 'is_flagged', type: 'boolean'),
+        new OA\Property(property: 'is_locked', type: 'boolean'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'ReportCardResponse',
+    description: 'Data record only, no PDF (ADR-005 §9).',
+    properties: [
+        new OA\Property(property: 'report_card_id', type: 'integer'),
+        new OA\Property(property: 'student_id', type: 'integer'),
+        new OA\Property(property: 'exam_id', type: 'integer'),
+        new OA\Property(property: 'grade_summary', type: 'object', example: ['subject_14' => 'A1']),
+        new OA\Property(property: 'gpa', type: 'number', format: 'float'),
+        new OA\Property(property: 'class_rank', type: 'integer', nullable: true),
+        new OA\Property(property: 'is_published', type: 'boolean'),
+        new OA\Property(property: 'published_at', type: 'string', format: 'date-time', nullable: true),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'PromotionRecordCreateRequest',
+    description: 'academic_closure_confirmed is excluded — system-computed from the source AcademicSession\'s status (ADR-005 §3).',
+    required: ['student_id', 'from_session_id', 'to_session_id', 'from_class_id', 'to_class_id', 'fee_closure_confirmed'],
+    properties: [
+        new OA\Property(property: 'student_id', type: 'integer'),
+        new OA\Property(property: 'from_session_id', type: 'integer'),
+        new OA\Property(property: 'to_session_id', type: 'integer'),
+        new OA\Property(property: 'from_class_id', type: 'integer'),
+        new OA\Property(property: 'to_class_id', type: 'integer'),
+        new OA\Property(property: 'fee_closure_confirmed', type: 'boolean', description: 'Caller-attested — Fees module does not exist yet (ADR-005 §3).'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'PromotionRecordResponse',
+    properties: [
+        new OA\Property(property: 'promotion_record_id', type: 'integer'),
+        new OA\Property(property: 'student_id', type: 'integer'),
+        new OA\Property(property: 'from_session_id', type: 'integer'),
+        new OA\Property(property: 'to_session_id', type: 'integer'),
+        new OA\Property(property: 'from_class_id', type: 'integer'),
+        new OA\Property(property: 'to_class_id', type: 'integer'),
+        new OA\Property(property: 'academic_closure_confirmed', type: 'boolean'),
+        new OA\Property(property: 'fee_closure_confirmed', type: 'boolean'),
+    ],
+    type: 'object',
+)]
 final class Spec
 {
     // No instances — attributes only.

@@ -86,6 +86,18 @@ class GradingSchemeService
         return new GradingSchemeResponse($after);
     }
 
+    /**
+     * docs/ADR/ADR-005-examination-module-scope-decisions.md §10 — called
+     * by Examination's ReportCardService::publishReportCards when it
+     * transitions an Exam to CLOSED, never by Academic itself. Keeps the
+     * dependency one-way (Examination -> Academic): Academic never
+     * queries Examination's data to answer its own immutability check.
+     */
+    public function lockSchemeReferencedByClosedExam(int $schemeId): void
+    {
+        $this->gradingSchemeModel->markLockedByClosedExam($schemeId);
+    }
+
     public function getGradingScheme(int $id): GradingSchemeResponse
     {
         return new GradingSchemeResponse($this->requireGradingScheme($id));

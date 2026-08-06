@@ -29,6 +29,14 @@ use App\Modules\Administration\Services\AuditService;
 use App\Modules\Administration\Services\AuthService;
 use App\Modules\Administration\Services\RoleService;
 use App\Modules\Administration\Services\UserService;
+use App\Modules\Examination\Models\ExamModel;
+use App\Modules\Examination\Models\MarksRecordModel;
+use App\Modules\Examination\Models\PromotionRecordModel;
+use App\Modules\Examination\Models\ReportCardModel;
+use App\Modules\Examination\Services\ExamService;
+use App\Modules\Examination\Services\MarksRecordService;
+use App\Modules\Examination\Services\PromotionService;
+use App\Modules\Examination\Services\ReportCardService;
 use App\Modules\Sis\Mappers\GuardianMapper;
 use App\Modules\Sis\Mappers\StudentGuardianLinkMapper;
 use App\Modules\Sis\Mappers\StudentMapper;
@@ -211,5 +219,51 @@ class Services extends BaseService
             new StudentGuardianLinkMapper(),
             static::auditService(),
         );
+    }
+
+    public static function examService(bool $getShared = true): ExamService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('examService');
+        }
+
+        return new ExamService(
+            new ExamModel(),
+            new MarksRecordModel(),
+            new ReportCardModel(),
+            static::auditService(),
+        );
+    }
+
+    public static function marksRecordService(bool $getShared = true): MarksRecordService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('marksRecordService');
+        }
+
+        return new MarksRecordService(
+            new MarksRecordModel(),
+            new ExamModel(),
+            static::examService(),
+            static::auditService(),
+        );
+    }
+
+    public static function reportCardService(bool $getShared = true): ReportCardService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('reportCardService');
+        }
+
+        return new ReportCardService(new ReportCardModel(), new ExamModel(), static::auditService());
+    }
+
+    public static function promotionService(bool $getShared = true): PromotionService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('promotionService');
+        }
+
+        return new PromotionService(new PromotionRecordModel(), static::auditService());
     }
 }
