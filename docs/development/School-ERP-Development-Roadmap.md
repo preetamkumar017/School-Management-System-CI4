@@ -69,35 +69,69 @@ project's scope.
   Environment note above).
 - First commit made, covering the full design doc set plus this skeleton.
 
-## Stage 1 — Administration (minimal slice): design done, implementation next
+## Stage 1 — Administration (minimal slice) — done (2026-08-06)
 
-Design complete (2026-08-06) — `docs/design/administration/Phase-1` through
-`Phase-6`, covering `User`, `Role`, `AuditLog`, and a supporting
-`refresh_tokens` table. `Configuration`, `Document`, and `ApprovalRequest`
-remain deliberately deferred — nothing depends on them yet.
+Implemented together with Stage 2 (Core) in practice — Administration's
+entities are declared to extend `App\Core\BaseEntity`, so the two were never
+really separable in build order; Core's structural pieces (base classes,
+exceptions, response envelope) got built first as a prerequisite, then
+Administration's concrete `User`/`Role`/`AuditLog`/`refresh_tokens` on top.
 
-- Implement: migrations (`users`, `roles`, `audit_logs`, `refresh_tokens`),
-  entities, models, `AuthService`/`UserService`/`RoleService`/`AuditService`,
-  controllers.
-- Delivers: an actual login/authenticate endpoint (JWT issuance, refresh,
-  lockout), role assignment, and the audit-log write path every other
-  module's Service layer needs.
+- Migrations: `roles`, `users`, `audit_logs`, `refresh_tokens` — run and
+  verified against a real MySQL 8 database (`school_erp_dev`).
+- Entities/Models: `User`, `Role`, `AuditLog`, `RefreshToken`.
+- Services: `AuthService` (login with lockout after 5 attempts +
+  anti-enumeration, refresh, logout/logout-all, change-password revoking all
+  sessions), `UserService`, `RoleService`, `AuditService` (the one write path
+  for the audit trail — every other module's Service layer calls this, never
+  `AuditLogModel` directly).
+- Controllers + routes: `/api/v1/auth/*`, `/api/v1/administration/{users,roles,audit-logs}`.
+- `JwtAuthFilter` (Bearer token validation, populates `RequestContext` with
+  user/role/permission-set) and `RequestContextFilter` (request_id), wired
+  in `Config\Filters`.
+- Verification: 20 passing PHPUnit feature tests, **plus** a full manual
+  smoke test by hand against the dev server (login, wrong-password/
+  nonexistent-user anti-enumeration, 5-attempt lockout, refresh, logout
+  revocation, role/user CRUD, audit trail retrieval) — this caught two real
+  bugs the automated suite's mocked/simulated request cycle didn't exercise
+  the same way: `User.last_login_at` wasn't cast to a `Time` object, and
+  JSON columns (`permission_set`, `old_value`/`new_value`) needed explicit
+  `json_encode()` before insert since CI4's Query Builder binds a raw PHP
+  array as a SQL tuple, not JSON. Both fixed.
+- `composer lint`/`analyse`/`test` all pass (test suite has one persistent
+  warning, not an error — see Stage 0's coverage-driver gap, still open).
 
-## Stage 2 — Core infrastructure (`App\Core`)
+## Stage 2 — Core infrastructure (`App\Core`) — done (2026-08-06)
 
-Built against Stage 1's real tables, not stubs:
+Built alongside Stage 1, against Stage 1's real tables, not stubs:
 
-- `BaseEntity` / `BaseModel` — common audit columns, soft-delete global
-  scope, `version` column support (Company Development Standard §4.4).
-- `BaseController` — standard response envelope (§5).
-- Auth library — JWT issuance/validation/refresh, wired to `users`.
-- RBAC library — role/permission checks, wired to `roles`.
-- Audit library — `AuditLog` writer, wired to `audit_logs`.
-- Exceptions — the six fixed categories (§10) and their handlers.
-- Logging — structured logger, request-id propagation (§8).
-- **Verification gate:** a real end-to-end test — authenticate, hit a
-  protected dummy endpoint, confirm an audit row is written — before any
-  business module starts consuming Core.
+- `BaseEntity` / `BaseModel` — common audit columns (`created_by`/
+  `updated_by`/`is_deleted`/`deleted_by`, auto-stamped via Model callbacks),
+  soft-delete (CI4's native `deleted_at` handling, extended to also set
+  `is_deleted`/`deleted_by` in the same query — no framework hook exists for
+  that combination, so `BaseModel::doDelete()` overrides it). `version`-column
+  optimistic locking is supported per-model where a table declares it, not
+  forced globally (Company Development Standard §4.4 — only tables with real
+  write contention need it; none in this slice do).
+- `BaseController` + `ApiResponseTrait` — the standard response envelope (§7).
+- `JwtManager` (`App\Core\Auth`) — pure JWT issuance/decode, no DB access.
+- `PermissionChecker` (`App\Core\RBAC`) — pure permission-set check, reads
+  straight from the validated JWT payload, never re-queries `Role` per
+  request (§9 — a permission change takes effect on next login/refresh).
+- `ApiException` and its five subclasses (Validation/BusinessRule/
+  Authorization/Concurrency/RateLimit) + `ApiExceptionHandler`, wired into
+  `Config\Exceptions::handler()` — every response, success or error, uses
+  the one envelope shape. The sixth category (System/Unhandled) has no
+  dedicated class by design — anything not one of the five is System.
+- `RequestContext` (`App\Core\Http`) — static per-request holder for
+  request_id/user_id/role_id/permission_set, set by the two Filters, read by
+  `BaseModel`'s audit-column stamping and `ApiExceptionHandler`.
+- Not yet built: `Notification`, `Document`, `Config` under `App\Core` —
+  nothing depends on them yet, same reasoning as Administration's deferred
+  entities.
+- **Verification gate met**: the full login → protected-route → audit-log-
+  written path works end to end (both automated and manual verification,
+  see Stage 1).
 
 ## Stage 3 — Academic module implementation
 
@@ -164,8 +198,8 @@ prior work to reference.
 
 ## Immediate next action
 
-Stage 0 (bootstrap) and Stage 1's design are both done (2026-08-06). Next:
-**Stage 1 implementation** (Administration minimal slice — migrations for
-`users`/`roles`/`audit_logs`/`refresh_tokens`, then entities/models/services/
-controllers per `docs/design/administration/Phase-2` through `Phase-5`) →
-Stage 2 (Core) → Stage 3 (Academic).
+Stages 0, 1, and 2 are done (2026-08-06). Next: **Stage 3 — Academic module
+implementation**, per `docs/design/academic/Phase-1` through `Phase-6` —
+migrations for `academic_sessions`/`classes`/`sections`/`subjects`/
+`grading_schemes`/`class_subject_map`, then entities/models/services/
+controllers. No dependency beyond Core, which now exists.
