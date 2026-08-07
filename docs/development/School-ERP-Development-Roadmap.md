@@ -1015,6 +1015,44 @@ designed and built.
   the driver-vs-vehicle error codes are genuinely distinct). 197 passing
   tests total (9 new).
 
+## Stage 16 — BR-FEE-007: GST Applicability Determination — DONE (2026-08-07)
+
+Reference: `docs/ADR/ADR-020-fees-gst-line-items.md`. Closes the last
+sizeable self-contained Appendix-C follow-up item — a deliberate,
+narrowly-scoped reversal of ADR-007 §1's "no `Invoice` line-item entity"
+decision, made specifically because BR-FEE-007's own post-condition
+("Receipt correctly itemizes GST only for taxable fee heads") requires a
+persisted, queryable breakdown that a single `total_amount` field cannot
+satisfy.
+
+- New `InvoiceLineItem` entity (`invoice_line_items`: `invoice_id`/
+  `fee_head_id` FKs, `base_amount`, `waiver_amount`, `taxable_amount`,
+  `gst_rate`, `gst_amount`, `line_total`) — one row per matching
+  `FeeStructure`, built by `InvoiceService::generateInvoice` and
+  regenerated wholesale by `recalculateForRouteChange` (ADR-014 §1's
+  route-tier trigger), alongside `total_amount` exactly as before.
+- GST computed on the post-waiver (net) amount — the decided default,
+  standard GST practice absent a specific client instruction otherwise.
+  Already-stored `FeeHead.is_taxable`/`gst_rate` (Stage 6c) are read for
+  the first time; how a Finance Team member sets them is unchanged.
+- The route-tier fee is just another line item keyed to its own
+  `FeeHead`; the late fee (BR-FEE-004) remains a `total_amount`
+  adjustment outside the line-item breakdown, not a line item of its own
+  (it has no `FeeHead` to attach to). `Invoice.total_amount` stays the
+  single authoritative grand total — every existing consumer
+  (`fee_closure_confirmed`/outstanding-balance check, defaulter flagging,
+  payment recording) is unmodified.
+- `generateInvoicePdf`'s receipt now itemizes: one row per fee head with
+  base amount, waiver, GST rate/amount (blank for non-taxable heads), and
+  line total — still plain HTML through the existing dompdf pipeline, no
+  new PDF library. New `GET /fees/invoices/{id}/line-items` endpoint.
+- Four new tests (`InvoiceLineItemTest`): mixed taxable/non-taxable GST
+  computation, GST-on-post-waiver-amount, PDF generation with line items,
+  and route-tier recalculation regenerating line items consistently. All
+  pre-existing Fees/Examination tests (Stage 6c's waiver test, Stage 10's
+  route-tier and `fee_closure_confirmed`/outstanding-balance tests)
+  verified still passing, unmodified. 201 passing tests total (4 new).
+
 ## Ongoing, every stage
 
 - Git: feature branches (Company Development Standard §6), PR review before
@@ -1033,15 +1071,15 @@ designed and built.
 
 ## Immediate next action
 
-Stages 0 through 15 are done (2026-08-07) — every module in Appendix-G's
+Stages 0 through 16 are done (2026-08-07) — every module in Appendix-G's
 Data Dictionary is real, working, tested code, plus a real
 `Configuration` entity, a real `Document`/PDF-generation capability,
 Timetable Substitution (BR-TT-004/FR-16), the Fees/Transport/
 Examination cross-module seams, the Admission seat-hold/waitlist and
 Library reservation-queue entities, two RBAC enforcements (BR-HR-004,
-BR-FEE-002), and Transport's Driver/Trip validity (BR-TRN-006) closed
-(197 passing tests). Remaining work is follow-up/deepening, not
-new-module design:
+BR-FEE-002), Transport's Driver/Trip validity (BR-TRN-006), and Fees'
+GST line-item itemization (BR-FEE-007) closed (201 passing tests).
+Remaining work is follow-up/deepening, not new-module design:
 
 - **Stage 15 (2026-08-07, ADR-019)**: BR-TRN-006 (Driver/Vehicle
   Assignment Validity) — real `Driver`/`Trip` entities, an additive
@@ -1053,6 +1091,13 @@ new-module design:
   Precondition remains explicitly out of scope (ADR-019 §4) — no vendor
   chosen, matching this project's restraint on unchosen external
   integrations.
+- **Stage 16 (2026-08-07, ADR-020)**: BR-FEE-007 (GST Applicability
+  Determination) — a new `InvoiceLineItem` entity (reversing ADR-007 §1
+  specifically for this BR's itemization wording), GST computed per line
+  on the post-waiver amount using the already-stored `FeeHead.is_taxable`/
+  `gst_rate`, and an itemized receipt PDF. `Invoice.total_amount` remains
+  the single authoritative grand total; every existing consumer is
+  unmodified.
 - A real SMS/Email/Push gateway integration once a vendor is chosen
   (ADR-010 §1/§2/§5) — unblocks BR-COM-002/003 and live delivery for the
   three notification seams Stage 6f/Stage 13 closed only the logging
@@ -1068,12 +1113,13 @@ new-module design:
   explicitly did not migrate (BR-TT-004's own entry resolved for real by
   ADR-013, BR-ADM-007/BR-ADM-008's entry resolved for real by ADR-016,
   BR-LIB-006's entry resolved for real by ADR-017, and BR-TRN-006's entry
-  resolved for real by ADR-019 — see ADR-011's corrected note, none by a
-  `Configuration` row) — each needs its underlying feature built first (a
-  real entity, workflow, or integration: GPS ingestion, GST line-items,
-  RTE waived-fee-head list, PF/ESI/PT slabs, etc.), not just a
-  `Configuration` row with nothing to plug into yet. None of these are
-  small — every one is a real feature build, not a config tweak.
+  resolved for real by ADR-019, and BR-FEE-007's entry resolved for real
+  by ADR-020 — see ADR-011's corrected note, none by a `Configuration`
+  row) — each needs its underlying feature built first (a real entity,
+  workflow, or integration: GPS ingestion, RTE waived-fee-head list,
+  PF/ESI/PT slabs, etc.), not just a `Configuration` row with nothing to
+  plug into yet. None of these are small — every one is a real feature
+  build, not a config tweak.
 
 None of these block anything else — check with the project owner on
 priority before starting any of them.

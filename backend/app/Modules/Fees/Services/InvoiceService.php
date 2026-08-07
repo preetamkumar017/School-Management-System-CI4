@@ -13,8 +13,12 @@ use App\Modules\Administration\Services\AuditService;
 use App\Modules\Administration\Services\ConfigurationService;
 use App\Modules\Administration\Services\DocumentService;
 use App\Modules\Fees\DTOs\GenerateInvoiceRequest;
+use App\Modules\Fees\DTOs\InvoiceLineItemResponse;
 use App\Modules\Fees\DTOs\InvoiceResponse;
 use App\Modules\Fees\Entities\Invoice;
+use App\Modules\Fees\Entities\InvoiceLineItem;
+use App\Modules\Fees\Models\FeeHeadModel;
+use App\Modules\Fees\Models\InvoiceLineItemModel;
 use App\Modules\Fees\Models\InvoiceModel;
 use App\Modules\Fees\Models\ScholarshipWaiverModel;
 use CodeIgniter\I18n\Time;
@@ -22,12 +26,16 @@ use Config\Services as AppServices;
 
 /**
  * docs/design/fees/Phase-3-Service-Controller-Design.md
+ * docs/ADR/ADR-020-fees-gst-line-items.md (BR-FEE-007) — line-item
+ * generation/regeneration.
  */
 class InvoiceService
 {
     public function __construct(
         private readonly InvoiceModel $invoiceModel,
+        private readonly InvoiceLineItemModel $invoiceLineItemModel,
         private readonly ScholarshipWaiverModel $scholarshipWaiverModel,
+        private readonly FeeHeadModel $feeHeadModel,
         private readonly AuditService $auditService,
         private readonly ConfigurationService $configurationService,
         private readonly DocumentService $documentService,
@@ -65,7 +73,8 @@ class InvoiceService
         $section = AppServices::sectionService()->getSection($student->sectionId);
         $routeId = AppServices::transportAllocationService()->getActiveAllocationForStudent($request->studentId)?->routeId;
 
-        $totalAmount = $this->computeTotalAmount($section->classId, $request->academicSessionId, $student->category, $routeId, $request->studentId);
+        $lineItems   = $this->buildLineItems($section->classId, $request->academicSessionId, $student->category, $routeId, $request->studentId);
+        $totalAmount = array_sum(array_column($lineItems, 'line_total'));
 
         $id = $this->invoiceModel->insert([
             'invoice_no'          => $this->generateInvoiceNo(),
@@ -75,6 +84,8 @@ class InvoiceService
             'due_date'            => $request->dueDate,
             'status'              => Invoice::STATUS_UNPAID,
         ], true);
+
+        $this->persistLineItems($id, $lineItems);
 
         $invoice = $this->invoiceModel->find($id);
 
@@ -113,9 +124,18 @@ class InvoiceService
                 continue;
             }
 
-            $totalAmount = $this->computeTotalAmount($section->classId, $before->academic_session_id, $student->category, $newRouteId, $studentId);
+            $lineItems   = $this->buildLineItems($section->classId, $before->academic_session_id, $student->category, $newRouteId, $studentId);
+            $totalAmount = array_sum(array_column($lineItems, 'line_total'));
 
             $this->invoiceModel->update($invoiceId, ['total_amount' => round($totalAmount, 2)]);
+
+            // ADR-020: line items are regenerated, not patched — the
+            // previous set is discarded and replaced wholesale, the same
+            // "recompute from scratch" posture computeTotalAmount already
+            // used before this ADR, now extended to the line-item table.
+            $this->invoiceLineItemModel->deleteByInvoiceId($invoiceId);
+            $this->persistLineItems($invoiceId, $lineItems);
+
             $after = $this->requireInvoice($invoiceId);
 
             $this->auditService->record('Invoice', $invoiceId, AuditLog::ACTION_UPDATE, $before->toRawArray(), $after->toRawArray());
@@ -137,7 +157,15 @@ class InvoiceService
         return $this->invoiceModel->existsOutstandingByStudentIdAndSession($studentId, $academicSessionId);
     }
 
-    private function computeTotalAmount(int $classId, int $academicSessionId, string $category, ?int $routeId, int $studentId): float
+    /**
+     * ADR-020 (BR-FEE-007): one line item per matching FeeStructure row —
+     * the route-tier fee row (ADR-014 §1) is just another FeeStructure
+     * match here, keyed to its own FeeHead like any other, not a special
+     * case. GST is computed on the post-waiver (net) amount — ADR-020 §c.
+     *
+     * @return list<array{fee_head_id: int, base_amount: float, waiver_amount: float, taxable_amount: float, gst_rate: ?float, gst_amount: float, line_total: float}>
+     */
+    private function buildLineItems(int $classId, int $academicSessionId, string $category, ?int $routeId, int $studentId): array
     {
         $structures = AppServices::feeStructureService()->listByClassSessionCategory($classId, $academicSessionId, $category, $routeId);
 
@@ -150,14 +178,63 @@ class InvoiceService
             $waiverByFeeHead[$waiver->fee_head_id] = ($waiverByFeeHead[$waiver->fee_head_id] ?? 0.0) + $waiver->waiver_amount;
         }
 
-        $totalAmount = 0.0;
+        $lineItems = [];
 
         foreach ($structures as $structure) {
-            $waiverAmount = $waiverByFeeHead[$structure->feeHeadId] ?? 0.0;
-            $totalAmount += max(0.0, $structure->amount - $waiverAmount);
+            $feeHead      = $this->feeHeadModel->find($structure->feeHeadId);
+            $waiverAmount = min($structure->amount, $waiverByFeeHead[$structure->feeHeadId] ?? 0.0);
+            $taxable      = max(0.0, $structure->amount - $waiverAmount);
+            $gstRate      = $feeHead !== null && $feeHead->is_taxable ? $feeHead->gst_rate : null;
+            $gstAmount    = $gstRate !== null ? round($taxable * ($gstRate / 100), 2) : 0.0;
+
+            $lineItems[] = [
+                'fee_head_id'    => $structure->feeHeadId,
+                'base_amount'    => round($structure->amount, 2),
+                'waiver_amount'  => round($waiverAmount, 2),
+                'taxable_amount' => round($taxable, 2),
+                'gst_rate'       => $gstRate,
+                'gst_amount'     => $gstAmount,
+                'line_total'     => round($taxable + $gstAmount, 2),
+            ];
         }
 
-        return $totalAmount;
+        return $lineItems;
+    }
+
+    /**
+     * @param list<array{fee_head_id: int, base_amount: float, waiver_amount: float, taxable_amount: float, gst_rate: ?float, gst_amount: float, line_total: float}> $lineItems
+     */
+    private function persistLineItems(int $invoiceId, array $lineItems): void
+    {
+        foreach ($lineItems as $lineItem) {
+            $lineItemId = $this->invoiceLineItemModel->insert([
+                'invoice_id'     => $invoiceId,
+                'fee_head_id'    => $lineItem['fee_head_id'],
+                'base_amount'    => $lineItem['base_amount'],
+                'waiver_amount'  => $lineItem['waiver_amount'],
+                'taxable_amount' => $lineItem['taxable_amount'],
+                'gst_rate'       => $lineItem['gst_rate'],
+                'gst_amount'     => $lineItem['gst_amount'],
+                'line_total'     => $lineItem['line_total'],
+            ], true);
+
+            $inserted = $this->invoiceLineItemModel->find($lineItemId);
+
+            $this->auditService->record('InvoiceLineItem', $lineItemId, AuditLog::ACTION_CREATE, null, $inserted->toRawArray());
+        }
+    }
+
+    /**
+     * @return list<InvoiceLineItemResponse>
+     */
+    public function getLineItems(int $invoiceId): array
+    {
+        $this->requireInvoice($invoiceId);
+
+        return array_map(
+            static fn (InvoiceLineItem $lineItem): InvoiceLineItemResponse => new InvoiceLineItemResponse($lineItem),
+            $this->invoiceLineItemModel->findByInvoiceId($invoiceId),
+        );
     }
 
     /**
@@ -221,13 +298,42 @@ class InvoiceService
      */
     public function generateInvoicePdf(int $id): DocumentResponse
     {
-        $invoice = $this->requireInvoice($id);
-        $student = AppServices::studentService()->getStudent($invoice->student_id);
+        $invoice   = $this->requireInvoice($id);
+        $student   = AppServices::studentService()->getStudent($invoice->student_id);
+        $lineItems = $this->invoiceLineItemModel->findByInvoiceId($id);
 
+        $rows = '';
+
+        foreach ($lineItems as $lineItem) {
+            $feeHead  = $this->feeHeadModel->find((int) $lineItem->fee_head_id);
+            $headName = $feeHead !== null ? $feeHead->fee_head_name : ('Fee Head #' . $lineItem->fee_head_id);
+            $gstCell  = $lineItem->gst_rate !== null
+                ? htmlspecialchars((string) $lineItem->gst_rate) . '% / ' . htmlspecialchars((string) $lineItem->gst_amount)
+                : '&mdash;';
+
+            $rows .= '<tr>'
+                . '<td>' . htmlspecialchars($headName) . '</td>'
+                . '<td>' . htmlspecialchars((string) $lineItem->base_amount) . '</td>'
+                . '<td>' . htmlspecialchars((string) $lineItem->waiver_amount) . '</td>'
+                . '<td>' . $gstCell . '</td>'
+                . '<td>' . htmlspecialchars((string) $lineItem->line_total) . '</td>'
+                . '</tr>';
+        }
+
+        // BR-FEE-007 post-condition: "Receipt correctly itemizes GST only
+        // for taxable fee heads" — one row per InvoiceLineItem (ADR-020),
+        // GST column blank for non-taxable heads. total_amount remains the
+        // single authoritative grand total (line totals + any late fee,
+        // ADR-020 §d).
         $html = '<html><body>'
             . '<h2>Invoice ' . htmlspecialchars($invoice->invoice_no) . '</h2>'
             . '<p><strong>Student:</strong> ' . htmlspecialchars($student->fullName) . ' (' . htmlspecialchars($student->admissionNumber) . ')</p>'
             . '<p><strong>Due Date:</strong> ' . htmlspecialchars((string) $invoice->due_date) . '</p>'
+            . '<table border="1" cellpadding="4" cellspacing="0">'
+            . '<thead><tr><th>Fee Head</th><th>Base Amount</th><th>Waiver</th><th>GST Rate / Amount</th><th>Line Total</th></tr></thead>'
+            . '<tbody>' . $rows . '</tbody>'
+            . '</table>'
+            . ($invoice->late_fee_applied ? '<p><em>Includes a late fee (BR-FEE-004), applied as a non-taxable adjustment outside the line items above.</em></p>' : '')
             . '<p><strong>Total Amount:</strong> ' . htmlspecialchars((string) $invoice->total_amount) . '</p>'
             . '<p><strong>Status:</strong> ' . htmlspecialchars($invoice->status) . '</p>'
             . '</body></html>';

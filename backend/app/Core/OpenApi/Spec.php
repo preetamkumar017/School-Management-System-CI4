@@ -660,6 +660,22 @@ use OpenApi\Attributes as OA;
     type: 'object',
 )]
 #[OA\Schema(
+    schema: 'InvoiceLineItemResponse',
+    description: 'ADR-020 (BR-FEE-007) — one row per matching FeeStructure; GST computed on the post-waiver (taxable) amount, only for taxable fee heads.',
+    properties: [
+        new OA\Property(property: 'invoice_line_item_id', type: 'integer'),
+        new OA\Property(property: 'invoice_id', type: 'integer'),
+        new OA\Property(property: 'fee_head_id', type: 'integer'),
+        new OA\Property(property: 'base_amount', type: 'number', format: 'float'),
+        new OA\Property(property: 'waiver_amount', type: 'number', format: 'float'),
+        new OA\Property(property: 'taxable_amount', type: 'number', format: 'float'),
+        new OA\Property(property: 'gst_rate', type: 'number', format: 'float', nullable: true),
+        new OA\Property(property: 'gst_amount', type: 'number', format: 'float'),
+        new OA\Property(property: 'line_total', type: 'number', format: 'float'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
     schema: 'PaymentRecordRequest',
     required: ['invoice_id', 'amount_paid', 'payment_mode'],
     properties: [

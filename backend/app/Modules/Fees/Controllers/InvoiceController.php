@@ -116,6 +116,26 @@ class InvoiceController extends BaseController
     }
 
     #[OA\Get(
+        path: '/fees/invoices/{id}/line-items',
+        tags: ['Invoices'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'BR-FEE-007 (ADR-020) — one row per matching FeeStructure, GST computed only for taxable fee heads.',
+                content: new OA\JsonContent(type: 'array', items: new OA\Items(ref: '#/components/schemas/InvoiceLineItemResponse')),
+            ),
+        ],
+    )]
+    public function lineItems(int $id)
+    {
+        $responses = Services::invoiceService()->getLineItems($id);
+
+        return $this->respondSuccess(array_map(static fn ($response) => $response->toArray(), $responses));
+    }
+
+    #[OA\Get(
         path: '/fees/invoices',
         tags: ['Invoices'],
         security: [['bearerAuth' => []]],

@@ -184,6 +184,7 @@ $routes->group('api/v1/fees', ['namespace' => 'App\Modules\Fees\Controllers'], s
     $routes->post('invoices/(:num)/apply-late-fee', 'InvoiceController::applyLateFee/$1');
     $routes->post('invoices/(:num)/flag-defaulter', 'InvoiceController::flagDefaulter/$1');
     $routes->post('invoices/(:num)/generate-pdf', 'InvoiceController::generatePdf/$1');
+    $routes->get('invoices/(:num)/line-items', 'InvoiceController::lineItems/$1');
     $routes->get('invoices/(:num)', 'InvoiceController::show/$1');
     $routes->get('invoices', 'InvoiceController::index');
 

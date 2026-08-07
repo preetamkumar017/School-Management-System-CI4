@@ -33,6 +33,12 @@ waiver_amount` for the same student/fee-head pairs — and persists only the
 resulting total, exactly matching the approved entity shape. No
 `InvoiceLineItem` entity is invented.
 
+**Since reversed, 2026-08-07: ADR-020 introduces `InvoiceLineItem`
+specifically to satisfy BR-FEE-007's own "itemizes" wording (§7 below) —
+every other decision in this section (no client-supplied total, the
+FeeStructure-minus-waiver computation itself) is unchanged, only the "no
+line-item entity" clause is reversed.**
+
 ### 2. Invoice generation requires the student to have a `section_id`
 
 `FeeStructure` is keyed by `class_id`, but `Student` (SIS) has no
@@ -107,6 +113,10 @@ computed GST amount to without inventing the line-item entity §1
 explicitly declines to invent. A future receipt/PDF-generation pass
 (alongside Examination's deferred report-card PDF, ADR-005 §9) would
 need to resolve this together with a real line-item model.
+
+**Since resolved, 2026-08-07: ADR-020 implemented BR-FEE-007 —
+`InvoiceLineItem` (reversing §1 above), GST computed per line on the
+post-waiver amount, itemized on the receipt PDF.**
 
 ### 8. BR-FEE-002 (Finance-Team-Only Refund/Void) is not enforced
 

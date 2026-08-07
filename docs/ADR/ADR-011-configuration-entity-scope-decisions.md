@@ -44,7 +44,13 @@ Not all 24 items are eligible to migrate here. Cross-checking Appendix-C
   validity — not a `Configuration` row; the trip-start check is a
   cross-entity validation, not a scalar rate/threshold, matching the
   reasoning this ADR already gave for why a policy/workflow doesn't fit
-  `Configuration`'s shape**), BR-FEE-007 GST,
+  `Configuration`'s shape**), BR-FEE-007 GST (**since resolved,
+  2026-08-07: ADR-020 built a real `InvoiceLineItem` entity, computing
+  GST per line from the already-stored `FeeHead.is_taxable`/`gst_rate` —
+  not a `Configuration` row; the taxable-fee-head list and its rates are
+  per-`FeeHead` data, not a single scalar, matching the reasoning this
+  ADR already gave for why a policy/list doesn't fit `Configuration`'s
+  shape**),
   BR-COM-002/003/005 — all named out-of-scope in ADR-006/007/009/010), or
   the "configurable item" is a policy/list/role-name rather than a
   single scalar value naturally suited to `Configuration`'s

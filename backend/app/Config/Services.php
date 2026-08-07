@@ -52,6 +52,7 @@ use App\Modules\Examination\Services\PromotionService;
 use App\Modules\Examination\Services\ReportCardService;
 use App\Modules\Fees\Models\FeeHeadModel;
 use App\Modules\Fees\Models\FeeStructureModel;
+use App\Modules\Fees\Models\InvoiceLineItemModel;
 use App\Modules\Fees\Models\InvoiceModel;
 use App\Modules\Fees\Models\PaymentModel;
 use App\Modules\Fees\Models\ScholarshipWaiverModel;
@@ -426,7 +427,7 @@ class Services extends BaseService
             return static::getSharedInstance('invoiceService');
         }
 
-        return new InvoiceService(new InvoiceModel(), new ScholarshipWaiverModel(), static::auditService(), static::configurationService(), static::documentService(), static::pdfRenderer());
+        return new InvoiceService(new InvoiceModel(), new InvoiceLineItemModel(), new ScholarshipWaiverModel(), new FeeHeadModel(), static::auditService(), static::configurationService(), static::documentService(), static::pdfRenderer());
     }
 
     public static function paymentService(bool $getShared = true): PaymentService
