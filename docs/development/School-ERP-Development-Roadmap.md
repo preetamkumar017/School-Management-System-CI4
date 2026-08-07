@@ -478,32 +478,109 @@ lesson, and confirmed clean (no Academic/SIS/Examination dependency).
   request create/approve → employee exit deactivates the linked user
   account — all verified over real HTTP.
 
-## Stage 6e onward — remaining undesigned modules
+## Stage 6e — Library and Transport implementation — DONE (2026-08-07)
 
-Not yet designed: Library, Transport, Communication, Reports. Freely
-reprioritizable by business value; no remaining hard dependency chain
-between them. Known seams each would close:
+Reference: `docs/design/library/Phase-1` through `Phase-3` and
+`docs/design/transport/Phase-1` through `Phase-3`, per
+`docs/ADR/ADR-009-library-and-transport-scope-decisions.md`. Bundled in
+one pass — both are small, and both checked out clean against
+Appendix-G's FK graph (Stage 6b's lesson, checked again): `BookIssue.
+borrower_ref_id` validates against SIS's `Student` or HR & Payroll's
+`Employee` (both now exist — the first module needing zero undesigned-
+dependency stubs), `TransportAllocation.student_id` against SIS's
+`Student`.
+
+- **Design pass first**: ADR-009 resolves BR-LIB-001 (max books per
+  borrower — decided 3, ADR-009 §2), BR-LIB-002 (overdue fine — decided
+  ₹2/day, computed and stored on `BookIssue` but not posted to Fees, no
+  ad-hoc-charge capability exists there), BR-LIB-003 (lost-book
+  replacement — decided ₹500 flat, since `Book` has no `price` field to
+  compute a variable charge from), BR-LIB-005 (outstanding-fine block —
+  decided ₹0 threshold), BR-LIB-006 (Reservation queue — out of scope, no
+  `Reservation` entity in Appendix-G), BR-TRN-003/005/006 (GPS live
+  tracking, route-change fee recalculation, driver/trip validity — all
+  out of scope, needing integrations or entities that don't exist).
+  `docs/design/School-ERP-Module-Architecture.md`'s Library and Transport
+  rows updated to Designed.
+- **Two structural gaps closed with decided additive columns, not
+  invented entities**: `BookIssue.status`/`replacement_charge_amount`/
+  `fine_settled` (ADR-009 §1, §4, §6 — `Book` itself has no state beyond
+  `is_available`, despite its own Lifecycle line naming a Lost/Damaged
+  state) and `Route.vehicle_id` (ADR-009 §8 — Appendix-G's Relationships
+  section describes a Route↔Vehicle link that no attribute catalogue
+  column actually carries) — same category of gap-closing addition as
+  Academic's `locked_by_closed_exam` (ADR-005 §10) and HR & Payroll's
+  `attendance_closures` (ADR-008 §4), just an FK instead of a flag this
+  time.
+- **BR-TRN-001's capacity ceiling got a genuine concurrency-safe
+  implementation**: `TransportAllocationService::allocate` locks the
+  target `Route` row (`SELECT ... FOR UPDATE`) before counting active
+  allocations and comparing against capacity, inside one transaction with
+  the insert — the same row-lock shape `SeatAllocationModel::
+  incrementSeatsFilled` established in Stage 4 for Admission, the first
+  reuse of that specific pattern.
+- **Real bug found and fixed during this pass, not specific to
+  Transport**: `RouteModel::findForUpdate()`'s raw `SELECT ... FOR
+  UPDATE` query originally constructed the returned Entity via
+  `new Route($row)` — passing a raw DB row (with an already-JSON-encoded
+  `stops_json` string) straight into the constructor double-encodes it,
+  because `fill()`/`__set()` also runs the value through the field's
+  "set" cast (`json_encode`), not just "get". `Model::find()` doesn't hit
+  this because CI4 hydrates query results differently internally. Fixed
+  by using `Entity::injectRawData()` instead of the constructor for
+  hand-rolled raw-query hydration — stores the row as-is, matching how
+  `Model::find()` behaves. Worth remembering for any future raw-SQL row
+  lock: **never pass a raw DB row into an Entity constructor when a
+  field has a "set" transform (JSON, encrypted, etc.) — use
+  `injectRawData()`.**
+- Migrations: `books`, `book_issues`, `vehicles`, `routes`,
+  `transport_allocations` — all five applied.
+- Verification: 14 new PHPUnit tests (136 total) — BR-LIB-001/004/005
+  (limit, Reference-block, outstanding-fine block), BR-LIB-002 (fine
+  computed against a real 5-days-overdue fixture, exact amount asserted,
+  not just presence), BR-LIB-003 (flat replacement charge), BR-TRN-001
+  (route-vs-vehicle capacity check, and the row-lock-guarded allocation
+  ceiling itself), BR-TRN-002 (single active route per student), and
+  BR-TRN-004 (emergency-contact format validation). Also manually
+  smoke-tested the full flow end-to-end against the real dev server: book
+  create → issue → Reference-book rejection → overdue return with a
+  correctly computed fine → vehicle create → route-capacity-exceeds-
+  vehicle rejection → route create → student transport allocation, all
+  verified over real HTTP.
+
+## Stage 6f onward — remaining undesigned modules
+
+Not yet designed: Communication, Reports. Freely reprioritizable; no
+hard dependency chain between them. Known seams each would close:
 
 - **Communication** closes three seams: BR-TT-005's revision notification
   (ADR-006 §6), BR-ATT-004's absence notification (ADR-006 §9), and
   rendered payslip generation (ADR-008 §10).
-- **Transport** closes BR-FEE-003's auto-linkage seam (ADR-007 §3).
-- **Timetable follow-up** (not a new module): BR-TT-004/FR-16
-  Substitution is now unblocked by `StaffAttendanceRecord` existing
-  (ADR-008 §11), but wasn't pulled into Stage 6d's own scope.
+- **Reports** is read-only and aggregates across other modules' Service
+  classes (never their Models directly, per the Company Development
+  Standard's cross-module rule) — best sequenced last, once the module
+  set it reports on is more complete.
 - **Fees follow-up** (not a new module): `PromotionRecord.
   fee_closure_confirmed` (ADR-005 §3) can now move from caller-supplied
   to system-computed, now that Fees has real invoice/payment data —
   this roadmap previously misattributed this seam to HR & Payroll; see
   Stage 6d's correction note above.
+- **Timetable follow-up** (not a new module): BR-TT-004/FR-16
+  Substitution is now unblocked by `StaffAttendanceRecord` existing
+  (ADR-008 §11), but wasn't pulled into Stage 6d's own scope.
+- **Fees/Transport joint follow-up** (not a new module): BR-TRN-005/
+  BR-FEE-003 (route-based fee-tier auto-linkage) is still open from both
+  sides (ADR-007 §3, ADR-009 §13) — needs a joint design pass, not a
+  unilateral addition to either module.
 
 Each follows the same design-then-implement pattern Academic/Admission/
-SIS/Examination/Timetable/Attendance/Fees now demonstrate seven times
-over — those modules' design sets are the template, not just prior work
-to reference. Keep checking Appendix-G's actual FK graph before assuming
-a module's dependency ordering — Stage 6b's own assumption was wrong;
-Stage 6c's was confirmed correct only by actually checking, not by
-extrapolating from the pattern.
+SIS/Examination/Timetable/Attendance/Fees/HR & Payroll/Library/Transport
+now demonstrate nine times over — those modules' design sets are the
+template, not just prior work to reference. Keep checking Appendix-G's
+actual FK graph before assuming a module's dependency ordering — Stage
+6b's own assumption was wrong; Stage 6c's and 6e's were confirmed
+correct only by actually checking, not by extrapolating from the
+pattern.
 
 ## Ongoing, every stage
 
@@ -523,12 +600,12 @@ extrapolating from the pattern.
 
 ## Immediate next action
 
-Stages 0 through 6d are done (2026-08-07) — Academic, Admission, SIS
+Stages 0 through 6e are done (2026-08-07) — Academic, Admission, SIS
 (with Confirm Enrollment), Examination (ADR-005), Timetable/Attendance
-(ADR-006), Fees (ADR-007), and HR & Payroll (ADR-008) are all real,
-working, tested code (122 passing tests). Next: **Stage 6e** — Library,
-Transport, Communication, or Reports, in any order (see the Stage 6e
-section above for the seams each closes). Run each through the same
-Requirement → Design → Approval sequence the last four modules went
-through (ADR-005/006/007/008 as templates), and check Appendix-G's
+(ADR-006), Fees (ADR-007), HR & Payroll (ADR-008), and Library/Transport
+(ADR-009) are all real, working, tested code (136 passing tests). Next:
+**Stage 6f** — Communication or Reports, in either order (see the Stage
+6f section above for the seams each closes). Run each through the same
+Requirement → Design → Approval sequence the last five modules went
+through (ADR-005/006/007/008/009 as templates), and check Appendix-G's
 actual FK graph for the entity before assuming its dependency ordering.

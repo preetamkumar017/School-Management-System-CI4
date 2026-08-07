@@ -206,3 +206,36 @@ $routes->group('api/v1/hr-payroll', ['namespace' => 'App\Modules\HrPayroll\Contr
     $routes->get('leave-requests/(:num)', 'LeaveRequestController::show/$1');
     $routes->get('leave-requests', 'LeaveRequestController::index');
 });
+
+// docs/design/library/Phase-3-Service-Controller-Design.md
+$routes->group('api/v1/library', ['namespace' => 'App\Modules\Library\Controllers'], static function (RouteCollection $routes): void {
+    $routes->post('books', 'BookController::create');
+    $routes->patch('books/(:num)', 'BookController::update/$1');
+    $routes->get('books/(:num)', 'BookController::show/$1');
+    $routes->get('books', 'BookController::index');
+
+    $routes->post('book-issues', 'BookIssueController::create');
+    $routes->post('book-issues/(:num)/return', 'BookIssueController::returnBook/$1');
+    $routes->post('book-issues/(:num)/report-lost', 'BookIssueController::reportLost/$1');
+    $routes->post('book-issues/(:num)/settle-fine', 'BookIssueController::settleFine/$1');
+    $routes->get('book-issues/(:num)', 'BookIssueController::show/$1');
+    $routes->get('book-issues', 'BookIssueController::index');
+});
+
+// docs/design/transport/Phase-3-Service-Controller-Design.md
+$routes->group('api/v1/transport', ['namespace' => 'App\Modules\Transport\Controllers'], static function (RouteCollection $routes): void {
+    $routes->post('vehicles', 'VehicleController::create');
+    $routes->patch('vehicles/(:num)', 'VehicleController::update/$1');
+    $routes->get('vehicles/(:num)', 'VehicleController::show/$1');
+    $routes->get('vehicles', 'VehicleController::index');
+
+    $routes->post('routes', 'RouteController::create');
+    $routes->patch('routes/(:num)', 'RouteController::update/$1');
+    $routes->get('routes/(:num)', 'RouteController::show/$1');
+    $routes->get('routes', 'RouteController::index');
+
+    $routes->post('allocations', 'TransportAllocationController::create');
+    $routes->post('allocations/(:num)/deallocate', 'TransportAllocationController::deallocate/$1');
+    $routes->get('allocations/(:num)', 'TransportAllocationController::show/$1');
+    $routes->get('allocations', 'TransportAllocationController::index');
+});

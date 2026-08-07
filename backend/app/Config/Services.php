@@ -62,6 +62,10 @@ use App\Modules\HrPayroll\Services\DesignationService;
 use App\Modules\HrPayroll\Services\EmployeeService;
 use App\Modules\HrPayroll\Services\LeaveRequestService;
 use App\Modules\HrPayroll\Services\PayrollRunService;
+use App\Modules\Library\Models\BookIssueModel;
+use App\Modules\Library\Models\BookModel;
+use App\Modules\Library\Services\BookIssueService;
+use App\Modules\Library\Services\BookService;
 use App\Modules\Sis\Mappers\GuardianMapper;
 use App\Modules\Sis\Mappers\StudentGuardianLinkMapper;
 use App\Modules\Sis\Mappers\StudentMapper;
@@ -73,6 +77,12 @@ use App\Modules\Sis\Services\StudentGuardianLinkService;
 use App\Modules\Sis\Services\StudentService;
 use App\Modules\Timetable\Models\TimetableEntryModel;
 use App\Modules\Timetable\Services\TimetableEntryService;
+use App\Modules\Transport\Models\RouteModel;
+use App\Modules\Transport\Models\TransportAllocationModel;
+use App\Modules\Transport\Models\VehicleModel;
+use App\Modules\Transport\Services\RouteService;
+use App\Modules\Transport\Services\TransportAllocationService;
+use App\Modules\Transport\Services\VehicleService;
 use CodeIgniter\Config\BaseService;
 
 /**
@@ -415,5 +425,50 @@ class Services extends BaseService
         }
 
         return new LeaveRequestService(new LeaveRequestModel(), new EmployeeModel(), static::auditService());
+    }
+
+    public static function bookService(bool $getShared = true): BookService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('bookService');
+        }
+
+        return new BookService(new BookModel(), static::auditService());
+    }
+
+    public static function bookIssueService(bool $getShared = true): BookIssueService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('bookIssueService');
+        }
+
+        return new BookIssueService(new BookIssueModel(), new BookModel(), static::auditService());
+    }
+
+    public static function vehicleService(bool $getShared = true): VehicleService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('vehicleService');
+        }
+
+        return new VehicleService(new VehicleModel(), static::auditService());
+    }
+
+    public static function routeService(bool $getShared = true): RouteService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('routeService');
+        }
+
+        return new RouteService(new RouteModel(), new VehicleModel(), static::auditService());
+    }
+
+    public static function transportAllocationService(bool $getShared = true): TransportAllocationService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('transportAllocationService');
+        }
+
+        return new TransportAllocationService(new TransportAllocationModel(), new RouteModel(), static::auditService());
     }
 }

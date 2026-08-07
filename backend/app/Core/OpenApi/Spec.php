@@ -834,6 +834,157 @@ use OpenApi\Attributes as OA;
     ],
     type: 'object',
 )]
+#[OA\Schema(
+    schema: 'BookCreateRequest',
+    required: ['barcode', 'title', 'classification'],
+    properties: [
+        new OA\Property(property: 'barcode', type: 'string'),
+        new OA\Property(property: 'title', type: 'string'),
+        new OA\Property(property: 'author', type: 'string', nullable: true),
+        new OA\Property(property: 'classification', type: 'string', enum: ['Circulating', 'Reference']),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'BookUpdateRequest',
+    description: 'barcode is immutable post-creation — absent here.',
+    required: ['title', 'classification'],
+    properties: [
+        new OA\Property(property: 'title', type: 'string'),
+        new OA\Property(property: 'author', type: 'string', nullable: true),
+        new OA\Property(property: 'classification', type: 'string', enum: ['Circulating', 'Reference']),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'BookResponse',
+    properties: [
+        new OA\Property(property: 'book_id', type: 'integer'),
+        new OA\Property(property: 'barcode', type: 'string'),
+        new OA\Property(property: 'title', type: 'string'),
+        new OA\Property(property: 'author', type: 'string', nullable: true),
+        new OA\Property(property: 'classification', type: 'string', enum: ['Circulating', 'Reference']),
+        new OA\Property(property: 'is_available', type: 'boolean'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'BookIssueCreateRequest',
+    required: ['book_id', 'borrower_type', 'borrower_ref_id', 'due_date'],
+    properties: [
+        new OA\Property(property: 'book_id', type: 'integer'),
+        new OA\Property(property: 'borrower_type', type: 'string', enum: ['Student', 'Employee']),
+        new OA\Property(property: 'borrower_ref_id', type: 'integer'),
+        new OA\Property(property: 'due_date', type: 'string', format: 'date'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'BookIssueResponse',
+    properties: [
+        new OA\Property(property: 'book_issue_id', type: 'integer'),
+        new OA\Property(property: 'book_id', type: 'integer'),
+        new OA\Property(property: 'borrower_type', type: 'string', enum: ['Student', 'Employee']),
+        new OA\Property(property: 'borrower_ref_id', type: 'integer'),
+        new OA\Property(property: 'issue_date', type: 'string', format: 'date'),
+        new OA\Property(property: 'due_date', type: 'string', format: 'date'),
+        new OA\Property(property: 'return_date', type: 'string', format: 'date', nullable: true),
+        new OA\Property(property: 'fine_amount', type: 'number', format: 'float'),
+        new OA\Property(property: 'status', type: 'string', enum: ['Issued', 'Returned', 'Lost']),
+        new OA\Property(property: 'replacement_charge_amount', type: 'number', format: 'float'),
+        new OA\Property(property: 'fine_settled', type: 'boolean'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'VehicleCreateRequest',
+    required: ['registration_no', 'capacity'],
+    properties: [
+        new OA\Property(property: 'registration_no', type: 'string'),
+        new OA\Property(property: 'capacity', type: 'integer'),
+        new OA\Property(property: 'gps_device_id', type: 'string', nullable: true),
+        new OA\Property(property: 'license_valid_until', type: 'string', format: 'date', nullable: true),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'VehicleUpdateRequest',
+    description: 'registration_no is immutable post-creation — absent here.',
+    required: ['capacity'],
+    properties: [
+        new OA\Property(property: 'capacity', type: 'integer'),
+        new OA\Property(property: 'gps_device_id', type: 'string', nullable: true),
+        new OA\Property(property: 'license_valid_until', type: 'string', format: 'date', nullable: true),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'VehicleResponse',
+    properties: [
+        new OA\Property(property: 'vehicle_id', type: 'integer'),
+        new OA\Property(property: 'registration_no', type: 'string'),
+        new OA\Property(property: 'capacity', type: 'integer'),
+        new OA\Property(property: 'gps_device_id', type: 'string', nullable: true),
+        new OA\Property(property: 'license_valid_until', type: 'string', format: 'date', nullable: true),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'RouteCreateRequest',
+    required: ['route_name', 'stops_json', 'capacity'],
+    properties: [
+        new OA\Property(property: 'route_name', type: 'string'),
+        new OA\Property(property: 'stops_json', type: 'array', items: new OA\Items(type: 'string')),
+        new OA\Property(property: 'capacity', type: 'integer'),
+        new OA\Property(property: 'vehicle_id', type: 'integer', nullable: true),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'RouteUpdateRequest',
+    description: 'route_name is immutable post-creation — absent here.',
+    required: ['stops_json', 'capacity'],
+    properties: [
+        new OA\Property(property: 'stops_json', type: 'array', items: new OA\Items(type: 'string')),
+        new OA\Property(property: 'capacity', type: 'integer'),
+        new OA\Property(property: 'vehicle_id', type: 'integer', nullable: true),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'RouteResponse',
+    properties: [
+        new OA\Property(property: 'route_id', type: 'integer'),
+        new OA\Property(property: 'route_name', type: 'string'),
+        new OA\Property(property: 'stops_json', type: 'array', items: new OA\Items(type: 'string')),
+        new OA\Property(property: 'capacity', type: 'integer'),
+        new OA\Property(property: 'vehicle_id', type: 'integer', nullable: true),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'TransportAllocationCreateRequest',
+    required: ['student_id', 'route_id', 'stop_name', 'emergency_contact'],
+    properties: [
+        new OA\Property(property: 'student_id', type: 'integer'),
+        new OA\Property(property: 'route_id', type: 'integer'),
+        new OA\Property(property: 'stop_name', type: 'string'),
+        new OA\Property(property: 'emergency_contact', type: 'string', description: '10-digit numeric (BR-TRN-004)'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'TransportAllocationResponse',
+    properties: [
+        new OA\Property(property: 'transport_allocation_id', type: 'integer'),
+        new OA\Property(property: 'student_id', type: 'integer'),
+        new OA\Property(property: 'route_id', type: 'integer'),
+        new OA\Property(property: 'stop_name', type: 'string'),
+        new OA\Property(property: 'emergency_contact', type: 'string'),
+        new OA\Property(property: 'status', type: 'string', enum: ['Active', 'Waitlisted', 'De-allocated']),
+    ],
+    type: 'object',
+)]
 final class Spec
 {
     // No instances — attributes only.
