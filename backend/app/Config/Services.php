@@ -33,6 +33,10 @@ use App\Modules\Attendance\Models\AttendanceRecordModel;
 use App\Modules\Attendance\Models\StaffAttendanceRecordModel;
 use App\Modules\Attendance\Services\AttendanceService;
 use App\Modules\Attendance\Services\StaffAttendanceService;
+use App\Modules\Communication\Models\CircularModel;
+use App\Modules\Communication\Models\NotificationLogModel;
+use App\Modules\Communication\Services\CircularService;
+use App\Modules\Communication\Services\NotificationLogService;
 use App\Modules\Examination\Models\ExamModel;
 use App\Modules\Examination\Models\MarksRecordModel;
 use App\Modules\Examination\Models\PromotionRecordModel;
@@ -66,6 +70,7 @@ use App\Modules\Library\Models\BookIssueModel;
 use App\Modules\Library\Models\BookModel;
 use App\Modules\Library\Services\BookIssueService;
 use App\Modules\Library\Services\BookService;
+use App\Modules\Reports\Services\ReportsService;
 use App\Modules\Sis\Mappers\GuardianMapper;
 use App\Modules\Sis\Mappers\StudentGuardianLinkMapper;
 use App\Modules\Sis\Mappers\StudentMapper;
@@ -470,5 +475,32 @@ class Services extends BaseService
         }
 
         return new TransportAllocationService(new TransportAllocationModel(), new RouteModel(), static::auditService());
+    }
+
+    public static function circularService(bool $getShared = true): CircularService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('circularService');
+        }
+
+        return new CircularService(new CircularModel(), static::auditService());
+    }
+
+    public static function notificationLogService(bool $getShared = true): NotificationLogService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('notificationLogService');
+        }
+
+        return new NotificationLogService(new NotificationLogModel(), static::auditService());
+    }
+
+    public static function reportsService(bool $getShared = true): ReportsService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('reportsService');
+        }
+
+        return new ReportsService();
     }
 }

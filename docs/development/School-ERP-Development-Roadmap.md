@@ -548,39 +548,73 @@ dependency stubs), `TransportAllocation.student_id` against SIS's
   vehicle rejection → route create → student transport allocation, all
   verified over real HTTP.
 
-## Stage 6f onward — remaining undesigned modules
+## Stage 6f — Communication and Reports implementation — DONE (2026-08-07)
 
-Not yet designed: Communication, Reports. Freely reprioritizable; no
-hard dependency chain between them. Known seams each would close:
+Reference: `docs/design/communication/Phase-1` through `Phase-3` and
+`docs/design/reports/Phase-1`, per
+`docs/ADR/ADR-010-communication-and-reports-scope-decisions.md`. Bundled
+in one pass — Reports has no domain model of its own (its whole shape is
+"what can every already-shipped module's Service layer already answer"),
+so there was never an independent Reports design to sequence separately.
+`Circular.author_id → User` and `NotificationLog.recipient_ref_id`
+(polymorphic against `Guardian`/`Employee`/`User`) all checked clean
+against Appendix-G's FK graph — the second module in a row (after
+Library/Transport, ADR-009) needing zero undesigned-dependency stubs.
 
-- **Communication** closes three seams: BR-TT-005's revision notification
-  (ADR-006 §6), BR-ATT-004's absence notification (ADR-006 §9), and
-  rendered payslip generation (ADR-008 §10).
-- **Reports** is read-only and aggregates across other modules' Service
-  classes (never their Models directly, per the Company Development
-  Standard's cross-module rule) — best sequenced last, once the module
-  set it reports on is more complete.
-- **Fees follow-up** (not a new module): `PromotionRecord.
-  fee_closure_confirmed` (ADR-005 §3) can now move from caller-supplied
-  to system-computed, now that Fees has real invoice/payment data —
-  this roadmap previously misattributed this seam to HR & Payroll; see
-  Stage 6d's correction note above.
-- **Timetable follow-up** (not a new module): BR-TT-004/FR-16
-  Substitution is now unblocked by `StaffAttendanceRecord` existing
-  (ADR-008 §11), but wasn't pulled into Stage 6d's own scope.
-- **Fees/Transport joint follow-up** (not a new module): BR-TRN-005/
-  BR-FEE-003 (route-based fee-tier auto-linkage) is still open from both
-  sides (ADR-007 §3, ADR-009 §13) — needs a joint design pass, not a
-  unilateral addition to either module.
+- **Design pass first**: ADR-010 resolves BR-COM-004 (delivery-failure
+  logging — implemented for real, `failure_reason` required and logged
+  via `AuditLog::ACTION_OVERRIDE`) and explicitly scopes out BR-COM-001
+  (direct teacher-parent messaging — no `Message` entity anywhere in
+  Appendix-G), BR-COM-002/003 (bulk-send authorization, emergency
+  override — both govern an actual SMS/Email/Push gateway dispatch that
+  doesn't exist, vendor explicitly "Client/Product Decision Required"),
+  and BR-COM-005 (retention — already satisfied by this codebase's
+  existing indefinite-soft-delete baseline, nothing new to build).
+  `docs/design/School-ERP-Module-Architecture.md`'s Communication and
+  Reports rows updated to Designed.
+- **`NotificationLog` is a log/record-keeping entity, not a live
+  dispatcher** — `NotificationLogService` offers `create`/
+  `markDispatched`/`markDelivered`/`markFailed`, but nothing calls out to
+  a real SMS/Email/Push gateway. This is deliberate, matching Library's
+  "compute and store, don't post externally" precedent (ADR-009 §3/§4)
+  for the same reason: no external integration exists to call.
+- **Closed the logging half of two seams ADR-006 left open**:
+  `TimetableEntryService::reviseEntry` (BR-TT-005) and
+  `AttendanceService::markAttendance` when `state = ABSENT` (BR-ATT-004,
+  notifying the student's primary guardian, resolved via SIS's
+  `StudentGuardianLinkService`) now call `NotificationLogService::
+  create()` — small, targeted changes to already-shipped Stage 6b code.
+  The *delivery* half of both seams stays open, now correctly attributed
+  to "no gateway integration" rather than "no notification-log entity."
+- **Reports is deliberately the smallest honest slice of FR-40**: a
+  single `GET /api/v1/reports/summary` endpoint, composed entirely from
+  ten already-existing list-all Service methods across nine other
+  modules (Administration, Academic, HR & Payroll, Library, Transport,
+  Fees) — no new query method was added to any other module to support
+  it. Role-scoped dashboards, the custom report builder, trend
+  analytics, and Excel/PDF export (FR-40/41/42, BR-RPT-001/002/003/004)
+  are explicitly out of scope — no Excel/PDF library exists in this
+  codebase, no field-level authorization config entity exists, and
+  building genuine cross-module aggregates (fee collection totals,
+  school-wide attendance percentages) would need new methods added to
+  five already-shipped modules' Services speculatively, which ADR-010 §8
+  refuses for the same reason ADR-009 §13 already refused a unilateral
+  Fees change from Transport's side.
+- Migrations: `circulars`, `notification_logs` — both applied.
+- Verification: 10 new PHPUnit tests (146 total) — Circular create/
+  retract/re-retract-rejected/list-by-audience, `NotificationLog`
+  create/dispatch/deliver, BR-COM-004's mark-failed-with-reason, and the
+  headline integration tests proving the two closed seams for real: a
+  timetable revision logs a `Queued` notification to the assigned
+  teacher, marking a student `ABSENT` logs one to their primary guardian
+  (resolved through a real `StudentGuardianLink` fixture, not asserted
+  against a stub), and marking `PRESENT` logs nothing. Also manually
+  smoke-tested end-to-end against the real dev server: reports summary →
+  circular create/retract → notification log create → BR-COM-004's
+  reason-required validation → mark failed, all verified over real HTTP.
 
-Each follows the same design-then-implement pattern Academic/Admission/
-SIS/Examination/Timetable/Attendance/Fees/HR & Payroll/Library/Transport
-now demonstrate nine times over — those modules' design sets are the
-template, not just prior work to reference. Keep checking Appendix-G's
-actual FK graph before assuming a module's dependency ordering — Stage
-6b's own assumption was wrong; Stage 6c's and 6e's were confirmed
-correct only by actually checking, not by extrapolating from the
-pattern.
+Every module Appendix-G's Data Dictionary defines is now designed and
+implemented. Stage 6 is complete.
 
 ## Ongoing, every stage
 
@@ -600,12 +634,33 @@ pattern.
 
 ## Immediate next action
 
-Stages 0 through 6e are done (2026-08-07) — Academic, Admission, SIS
-(with Confirm Enrollment), Examination (ADR-005), Timetable/Attendance
-(ADR-006), Fees (ADR-007), HR & Payroll (ADR-008), and Library/Transport
-(ADR-009) are all real, working, tested code (136 passing tests). Next:
-**Stage 6f** — Communication or Reports, in either order (see the Stage
-6f section above for the seams each closes). Run each through the same
-Requirement → Design → Approval sequence the last five modules went
-through (ADR-005/006/007/008/009 as templates), and check Appendix-G's
-actual FK graph for the entity before assuming its dependency ordering.
+Stages 0 through 6f are done (2026-08-07) — every module in Appendix-G's
+Data Dictionary (Academic, Admission, SIS with Confirm Enrollment,
+Examination/ADR-005, Timetable/Attendance/ADR-006, Fees/ADR-007,
+HR & Payroll/ADR-008, Library/Transport/ADR-009, Communication/Reports/
+ADR-010) is real, working, tested code (146 passing tests). Stage 6 —
+"implement every remaining undesigned module" — is complete. Remaining
+work is entirely follow-up/deepening, not new-module design:
+
+- The `Configuration` entity (Administration) — collects the ~15
+  decided-default candidates ADR-005/006/008/009 have been accumulating
+  (anomaly thresholds, leave allocations, fine rates, weekly-load
+  ceilings, etc.) into one real, editable settings store.
+- A real SMS/Email/Push gateway integration once a vendor is chosen
+  (ADR-010 §1/§2/§5) — unblocks BR-COM-002/003 and live delivery for the
+  two notification seams Stage 6f closed only the logging half of.
+- A genuine Reports dashboard pass, once real requirements are scoped —
+  adding aggregate query methods to the *owning* source modules (ADR-010
+  §8), not retrofitting them speculatively.
+- The joint Fees/Transport route-based fee-tier seam (ADR-007 §3,
+  ADR-009 §13) and the Fees-side `PromotionRecord.fee_closure_confirmed`
+  seam (ADR-005 §3, misattributed to HR & Payroll in this roadmap until
+  Stage 6d's correction).
+- BR-TT-004/FR-16 Substitution (Timetable), now unblocked by
+  `StaffAttendanceRecord` existing (ADR-008 §11) but not yet built.
+- A `Document`/PDF-generation module for report cards, payslips, and
+  rendered exports — named as a gap by Examination (ADR-005 §9),
+  HR & Payroll (ADR-008 §10), and Reports (ADR-010 §8) alike.
+
+None of these block anything else — check with the project owner on
+priority before starting any of them.

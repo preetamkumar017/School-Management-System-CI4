@@ -49,8 +49,8 @@ was resolved), not by allowing both directions to depend on each other.
 | Library | `App\Modules\Library` | Book (`ENT-LIB-001`), BookIssue (`ENT-LIB-002`) | Designed — see `docs/design/library/` | ADR-009 |
 | Transport | `App\Modules\Transport` | Route (`ENT-TRN-001`), Vehicle (`ENT-TRN-002`), TransportAllocation (`ENT-TRN-003`) | Designed — see `docs/design/transport/` | ADR-009 |
 | HR & Payroll | `App\Modules\HrPayroll` | Employee (`ENT-HR-001`), Department (`ENT-HR-002`), Designation (`ENT-HR-003`), PayrollRun (`ENT-HR-004`), LeaveRequest (`ENT-HR-005`) | Designed — see `docs/design/hr-payroll/` | ADR-008 |
-| Communication | `App\Modules\Communication` | Circular (`ENT-COM-001`), NotificationLog (`ENT-COM-002`) | Not yet designed | — |
-| Reports | `App\Modules\Reports` | None (read-only; aggregates across other modules' Service classes, never their Models directly) | Not yet designed | — |
+| Communication | `App\Modules\Communication` | Circular (`ENT-COM-001`), NotificationLog (`ENT-COM-002`) | Designed — see `docs/design/communication/` | ADR-010 |
+| Reports | `App\Modules\Reports` | None (read-only; aggregates across other modules' Service classes, never their Models directly) | Designed — see `docs/design/reports/` | ADR-010 |
 
 13 modules total: 11 original business modules (Admission, SIS, Attendance,
 Timetable, Examination, Fees, Library, Transport, HR & Payroll, Communication,

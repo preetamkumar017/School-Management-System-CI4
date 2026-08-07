@@ -115,8 +115,9 @@ class Filters extends BaseFilters
         // login/refresh are the only unauthenticated API routes; every
         // other auth/* route and everything under administration/*,
         // academic/*, admission/*, sis/*, examination/*, timetable/*,
-        // attendance/*, fees/*, hr-payroll/*, library/*, and transport/*
-        // requires a valid access token (Company Development Standard §9).
+        // attendance/*, fees/*, hr-payroll/*, library/*, transport/*,
+        // communication/*, and reports/* requires a valid access token
+        // (Company Development Standard §9).
         'jwtauth' => ['before' => [
             'api/v1/administration/*',
             'api/v1/academic/*',
@@ -129,6 +130,8 @@ class Filters extends BaseFilters
             'api/v1/hr-payroll/*',
             'api/v1/library/*',
             'api/v1/transport/*',
+            'api/v1/communication/*',
+            'api/v1/reports/*',
             'api/v1/auth/logout',
             'api/v1/auth/logout-all',
             'api/v1/auth/change-password',

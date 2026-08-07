@@ -15,6 +15,8 @@ use App\Modules\Attendance\DTOs\AttendanceRecordResponse;
 use App\Modules\Attendance\DTOs\CreateAttendanceRecordRequest;
 use App\Modules\Attendance\Entities\AttendanceRecord;
 use App\Modules\Attendance\Models\AttendanceRecordModel;
+use App\Modules\Communication\DTOs\CreateNotificationLogRequest;
+use App\Modules\Communication\Entities\NotificationLog;
 use CodeIgniter\I18n\Time;
 use Config\Services as AppServices;
 
@@ -67,7 +69,45 @@ class AttendanceService
 
         $this->auditService->record('AttendanceRecord', $id, AuditLog::ACTION_CREATE, null, $record->toRawArray());
 
+        if ($request->state === AttendanceRecord::STATE_ABSENT) {
+            $this->notifyGuardianOfAbsence($request->studentId);
+        }
+
         return new AttendanceRecordResponse($record);
+    }
+
+    /**
+     * BR-ATT-004 absence notification — logging half only, no live
+     * dispatch (ADR-006 §9, closed by ADR-010 §3). Silently skipped if
+     * the student has no linked guardian — this must never block
+     * attendance marking itself.
+     */
+    private function notifyGuardianOfAbsence(int $studentId): void
+    {
+        $links = AppServices::studentGuardianLinkService()->listGuardiansForStudent($studentId);
+
+        if ($links === []) {
+            return;
+        }
+
+        $primary = null;
+
+        foreach ($links as $link) {
+            if ($link->isPrimaryContact) {
+                $primary = $link;
+
+                break;
+            }
+        }
+
+        $guardianId = ($primary ?? $links[0])->guardianId;
+
+        AppServices::notificationLogService()->create(new CreateNotificationLogRequest(
+            NotificationLog::RECIPIENT_GUARDIAN,
+            $guardianId,
+            NotificationLog::CHANNEL_SMS,
+            'BR-ATT-004 absence alert',
+        ));
     }
 
     public function lockAttendance(int $id): AttendanceRecordResponse

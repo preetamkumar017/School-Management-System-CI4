@@ -239,3 +239,23 @@ $routes->group('api/v1/transport', ['namespace' => 'App\Modules\Transport\Contro
     $routes->get('allocations/(:num)', 'TransportAllocationController::show/$1');
     $routes->get('allocations', 'TransportAllocationController::index');
 });
+
+// docs/design/communication/Phase-3-Service-Controller-Design.md
+$routes->group('api/v1/communication', ['namespace' => 'App\Modules\Communication\Controllers'], static function (RouteCollection $routes): void {
+    $routes->post('circulars', 'CircularController::create');
+    $routes->post('circulars/(:num)/retract', 'CircularController::retract/$1');
+    $routes->get('circulars/(:num)', 'CircularController::show/$1');
+    $routes->get('circulars', 'CircularController::index');
+
+    $routes->post('notification-logs', 'NotificationLogController::create');
+    $routes->post('notification-logs/(:num)/dispatch', 'NotificationLogController::dispatch/$1');
+    $routes->post('notification-logs/(:num)/deliver', 'NotificationLogController::deliver/$1');
+    $routes->post('notification-logs/(:num)/fail', 'NotificationLogController::fail/$1');
+    $routes->get('notification-logs/(:num)', 'NotificationLogController::show/$1');
+    $routes->get('notification-logs', 'NotificationLogController::index');
+});
+
+// docs/design/reports/Phase-1-Service-Controller-Design.md
+$routes->group('api/v1/reports', ['namespace' => 'App\Modules\Reports\Controllers'], static function (RouteCollection $routes): void {
+    $routes->get('summary', 'ReportsController::summary');
+});

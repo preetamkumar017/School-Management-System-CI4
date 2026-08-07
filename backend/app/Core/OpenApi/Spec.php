@@ -985,6 +985,82 @@ use OpenApi\Attributes as OA;
     ],
     type: 'object',
 )]
+#[OA\Schema(
+    schema: 'CircularCreateRequest',
+    required: ['author_id', 'post_type', 'title', 'body', 'target_audience'],
+    properties: [
+        new OA\Property(property: 'author_id', type: 'integer'),
+        new OA\Property(property: 'post_type', type: 'string', enum: ['Homework', 'Circular', 'Announcement']),
+        new OA\Property(property: 'title', type: 'string'),
+        new OA\Property(property: 'body', type: 'string'),
+        new OA\Property(property: 'target_audience', type: 'string', example: 'Class 6-A'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'CircularResponse',
+    properties: [
+        new OA\Property(property: 'circular_id', type: 'integer'),
+        new OA\Property(property: 'author_id', type: 'integer'),
+        new OA\Property(property: 'post_type', type: 'string', enum: ['Homework', 'Circular', 'Announcement']),
+        new OA\Property(property: 'title', type: 'string'),
+        new OA\Property(property: 'body', type: 'string'),
+        new OA\Property(property: 'target_audience', type: 'string'),
+        new OA\Property(property: 'posted_at', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'status', type: 'string', enum: ['Posted', 'Retracted']),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'NotificationLogCreateRequest',
+    required: ['recipient_type', 'recipient_ref_id', 'channel', 'trigger_event'],
+    properties: [
+        new OA\Property(property: 'recipient_type', type: 'string', enum: ['Guardian', 'Employee', 'User']),
+        new OA\Property(property: 'recipient_ref_id', type: 'integer'),
+        new OA\Property(property: 'channel', type: 'string', enum: ['SMS', 'Email', 'Push']),
+        new OA\Property(property: 'trigger_event', type: 'string', example: 'BR-ATT-004 absence'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'NotificationLogFailRequest',
+    required: ['failure_reason'],
+    properties: [new OA\Property(property: 'failure_reason', type: 'string')],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'NotificationLogResponse',
+    properties: [
+        new OA\Property(property: 'notification_log_id', type: 'integer'),
+        new OA\Property(property: 'recipient_type', type: 'string', enum: ['Guardian', 'Employee', 'User']),
+        new OA\Property(property: 'recipient_ref_id', type: 'integer'),
+        new OA\Property(property: 'channel', type: 'string', enum: ['SMS', 'Email', 'Push']),
+        new OA\Property(property: 'trigger_event', type: 'string'),
+        new OA\Property(property: 'status', type: 'string', enum: ['Queued', 'Dispatched', 'Delivered', 'Failed']),
+        new OA\Property(property: 'dispatched_at', type: 'string', format: 'date-time', nullable: true),
+        new OA\Property(property: 'failure_reason', type: 'string', nullable: true),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'SummaryResponse',
+    description: 'Composed entirely from other modules\' already-existing list-all Service methods (ADR-010 §7).',
+    properties: [
+        new OA\Property(property: 'generated_at', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'total_users', type: 'integer'),
+        new OA\Property(property: 'total_classes', type: 'integer'),
+        new OA\Property(property: 'total_academic_sessions', type: 'integer'),
+        new OA\Property(property: 'total_departments', type: 'integer'),
+        new OA\Property(property: 'total_designations', type: 'integer'),
+        new OA\Property(property: 'total_employees', type: 'integer'),
+        new OA\Property(property: 'total_books', type: 'integer'),
+        new OA\Property(property: 'books_available', type: 'integer'),
+        new OA\Property(property: 'total_vehicles', type: 'integer'),
+        new OA\Property(property: 'total_routes', type: 'integer'),
+        new OA\Property(property: 'total_fee_heads', type: 'integer'),
+    ],
+    type: 'object',
+)]
 final class Spec
 {
     // No instances — attributes only.

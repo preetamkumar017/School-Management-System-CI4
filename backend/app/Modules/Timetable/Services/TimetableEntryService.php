@@ -7,6 +7,8 @@ namespace App\Modules\Timetable\Services;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Modules\Administration\Entities\AuditLog;
 use App\Modules\Administration\Services\AuditService;
+use App\Modules\Communication\DTOs\CreateNotificationLogRequest;
+use App\Modules\Communication\Entities\NotificationLog;
 use App\Modules\Timetable\DTOs\CreateTimetableEntryRequest;
 use App\Modules\Timetable\DTOs\TimetableEntryResponse;
 use App\Modules\Timetable\Entities\TimetableEntry;
@@ -109,6 +111,15 @@ class TimetableEntryService
         $after = $this->timetableEntryModel->find($id);
 
         $this->auditService->record('TimetableEntry', $id, AuditLog::ACTION_UPDATE, $before->toRawArray(), $after->toRawArray());
+
+        // BR-TT-005 revision notification — logging half only, no live
+        // dispatch (ADR-006 §6, closed by ADR-010 §3).
+        AppServices::notificationLogService()->create(new CreateNotificationLogRequest(
+            NotificationLog::RECIPIENT_EMPLOYEE,
+            $request->employeeId,
+            NotificationLog::CHANNEL_EMAIL,
+            'BR-TT-005 timetable revision',
+        ));
 
         return new TimetableEntryResponse($after);
     }
