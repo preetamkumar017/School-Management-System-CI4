@@ -119,7 +119,11 @@ new gap specific to Fees; it is the codebase's existing, consistent
 posture on granular RBAC, restated here rather than silently carried
 forward unstated. `PaymentService::voidPayment`/`refundPayment` exist and
 work for any authenticated caller, same as every other mutating endpoint
-in this codebase today.
+in this codebase today. **Since resolved, 2026-08-07: ADR-018 enforced
+this specific rule via `PaymentService::PERMISSION_VOID_REFUND`, reusing
+ADR-015's permission-string pattern — every other Appendix-E-named
+restriction across other modules remains unenforced, unchanged by that
+ADR.**
 
 ### 9. `Payment` void/refund does not reopen or re-lock `Invoice`
 

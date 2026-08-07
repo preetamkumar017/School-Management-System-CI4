@@ -957,6 +957,29 @@ row can hold.
   expiry-and-promotion, not a late fulfil of an already-lapsed
   notification, is the only write that ever takes effect.
 
+## Stage 14 — BR-FEE-002: Finance-Team-only void/refund — second RBAC enforcement — DONE (2026-08-07)
+
+Reference: `docs/ADR/ADR-018-fees-void-refund-rbac-enforcement.md`.
+Reuses ADR-015's permission-string pattern a second time — the same
+shape of gap (a named Appendix-E role restriction, unenforced) applied
+to a different, already-identified rule, not a broader sweep.
+
+- New `PaymentService::PERMISSION_VOID_REFUND` (`'fees.payment.void_refund'`).
+  `voidPayment()`/`refundPayment()` (both route through the shared
+  private `changeStatus()`) now throw `AuthorizationException`
+  (`VOID_REFUND_NOT_PERMITTED`, 403) when the caller's JWT-decoded
+  `permission_set` lacks it.
+- Deliberately narrow, same restraint as ADR-015 §3: every other
+  Appendix-E-named role restriction across every other module (Academic
+  Head approvals, Teacher-only creates, etc., per ADR-007 §8's own
+  original survey) remains unenforced. A systematic RBAC sweep across
+  the whole codebase is a separate, larger, explicitly-scoped future
+  effort, not something to start piecemeal under cover of a two-rule
+  fix.
+- Existing void test updated to grant the new permission explicitly; two
+  new tests: a refund success case with the permission, a void
+  rejection case without it. 188 passing tests total (2 new).
+
 ## Ongoing, every stage
 
 - Git: feature branches (Company Development Standard §6), PR review before
@@ -975,14 +998,14 @@ row can hold.
 
 ## Immediate next action
 
-Stages 0 through 13 are done (2026-08-07) — every module in Appendix-G's
+Stages 0 through 14 are done (2026-08-07) — every module in Appendix-G's
 Data Dictionary is real, working, tested code, plus a real
 `Configuration` entity, a real `Document`/PDF-generation capability,
 Timetable Substitution (BR-TT-004/FR-16), the Fees/Transport/
-Examination cross-module seams, BR-HR-004's RBAC enforcement,
-Admission's seat-hold expiry/waitlist ranking (BR-ADM-007/BR-ADM-008),
-and the Library reservation queue (BR-LIB-006) closed (186 passing
-tests). Remaining work is follow-up/deepening, not new-module design:
+Examination cross-module seams, the Admission seat-hold/waitlist and
+Library reservation-queue entities, and two RBAC enforcements
+(BR-HR-004, BR-FEE-002) closed (188 passing tests). Remaining work is
+follow-up/deepening, not new-module design:
 
 - A real SMS/Email/Push gateway integration once a vendor is chosen
   (ADR-010 §1/§2/§5) — unblocks BR-COM-002/003 and live delivery for the

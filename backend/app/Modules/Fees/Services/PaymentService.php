@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Modules\Fees\Services;
 
+use App\Core\Exceptions\AuthorizationException;
 use App\Core\Exceptions\BusinessRuleException;
+use App\Core\Http\RequestContext;
 use App\Modules\Administration\Entities\AuditLog;
 use App\Modules\Administration\Services\AuditService;
 use App\Modules\Fees\DTOs\PaymentResponse;
@@ -18,11 +20,17 @@ use CodeIgniter\I18n\Time;
 
 /**
  * docs/design/fees/Phase-3-Service-Controller-Design.md
- * BR-FEE-002 (Finance-Team-only refund/void) is not enforced (ADR-007
- * §8) — matches this codebase's existing, consistent RBAC posture.
+ * BR-FEE-002 (Finance-Team-only refund/void) — enforcement wired ADR-018,
+ * reusing the ADR-015 permission-string pattern. See PERMISSION_VOID_REFUND.
  */
 class PaymentService
 {
+    /**
+     * BR-FEE-002 (ADR-018): only a caller whose JWT permission_set
+     * carries this string may void or refund a payment.
+     */
+    public const PERMISSION_VOID_REFUND = 'fees.payment.void_refund';
+
     public function __construct(
         private readonly PaymentModel $paymentModel,
         private readonly InvoiceModel $invoiceModel,
@@ -102,6 +110,13 @@ class PaymentService
 
     private function changeStatus(int $id, string $status, VoidRefundRequest $request): PaymentResponse
     {
+        if (! in_array(self::PERMISSION_VOID_REFUND, RequestContext::permissionSet(), true)) {
+            throw new AuthorizationException(
+                'VOID_REFUND_NOT_PERMITTED',
+                'Only a caller with Finance Team void/refund authority may void or refund a payment (BR-FEE-002).',
+            );
+        }
+
         $before = $this->requirePayment($id);
 
         if ($before->status !== Payment::STATUS_SUCCESS) {
