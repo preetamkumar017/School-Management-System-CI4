@@ -893,6 +893,70 @@ policy/list rather than a `Configuration`-shaped scalar (BR-ADM-008).
   the release, not a double-allocation, is the only write that ever takes
   effect.
 
+## Stage 13 — BR-LIB-006: Library reservation queue — DONE (2026-08-07)
+
+Reference: `docs/ADR/ADR-017-library-reservation-queue.md`. Closes the
+one Appendix-C item ADR-009 §7 declined to build because no
+`Reservation` entity existed anywhere in Appendix-G's Library
+catalogue — the same "no approved entity, don't invent one" gap ADR-013
+(BR-TT-004) and ADR-016 (BR-ADM-007/008) already crossed for the same
+reason: the Business Rule's own Trigger/Precondition/Post-condition
+fields describe structured, stateful behavior no scalar `Configuration`
+row can hold.
+
+- **A new `Reservation` entity**, reusing `BookIssue`'s polymorphic
+  `borrower_type`/`borrower_ref_id` shape exactly (`Student` or
+  `Employee`) rather than inventing a second shape for the same concept.
+  Five-value `status` enum: `Waiting`/`Notified`/`Fulfilled`/`Expired`/
+  `Cancelled`.
+- **FIFO by `requested_at` ascending**, scoped to `book_id` — no
+  priority-category field invented, the same "no approved data to rank
+  on beyond timestamp" reasoning ADR-016 §3 used for BR-ADM-008.
+- **Response window: `library.reservation_response_window_hours` = 48
+  hours (2 days)**, a new `Configuration` key — deliberately shorter
+  than Admission's 72-hour seat hold, since collecting a reserved book
+  (a low-friction, on-campus action) is nowhere near as involved as
+  arranging an admission fee payment.
+- **Two explicit-trigger `ReservationService` methods, no scheduler**:
+  `notifyNextInQueue()` (called from `BookIssueService::returnBook()`
+  — the "book returned" trigger) and `processExpiredNotifications()`
+  (a Librarian-callable action — the window-expiry trigger, new
+  endpoint `POST /library/reservations/process-expired-notifications`).
+- **BR-LIB-006's post-condition given real teeth**: `BookIssueService::
+  issueBook()` now locks any `Notified` reservation for the target book
+  (`ReservationModel::lockNotifiedForBook()`, the same `SELECT ... FOR
+  UPDATE` row-lock shape `SeatAllocationModel::incrementSeatsFilled`/
+  `ApplicationModel::lockForUpdate` already established) and rejects
+  (`BOOK_RESERVED_FOR_ANOTHER_BORROWER`) an issue attempt by anyone but
+  the notified holder — general issue is genuinely blocked in favor of
+  the reservation queue, not just logged.
+- **A small, real Communication-module gap closed along the way**:
+  `NotificationLog.recipient_type` (ADR-010's approved shape) never had
+  a `Student` value — no prior call site needed to notify a Student
+  directly. Widened additively (`Student` added to the existing ENUM,
+  new `NotificationLog::RECIPIENT_STUDENT`,
+  `NotificationLogService::validateRecipient()` extended) since a
+  reservation holder is very often a Student.
+- New migrations: `2026-08-07-230001_CreateReservationsTable.php`,
+  `2026-08-07-230002_AddLibraryReservationResponseWindowConfigKey.php`,
+  `2026-08-07-230003_AddStudentToNotificationLogsRecipientType.php`.
+- Verification: 9 new PHPUnit tests (186 total) — a reservation created
+  while a book is unavailable (and rejected while available), the
+  longest-waiting holder notified first on return (asserting the actual
+  promoted `reservation_id`, not just "someone"), a notified reservation
+  blocking issue to a different borrower, the notified holder's issue
+  fulfilling their own reservation, FIFO order across three queued
+  reservations advancing one at a time (proven via cancel-while-Notified
+  promoting the next holder immediately), the window-expiry trigger
+  advancing the queue and creating a real `NotificationLog` row (asserted
+  by count, matching Stage 6f/Stage 9's precedent), the same trigger
+  being safe to run twice, and a genuine two-connection concurrency test
+  (`ReservationConcurrencyTest`, matching Stage 12's
+  `SeatHoldConcurrencyTest` precedent) proving the row lock actually
+  blocks a concurrent `issueBook()`-style lock attempt and that the
+  expiry-and-promotion, not a late fulfil of an already-lapsed
+  notification, is the only write that ever takes effect.
+
 ## Ongoing, every stage
 
 - Git: feature branches (Company Development Standard §6), PR review before
@@ -911,18 +975,19 @@ policy/list rather than a `Configuration`-shaped scalar (BR-ADM-008).
 
 ## Immediate next action
 
-Stages 0 through 12 are done (2026-08-07) — every module in Appendix-G's
+Stages 0 through 13 are done (2026-08-07) — every module in Appendix-G's
 Data Dictionary is real, working, tested code, plus a real
 `Configuration` entity, a real `Document`/PDF-generation capability,
 Timetable Substitution (BR-TT-004/FR-16), the Fees/Transport/
-Examination cross-module seams, BR-HR-004's RBAC enforcement, and
-Admission's seat-hold expiry/waitlist ranking (BR-ADM-007/BR-ADM-008)
-closed (177 passing tests). Remaining work is follow-up/deepening, not
-new-module design:
+Examination cross-module seams, BR-HR-004's RBAC enforcement,
+Admission's seat-hold expiry/waitlist ranking (BR-ADM-007/BR-ADM-008),
+and the Library reservation queue (BR-LIB-006) closed (186 passing
+tests). Remaining work is follow-up/deepening, not new-module design:
 
 - A real SMS/Email/Push gateway integration once a vendor is chosen
   (ADR-010 §1/§2/§5) — unblocks BR-COM-002/003 and live delivery for the
-  two notification seams Stage 6f closed only the logging half of.
+  three notification seams Stage 6f/Stage 13 closed only the logging
+  half of.
 - A genuine Reports dashboard pass, once real requirements are scoped —
   adding aggregate query methods to the *owning* source modules (ADR-010
   §8), not retrofitting them speculatively. Can now reuse Stage 8's
@@ -930,13 +995,14 @@ new-module design:
 - FR-09 ID Card/Certificate generation (SIS) — needs a real branding
   template and student-photo capability, explicitly deferred by
   ADR-012 §4.
-- The remaining eleven Appendix-C §3.5 configurable items ADR-011 §5
+- The remaining ten Appendix-C §3.5 configurable items ADR-011 §5
   explicitly did not migrate (BR-TT-004's own entry resolved for real by
-  ADR-013, and BR-ADM-007/BR-ADM-008's entry resolved for real by
-  ADR-016 — see ADR-011's corrected note, neither by a `Configuration`
-  row) — each needs its underlying feature built first (a real entity,
-  workflow, or integration: GPS ingestion, driver/vehicle/trip entities,
-  GST line-items, RTE waived-fee-head list, PF/ESI/PT slabs, etc.), not
+  ADR-013, BR-ADM-007/BR-ADM-008's entry resolved for real by ADR-016,
+  and BR-LIB-006's entry resolved for real by ADR-017 — see ADR-011's
+  corrected note, none by a `Configuration` row) — each needs its
+  underlying feature built first (a real entity, workflow, or
+  integration: GPS ingestion, driver/vehicle/trip entities, GST
+  line-items, RTE waived-fee-head list, PF/ESI/PT slabs, etc.), not
   just a `Configuration` row with nothing to plug into yet. None of
   these are small — every one is a real feature build, not a config
   tweak.

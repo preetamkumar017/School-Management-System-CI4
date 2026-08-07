@@ -940,6 +940,31 @@ use OpenApi\Attributes as OA;
     type: 'object',
 )]
 #[OA\Schema(
+    schema: 'ReservationCreateRequest',
+    description: 'docs/ADR/ADR-017-library-reservation-queue.md — BR-LIB-006.',
+    required: ['book_id', 'borrower_type', 'borrower_ref_id'],
+    properties: [
+        new OA\Property(property: 'book_id', type: 'integer'),
+        new OA\Property(property: 'borrower_type', type: 'string', enum: ['Student', 'Employee']),
+        new OA\Property(property: 'borrower_ref_id', type: 'integer'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'ReservationResponse',
+    properties: [
+        new OA\Property(property: 'reservation_id', type: 'integer'),
+        new OA\Property(property: 'book_id', type: 'integer'),
+        new OA\Property(property: 'borrower_type', type: 'string', enum: ['Student', 'Employee']),
+        new OA\Property(property: 'borrower_ref_id', type: 'integer'),
+        new OA\Property(property: 'requested_at', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'status', type: 'string', enum: ['Waiting', 'Notified', 'Fulfilled', 'Expired', 'Cancelled']),
+        new OA\Property(property: 'notified_at', type: 'string', format: 'date-time', nullable: true),
+        new OA\Property(property: 'notification_expires_at', type: 'string', format: 'date-time', nullable: true),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
     schema: 'VehicleCreateRequest',
     required: ['registration_no', 'capacity'],
     properties: [
@@ -1068,7 +1093,7 @@ use OpenApi\Attributes as OA;
     schema: 'NotificationLogCreateRequest',
     required: ['recipient_type', 'recipient_ref_id', 'channel', 'trigger_event'],
     properties: [
-        new OA\Property(property: 'recipient_type', type: 'string', enum: ['Guardian', 'Employee', 'User']),
+        new OA\Property(property: 'recipient_type', type: 'string', enum: ['Guardian', 'Employee', 'User', 'Student']),
         new OA\Property(property: 'recipient_ref_id', type: 'integer'),
         new OA\Property(property: 'channel', type: 'string', enum: ['SMS', 'Email', 'Push']),
         new OA\Property(property: 'trigger_event', type: 'string', example: 'BR-ATT-004 absence'),
@@ -1085,7 +1110,7 @@ use OpenApi\Attributes as OA;
     schema: 'NotificationLogResponse',
     properties: [
         new OA\Property(property: 'notification_log_id', type: 'integer'),
-        new OA\Property(property: 'recipient_type', type: 'string', enum: ['Guardian', 'Employee', 'User']),
+        new OA\Property(property: 'recipient_type', type: 'string', enum: ['Guardian', 'Employee', 'User', 'Student']),
         new OA\Property(property: 'recipient_ref_id', type: 'integer'),
         new OA\Property(property: 'channel', type: 'string', enum: ['SMS', 'Email', 'Push']),
         new OA\Property(property: 'trigger_event', type: 'string'),

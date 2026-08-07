@@ -8,7 +8,9 @@ use App\Core\BaseEntity;
 
 /**
  * docs/design/communication/Phase-1-Domain-Model.md — ENT-COM-002.
- * Includes the decided additive failure_reason column (ADR-010 §2).
+ * Includes the decided additive failure_reason column (ADR-010 §2) and
+ * the additive Student recipient_type value (ADR-017 §7 — a Library
+ * reservation holder can be a Student, which no prior call site needed).
  *
  * @property int|null $notification_log_id
  * @property string   $recipient_type
@@ -24,6 +26,7 @@ class NotificationLog extends BaseEntity
     public const RECIPIENT_GUARDIAN = 'Guardian';
     public const RECIPIENT_EMPLOYEE = 'Employee';
     public const RECIPIENT_USER     = 'User';
+    public const RECIPIENT_STUDENT  = 'Student';
 
     public const CHANNEL_SMS   = 'SMS';
     public const CHANNEL_EMAIL = 'Email';

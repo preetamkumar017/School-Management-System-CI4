@@ -31,7 +31,14 @@ Not all 24 items are eligible to migrate here. Cross-checking Appendix-C
   Configuration entity" note each one's originating ADR left open.
 - **14 items were never implemented as a scalar constant at all** —
   either the surrounding feature itself is out of scope (BR-LIB-006
-  Reservation, BR-TRN-003 GPS, BR-TRN-006 driver/vehicle, BR-FEE-007 GST,
+  Reservation (**since resolved, 2026-08-07: ADR-017 built a real
+  `Reservation` entity plus `ReservationService::notifyNextInQueue()`/
+  `processExpiredNotifications()`, with only the notification response
+  window (`library.reservation_response_window_hours`) migrated into
+  `Configuration` — the FIFO ranking itself is a strict
+  `requested_at`-order rule, not a scalar, matching the reasoning this
+  ADR already gave for why a policy/list doesn't fit `Configuration`'s
+  shape**), BR-TRN-003 GPS, BR-TRN-006 driver/vehicle, BR-FEE-007 GST,
   BR-COM-002/003/005 — all named out-of-scope in ADR-006/007/009/010), or
   the "configurable item" is a policy/list/role-name rather than a
   single scalar value naturally suited to `Configuration`'s

@@ -78,6 +78,8 @@ final class ConfigurationTest extends AdministrationTestCase
         $response = $this->withHeaders($headers)->get('api/v1/administration/configurations?module=Library');
 
         $response->assertStatus(200);
-        $this->assertCount(4, $this->decode($response)['data']);
+        // 4 from ADR-011 §4 plus library.reservation_response_window_hours
+        // (ADR-017 §4).
+        $this->assertCount(5, $this->decode($response)['data']);
     }
 }

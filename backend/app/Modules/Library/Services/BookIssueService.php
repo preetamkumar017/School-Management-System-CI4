@@ -15,13 +15,16 @@ use App\Modules\Library\Entities\BookIssue;
 use App\Modules\Library\Models\BookIssueModel;
 use App\Modules\Library\Models\BookModel;
 use CodeIgniter\I18n\Time;
+use Config\Database;
 use Config\Services as AppServices;
 
 /**
  * docs/design/library/Phase-3-Service-Controller-Design.md
  * BR-LIB-002/003 fines/replacement charges are computed and stored here
  * but not posted to the Fees ledger (ADR-009 §3, §4 — no ad-hoc-charge
- * capability exists in Fees' current design).
+ * capability exists in Fees' current design). BR-LIB-006 reservation
+ * priority (ADR-017) is enforced here too — issueBook() blocks a book
+ * that's Notified to a different reservation holder.
  */
 class BookIssueService
 {
@@ -30,6 +33,7 @@ class BookIssueService
         private readonly BookModel $bookModel,
         private readonly AuditService $auditService,
         private readonly ConfigurationService $configurationService,
+        private readonly ReservationService $reservationService,
     ) {
     }
 
@@ -68,6 +72,29 @@ class BookIssueService
             );
         }
 
+        // docs/ADR/ADR-017-library-reservation-queue.md §6 — a genuine
+        // row lock, the same SELECT ... FOR UPDATE shape
+        // SeatAllocationModel::incrementSeatsFilled/ApplicationModel::
+        // lockForUpdate already established, guarding against this issue
+        // and a concurrent ReservationService::processExpiredNotifications()
+        // pass both acting on the same Notified reservation.
+        $db = Database::connect();
+        $db->transStart();
+
+        $lockedReservation = $this->reservationService->lockNotifiedReservationForBook($request->bookId);
+
+        if (
+            $lockedReservation !== null
+            && ($lockedReservation['borrower_type'] !== $request->borrowerType || (int) $lockedReservation['borrower_ref_id'] !== $request->borrowerRefId)
+        ) {
+            $db->transComplete();
+
+            throw new BusinessRuleException(
+                'BOOK_RESERVED_FOR_ANOTHER_BORROWER',
+                'This book is reserved and notified to another borrower with priority to collect it (BR-LIB-006).',
+            );
+        }
+
         $id = $this->bookIssueModel->insert([
             'book_id'         => $request->bookId,
             'borrower_type'   => $request->borrowerType,
@@ -79,9 +106,15 @@ class BookIssueService
 
         $this->bookModel->update($request->bookId, ['is_available' => false]);
 
+        if ($lockedReservation !== null) {
+            $this->reservationService->markFulfilled((int) $lockedReservation['reservation_id']);
+        }
+
         $bookIssue = $this->bookIssueModel->find($id);
 
         $this->auditService->record('BookIssue', $id, AuditLog::ACTION_CREATE, null, $bookIssue->toRawArray());
+
+        $db->transComplete();
 
         return new BookIssueResponse($bookIssue);
     }
@@ -117,6 +150,11 @@ class BookIssueService
         $after = $this->bookIssueModel->find($id);
 
         $this->auditService->record('BookIssue', $id, AuditLog::ACTION_UPDATE, $before->toRawArray(), $after->toRawArray());
+
+        // docs/ADR/ADR-017-library-reservation-queue.md §5 — BR-LIB-006's
+        // "returned" trigger: offer the book to the longest-waiting
+        // reservation holder, if any, before it's generally available.
+        $this->reservationService->notifyNextInQueue($before->book_id);
 
         return new BookIssueResponse($after);
     }

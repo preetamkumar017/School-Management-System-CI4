@@ -73,8 +73,10 @@ use App\Modules\HrPayroll\Services\LeaveRequestService;
 use App\Modules\HrPayroll\Services\PayrollRunService;
 use App\Modules\Library\Models\BookIssueModel;
 use App\Modules\Library\Models\BookModel;
+use App\Modules\Library\Models\ReservationModel;
 use App\Modules\Library\Services\BookIssueService;
 use App\Modules\Library\Services\BookService;
+use App\Modules\Library\Services\ReservationService;
 use App\Modules\Reports\Services\ReportsService;
 use App\Modules\Sis\Mappers\GuardianMapper;
 use App\Modules\Sis\Mappers\StudentGuardianLinkMapper;
@@ -507,7 +509,16 @@ class Services extends BaseService
             return static::getSharedInstance('bookIssueService');
         }
 
-        return new BookIssueService(new BookIssueModel(), new BookModel(), static::auditService(), static::configurationService());
+        return new BookIssueService(new BookIssueModel(), new BookModel(), static::auditService(), static::configurationService(), static::reservationService());
+    }
+
+    public static function reservationService(bool $getShared = true): ReservationService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('reservationService');
+        }
+
+        return new ReservationService(new ReservationModel(), new BookModel(), static::auditService(), static::configurationService(), static::notificationLogService());
     }
 
     public static function vehicleService(bool $getShared = true): VehicleService

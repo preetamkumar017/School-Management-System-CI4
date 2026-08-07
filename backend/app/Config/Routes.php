@@ -241,6 +241,13 @@ $routes->group('api/v1/library', ['namespace' => 'App\Modules\Library\Controller
     $routes->post('book-issues/(:num)/settle-fine', 'BookIssueController::settleFine/$1');
     $routes->get('book-issues/(:num)', 'BookIssueController::show/$1');
     $routes->get('book-issues', 'BookIssueController::index');
+
+    // docs/ADR/ADR-017-library-reservation-queue.md — BR-LIB-006.
+    $routes->post('reservations', 'ReservationController::create');
+    $routes->post('reservations/process-expired-notifications', 'ReservationController::processExpiredNotifications');
+    $routes->post('reservations/(:num)/cancel', 'ReservationController::cancel/$1');
+    $routes->get('reservations/(:num)', 'ReservationController::show/$1');
+    $routes->get('reservations', 'ReservationController::index');
 });
 
 // docs/design/transport/Phase-3-Service-Controller-Design.md
