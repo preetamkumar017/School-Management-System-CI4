@@ -85,6 +85,21 @@ class PayrollRunController extends BaseController
         return $this->respondSuccess(Services::payrollRunService()->process($id)->toArray());
     }
 
+    #[OA\Post(
+        path: '/hr-payroll/payroll-runs/{id}/generate-payslip',
+        tags: ['Payroll Runs'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        responses: [
+            new OA\Response(response: 201, description: 'Generated (ADR-012 §3).', content: new OA\JsonContent(ref: '#/components/schemas/DocumentResponse')),
+            new OA\Response(response: 422, description: 'PAYROLL_RUN_NOT_PROCESSED.', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+        ],
+    )]
+    public function generatePayslip(int $id)
+    {
+        return $this->respondCreated(Services::payrollRunService()->generatePayslipPdf($id)->toArray());
+    }
+
     #[OA\Get(
         path: '/hr-payroll/payroll-runs/{id}',
         tags: ['Payroll Runs'],

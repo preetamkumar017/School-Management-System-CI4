@@ -1079,6 +1079,19 @@ use OpenApi\Attributes as OA;
     ],
     type: 'object',
 )]
+#[OA\Schema(
+    schema: 'DocumentResponse',
+    properties: [
+        new OA\Property(property: 'document_id', type: 'integer'),
+        new OA\Property(property: 'owner_type', type: 'string', enum: ['Application', 'Student', 'Invoice', 'ReportCard', 'PayrollRun']),
+        new OA\Property(property: 'owner_ref_id', type: 'integer'),
+        new OA\Property(property: 'document_type', type: 'string'),
+        new OA\Property(property: 'file_path', type: 'string'),
+        new OA\Property(property: 'uploaded_by', type: 'integer'),
+        new OA\Property(property: 'uploaded_at', type: 'string', format: 'date-time'),
+    ],
+    type: 'object',
+)]
 final class Spec
 {
     // No instances — attributes only.

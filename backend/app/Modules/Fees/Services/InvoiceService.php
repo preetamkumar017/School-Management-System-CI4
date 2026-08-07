@@ -5,9 +5,13 @@ declare(strict_types=1);
 namespace App\Modules\Fees\Services;
 
 use App\Core\Exceptions\BusinessRuleException;
+use App\Core\Http\RequestContext;
+use App\Core\Pdf\PdfRenderer;
+use App\Modules\Administration\DTOs\DocumentResponse;
 use App\Modules\Administration\Entities\AuditLog;
 use App\Modules\Administration\Services\AuditService;
 use App\Modules\Administration\Services\ConfigurationService;
+use App\Modules\Administration\Services\DocumentService;
 use App\Modules\Fees\DTOs\GenerateInvoiceRequest;
 use App\Modules\Fees\DTOs\InvoiceResponse;
 use App\Modules\Fees\Entities\Invoice;
@@ -26,6 +30,8 @@ class InvoiceService
         private readonly ScholarshipWaiverModel $scholarshipWaiverModel,
         private readonly AuditService $auditService,
         private readonly ConfigurationService $configurationService,
+        private readonly DocumentService $documentService,
+        private readonly PdfRenderer $pdfRenderer,
     ) {
     }
 
@@ -137,6 +143,34 @@ class InvoiceService
     public function getInvoice(int $id): InvoiceResponse
     {
         return new InvoiceResponse($this->requireInvoice($id));
+    }
+
+    /**
+     * ADR-012 §3: doubles as the "receipt" once status is PAID/
+     * PARTIALLY_PAID — no separate receipt template (ADR-012 Context).
+     */
+    public function generateInvoicePdf(int $id): DocumentResponse
+    {
+        $invoice = $this->requireInvoice($id);
+        $student = AppServices::studentService()->getStudent($invoice->student_id);
+
+        $html = '<html><body>'
+            . '<h2>Invoice ' . htmlspecialchars($invoice->invoice_no) . '</h2>'
+            . '<p><strong>Student:</strong> ' . htmlspecialchars($student->fullName) . ' (' . htmlspecialchars($student->admissionNumber) . ')</p>'
+            . '<p><strong>Due Date:</strong> ' . htmlspecialchars((string) $invoice->due_date) . '</p>'
+            . '<p><strong>Total Amount:</strong> ' . htmlspecialchars((string) $invoice->total_amount) . '</p>'
+            . '<p><strong>Status:</strong> ' . htmlspecialchars($invoice->status) . '</p>'
+            . '</body></html>';
+
+        $pdfBytes = $this->pdfRenderer->render($html);
+
+        return $this->documentService->store(
+            'Invoice',
+            $id,
+            'Invoice',
+            $pdfBytes,
+            (int) RequestContext::userId(),
+        );
     }
 
     /**

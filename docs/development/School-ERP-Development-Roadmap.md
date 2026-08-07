@@ -663,6 +663,63 @@ other follow-up item's own ADR explicitly named as blocking it
   seeded key → list by module → update → confirm the change persisted →
   reverted back to the original seeded value.
 
+## Stage 8 — Document/PDF module — DONE (2026-08-07)
+
+Reference: `docs/design/administration/Phase-8-Document-Design.md`, per
+`docs/ADR/ADR-012-document-pdf-module-scope-decisions.md`. Closes three
+gaps three separate prior ADRs each named from a different angle:
+Examination's report-card PDF (ADR-005 §9), HR & Payroll's payslip PDF
+(ADR-008 §10), and — as a bonus, since `Document.owner_type` already
+names it in Appendix-G — Fees' invoice PDF (FR-23).
+
+- **Design pass first**: ADR-012 cross-checked all three Appendix-E
+  requirements that name document generation (FR-09 ID Card/Certificate,
+  FR-20 Report Card, FR-23 Invoice/Receipt) and took up only two of the
+  three for real — FR-20 and FR-23 render entirely from data this
+  codebase already computes; FR-09 needs a school-branded template and
+  student-photo capability that don't exist anywhere, and is itself
+  marked "Desirable, not Mandatory" in RGD v2.0, so it stays deferred.
+  `dompdf/dompdf` (pure PHP, no native extensions, Hostinger-compatible)
+  is this codebase's first PDF-rendering dependency.
+  `docs/design/School-ERP-Module-Architecture.md`'s Administration row
+  gains `Document` (`ENT-SYS-006`) as designed.
+- **`Document`** — a generic, polymorphic file-metadata entity
+  (`owner_type`: `Application`/`Student`/`Invoice`/`ReportCard`/
+  `PayrollRun` — the last one added beyond Appendix-G's literal list
+  since payslips needed an owner type too) — stores files under
+  `writable/uploads/documents/`, local disk decided over cloud (Appendix-
+  G's own "Client/Product Decision Required," resolved using this
+  project's existing writable-storage convention, no new vendor
+  account needed).
+- **Three Services each gained one PDF-generation method** —
+  `ReportCardService::generatePdf`, `PayrollRunService::
+  generatePayslipPdf` (rejects unless `status = Processed`, matching
+  BR-HR-007's immutability), `InvoiceService::generateInvoicePdf`
+  (doubles as the "receipt" once paid — no separate receipt template).
+  All three render a plain, functional HTML table through the new
+  `App\Core\Pdf\PdfRenderer` helper — no school branding asset exists to
+  include, same reasoning FR-09 stays deferred.
+- **Real bug caught during this pass**: the first draft of
+  `ReportCardService::generatePdf` called `$exam->examName`
+  (`ExamResponse`'s camelCase property) against the raw `Exam` *entity*
+  `requireExam()` actually returns (snake_case `exam_name`) — a
+  `TypeError` at generation time, caught by the feature test, not
+  shipped. Worth remembering: **a Service's own private
+  `requireX()`/`requireY()` helpers return raw Entities, not Response
+  DTOs — camelCase property access only works on the DTO, never the
+  Entity it wraps.**
+- Migration: `documents` — applied, no seed data (created only on
+  generation, per its own Lifecycle line).
+- Verification: 6 new PHPUnit tests (157 total) — report-card PDF
+  generation + download (asserting the downloaded file is a real,
+  non-empty PDF, not just a 200 status), payslip generation blocked
+  pre-`Processed` and succeeding once `Processed`, invoice PDF
+  generation, `Document` list-by-owner, and `DOCUMENT_NOT_FOUND` for a
+  missing id. Also manually smoke-tested end-to-end against the real dev
+  server: generated and downloaded a real invoice PDF (verified valid
+  PDF structure, non-trivial size) and a report card PDF against actual
+  leftover dev data.
+
 ## Ongoing, every stage
 
 - Git: feature branches (Company Development Standard §6), PR review before
@@ -681,27 +738,28 @@ other follow-up item's own ADR explicitly named as blocking it
 
 ## Immediate next action
 
-Stages 0 through 7 are done (2026-08-07) — every module in Appendix-G's
+Stages 0 through 8 are done (2026-08-07) — every module in Appendix-G's
 Data Dictionary is real, working, tested code, plus a real
-`Configuration` entity backing ten of the decided defaults those modules
-shipped with (151 passing tests). Remaining work is follow-up/deepening,
-not new-module design:
+`Configuration` entity and a real `Document`/PDF-generation capability
+(157 passing tests). Remaining work is follow-up/deepening, not
+new-module design:
 
 - A real SMS/Email/Push gateway integration once a vendor is chosen
   (ADR-010 §1/§2/§5) — unblocks BR-COM-002/003 and live delivery for the
   two notification seams Stage 6f closed only the logging half of.
 - A genuine Reports dashboard pass, once real requirements are scoped —
   adding aggregate query methods to the *owning* source modules (ADR-010
-  §8), not retrofitting them speculatively.
+  §8), not retrofitting them speculatively. Can now reuse Stage 8's
+  `dompdf`/`DocumentService` for Excel/PDF export once scoped.
 - The joint Fees/Transport route-based fee-tier seam (ADR-007 §3,
   ADR-009 §13) and the Fees-side `PromotionRecord.fee_closure_confirmed`
   seam (ADR-005 §3, misattributed to HR & Payroll in this roadmap until
   Stage 6d's correction).
 - BR-TT-004/FR-16 Substitution (Timetable), now unblocked by
   `StaffAttendanceRecord` existing (ADR-008 §11) but not yet built.
-- A `Document`/PDF-generation module for report cards, payslips, and
-  rendered exports — named as a gap by Examination (ADR-005 §9),
-  HR & Payroll (ADR-008 §10), and Reports (ADR-010 §8) alike.
+- FR-09 ID Card/Certificate generation (SIS) — needs a real branding
+  template and student-photo capability, explicitly deferred by
+  ADR-012 §4.
 - The fourteen Appendix-C §3.5 configurable items ADR-011 §5 explicitly
   did not migrate — each needs its underlying feature built first (a
   real entity, workflow, or integration), not just a `Configuration` row

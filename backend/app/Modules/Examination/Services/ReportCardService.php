@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace App\Modules\Examination\Services;
 
 use App\Core\Exceptions\BusinessRuleException;
+use App\Core\Http\RequestContext;
+use App\Core\Pdf\PdfRenderer;
+use App\Modules\Administration\DTOs\DocumentResponse;
 use App\Modules\Administration\Entities\AuditLog;
 use App\Modules\Administration\Services\AuditService;
+use App\Modules\Administration\Services\DocumentService;
 use App\Modules\Examination\DTOs\ReportCardResponse;
 use App\Modules\Examination\Entities\Exam;
 use App\Modules\Examination\Entities\ReportCard;
@@ -27,12 +31,52 @@ class ReportCardService
         private readonly ReportCardModel $reportCardModel,
         private readonly ExamModel $examModel,
         private readonly AuditService $auditService,
+        private readonly DocumentService $documentService,
+        private readonly PdfRenderer $pdfRenderer,
     ) {
     }
 
     public function getReportCard(int $id): ReportCardResponse
     {
         return new ReportCardResponse($this->requireReportCard($id));
+    }
+
+    /**
+     * ADR-012 §3: renders a plain, functional PDF from the same fields
+     * ReportCardResponse already exposes — no school branding asset
+     * exists to include (same reasoning FR-09 is deferred, ADR-012 §4).
+     */
+    public function generatePdf(int $id): DocumentResponse
+    {
+        $reportCard = $this->requireReportCard($id);
+        $exam       = $this->requireExam($reportCard->exam_id);
+        $student    = AppServices::studentService()->getStudent($reportCard->student_id);
+
+        $rows = '';
+
+        foreach ($reportCard->grade_summary as $subject => $grade) {
+            $rows .= '<tr><td>' . htmlspecialchars((string) $subject) . '</td><td>' . htmlspecialchars((string) $grade) . '</td></tr>';
+        }
+
+        $html = '<html><body>'
+            . '<h2>Report Card</h2>'
+            . '<p><strong>Student:</strong> ' . htmlspecialchars($student->fullName) . ' (' . htmlspecialchars($student->admissionNumber) . ')</p>'
+            . '<p><strong>Exam:</strong> ' . htmlspecialchars($exam->exam_name) . '</p>'
+            . '<table border="1" cellpadding="4" cellspacing="0" style="border-collapse: collapse; width: 100%;">'
+            . '<thead><tr><th>Subject</th><th>Grade</th></tr></thead><tbody>' . $rows . '</tbody></table>'
+            . '<p><strong>GPA:</strong> ' . htmlspecialchars((string) $reportCard->gpa) . '</p>'
+            . '<p><strong>Class Rank:</strong> ' . htmlspecialchars((string) ($reportCard->class_rank ?? 'N/A')) . '</p>'
+            . '</body></html>';
+
+        $pdfBytes = $this->pdfRenderer->render($html);
+
+        return $this->documentService->store(
+            'ReportCard',
+            $id,
+            'Report Card',
+            $pdfBytes,
+            (int) RequestContext::userId(),
+        );
     }
 
     /**

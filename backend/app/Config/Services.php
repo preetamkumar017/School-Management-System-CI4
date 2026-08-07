@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Config;
 
 use App\Core\Auth\JwtManager;
+use App\Core\Pdf\PdfRenderer;
 use App\Modules\Academic\Models\AcademicSessionModel;
 use App\Modules\Academic\Models\ClassModel;
 use App\Modules\Academic\Models\ClassSubjectMapModel;
@@ -23,12 +24,14 @@ use App\Modules\Admission\Services\ApplicationService;
 use App\Modules\Admission\Services\SeatAllocationService;
 use App\Modules\Administration\Models\AuditLogModel;
 use App\Modules\Administration\Models\ConfigurationModel;
+use App\Modules\Administration\Models\DocumentModel;
 use App\Modules\Administration\Models\RefreshTokenModel;
 use App\Modules\Administration\Models\RoleModel;
 use App\Modules\Administration\Models\UserModel;
 use App\Modules\Administration\Services\AuditService;
 use App\Modules\Administration\Services\AuthService;
 use App\Modules\Administration\Services\ConfigurationService;
+use App\Modules\Administration\Services\DocumentService;
 use App\Modules\Administration\Services\RoleService;
 use App\Modules\Administration\Services\UserService;
 use App\Modules\Attendance\Models\AttendanceRecordModel;
@@ -125,6 +128,24 @@ class Services extends BaseService
         }
 
         return new ConfigurationService(new ConfigurationModel(), static::auditService());
+    }
+
+    public static function documentService(bool $getShared = true): DocumentService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('documentService');
+        }
+
+        return new DocumentService(new DocumentModel(), static::auditService());
+    }
+
+    public static function pdfRenderer(bool $getShared = true): PdfRenderer
+    {
+        if ($getShared) {
+            return static::getSharedInstance('pdfRenderer');
+        }
+
+        return new PdfRenderer();
     }
 
     public static function authService(bool $getShared = true): AuthService
@@ -309,7 +330,7 @@ class Services extends BaseService
             return static::getSharedInstance('reportCardService');
         }
 
-        return new ReportCardService(new ReportCardModel(), new ExamModel(), static::auditService());
+        return new ReportCardService(new ReportCardModel(), new ExamModel(), static::auditService(), static::documentService(), static::pdfRenderer());
     }
 
     public static function promotionService(bool $getShared = true): PromotionService
@@ -372,7 +393,7 @@ class Services extends BaseService
             return static::getSharedInstance('invoiceService');
         }
 
-        return new InvoiceService(new InvoiceModel(), new ScholarshipWaiverModel(), static::auditService(), static::configurationService());
+        return new InvoiceService(new InvoiceModel(), new ScholarshipWaiverModel(), static::auditService(), static::configurationService(), static::documentService(), static::pdfRenderer());
     }
 
     public static function paymentService(bool $getShared = true): PaymentService
@@ -432,7 +453,7 @@ class Services extends BaseService
             return static::getSharedInstance('payrollRunService');
         }
 
-        return new PayrollRunService(new PayrollRunModel(), new EmployeeModel(), new AttendanceClosureModel(), static::auditService());
+        return new PayrollRunService(new PayrollRunModel(), new EmployeeModel(), new AttendanceClosureModel(), static::auditService(), static::documentService(), static::pdfRenderer());
     }
 
     public static function leaveRequestService(bool $getShared = true): LeaveRequestService

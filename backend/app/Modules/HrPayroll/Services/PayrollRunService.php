@@ -5,8 +5,12 @@ declare(strict_types=1);
 namespace App\Modules\HrPayroll\Services;
 
 use App\Core\Exceptions\BusinessRuleException;
+use App\Core\Http\RequestContext;
+use App\Core\Pdf\PdfRenderer;
+use App\Modules\Administration\DTOs\DocumentResponse;
 use App\Modules\Administration\Entities\AuditLog;
 use App\Modules\Administration\Services\AuditService;
+use App\Modules\Administration\Services\DocumentService;
 use App\Modules\HrPayroll\DTOs\CreatePayrollRunRequest;
 use App\Modules\HrPayroll\DTOs\PayrollRunResponse;
 use App\Modules\HrPayroll\Entities\PayrollRun;
@@ -24,6 +28,8 @@ class PayrollRunService
         private readonly EmployeeModel $employeeModel,
         private readonly AttendanceClosureModel $attendanceClosureModel,
         private readonly AuditService $auditService,
+        private readonly DocumentService $documentService,
+        private readonly PdfRenderer $pdfRenderer,
     ) {
     }
 
@@ -121,6 +127,51 @@ class PayrollRunService
     public function getPayrollRun(int $id): PayrollRunResponse
     {
         return new PayrollRunResponse($this->requirePayrollRun($id));
+    }
+
+    /**
+     * ADR-012 §3: only once Processed (BR-HR-007 — a payslip is only
+     * generated once issued). Plain, functional template, no branding
+     * asset (ADR-012 §3, same reasoning as ReportCardService).
+     */
+    public function generatePayslipPdf(int $id): DocumentResponse
+    {
+        $payrollRun = $this->requirePayrollRun($id);
+
+        if ($payrollRun->status !== PayrollRun::STATUS_PROCESSED) {
+            throw new BusinessRuleException(
+                'PAYROLL_RUN_NOT_PROCESSED',
+                'A payslip can only be generated once the payroll run is Processed (BR-HR-007).',
+            );
+        }
+
+        $employee = $this->employeeModel->find((int) $payrollRun->employee_id);
+
+        $rows = '';
+
+        foreach ($payrollRun->deductions_json as $label => $amount) {
+            $rows .= '<tr><td>' . htmlspecialchars((string) $label) . '</td><td>' . htmlspecialchars((string) $amount) . '</td></tr>';
+        }
+
+        $html = '<html><body>'
+            . '<h2>Payslip</h2>'
+            . '<p><strong>Employee:</strong> ' . htmlspecialchars($employee->full_name) . ' (' . htmlspecialchars($employee->employee_code) . ')</p>'
+            . '<p><strong>Pay Period:</strong> ' . htmlspecialchars($payrollRun->pay_period) . '</p>'
+            . '<p><strong>Gross Pay:</strong> ' . htmlspecialchars((string) $payrollRun->gross_pay) . '</p>'
+            . '<table border="1" cellpadding="4" cellspacing="0" style="border-collapse: collapse; width: 100%;">'
+            . '<thead><tr><th>Deduction</th><th>Amount</th></tr></thead><tbody>' . $rows . '</tbody></table>'
+            . '<p><strong>Net Pay:</strong> ' . htmlspecialchars((string) $payrollRun->net_pay) . '</p>'
+            . '</body></html>';
+
+        $pdfBytes = $this->pdfRenderer->render($html);
+
+        return $this->documentService->store(
+            'PayrollRun',
+            $id,
+            'Payslip',
+            $pdfBytes,
+            (int) RequestContext::userId(),
+        );
     }
 
     /**

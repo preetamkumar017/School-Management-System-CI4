@@ -91,6 +91,18 @@ class InvoiceController extends BaseController
         return $this->respondSuccess($response->toArray());
     }
 
+    #[OA\Post(
+        path: '/fees/invoices/{id}/generate-pdf',
+        tags: ['Invoices'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        responses: [new OA\Response(response: 201, description: 'Generated (ADR-012 §3).', content: new OA\JsonContent(ref: '#/components/schemas/DocumentResponse'))],
+    )]
+    public function generatePdf(int $id)
+    {
+        return $this->respondCreated(Services::invoiceService()->generateInvoicePdf($id)->toArray());
+    }
+
     #[OA\Get(
         path: '/fees/invoices/{id}',
         tags: ['Invoices'],

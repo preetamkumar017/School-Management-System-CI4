@@ -34,6 +34,11 @@ $routes->group('api/v1/administration', ['namespace' => 'App\Modules\Administrat
     $routes->patch('configurations/(:segment)', 'ConfigurationController::update/$1');
     $routes->get('configurations/(:segment)', 'ConfigurationController::show/$1');
     $routes->get('configurations', 'ConfigurationController::index');
+
+    // docs/design/administration/Phase-8-Document-Design.md
+    $routes->get('documents/(:num)/download', 'DocumentController::download/$1');
+    $routes->get('documents/(:num)', 'DocumentController::show/$1');
+    $routes->get('documents', 'DocumentController::index');
 });
 
 // docs/design/academic/Phase-5-Controller-Design.md
@@ -121,6 +126,7 @@ $routes->group('api/v1/examination', ['namespace' => 'App\Modules\Examination\Co
     $routes->get('marks-records', 'MarksRecordController::index');
 
     $routes->post('report-cards/publish', 'ReportCardController::publish');
+    $routes->post('report-cards/(:num)/generate-pdf', 'ReportCardController::generatePdf/$1');
     $routes->get('report-cards/(:num)', 'ReportCardController::show/$1');
     $routes->get('report-cards', 'ReportCardController::index');
 
@@ -169,6 +175,7 @@ $routes->group('api/v1/fees', ['namespace' => 'App\Modules\Fees\Controllers'], s
     $routes->post('invoices', 'InvoiceController::create');
     $routes->post('invoices/(:num)/apply-late-fee', 'InvoiceController::applyLateFee/$1');
     $routes->post('invoices/(:num)/flag-defaulter', 'InvoiceController::flagDefaulter/$1');
+    $routes->post('invoices/(:num)/generate-pdf', 'InvoiceController::generatePdf/$1');
     $routes->get('invoices/(:num)', 'InvoiceController::show/$1');
     $routes->get('invoices', 'InvoiceController::index');
 
@@ -203,6 +210,7 @@ $routes->group('api/v1/hr-payroll', ['namespace' => 'App\Modules\HrPayroll\Contr
     $routes->post('payroll-runs', 'PayrollRunController::create');
     $routes->post('payroll-runs/(:num)/approve', 'PayrollRunController::approve/$1');
     $routes->post('payroll-runs/(:num)/process', 'PayrollRunController::process/$1');
+    $routes->post('payroll-runs/(:num)/generate-payslip', 'PayrollRunController::generatePayslip/$1');
     $routes->get('payroll-runs/(:num)', 'PayrollRunController::show/$1');
     $routes->get('payroll-runs', 'PayrollRunController::index');
 
