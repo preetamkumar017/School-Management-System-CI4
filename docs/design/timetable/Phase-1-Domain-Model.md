@@ -61,5 +61,8 @@ reasoning as Academic's `Class`).
   (ADR-006 §4).
 - BR-TT-004 / FR-16 Substitution management — no `Substitution` entity
   exists, depends on staff-absence data not modeled this pass (ADR-006 §3).
+  **Superseded 2026-08-07**: `StaffAttendanceRecord` now exists
+  (ADR-008 §11) — Substitution is designed and implemented per ADR-013
+  and `docs/design/timetable/Phase-4-Substitution-Design.md`.
 - Revision notification dispatch (BR-TT-005's Communication-module
   post-condition) — Communication is undesigned (ADR-006 §6).

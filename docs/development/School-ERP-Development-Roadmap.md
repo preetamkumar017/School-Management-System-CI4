@@ -720,6 +720,56 @@ names it in Appendix-G — Fees' invoice PDF (FR-23).
   PDF structure, non-trivial size) and a report card PDF against actual
   leftover dev data.
 
+## Stage 9 — Timetable Substitution (BR-TT-004/FR-16) — DONE (2026-08-07)
+
+Reference: `docs/design/timetable/Phase-4-Substitution-Design.md`, per
+`docs/ADR/ADR-013-timetable-substitution-scope-decisions.md`. Closes the
+follow-up ADR-008 §11 flagged when `StaffAttendanceRecord` shipped.
+
+- **Design pass first**: ADR-013 resolved the one genuinely open product
+  decision — Appendix-E's flagged "no fallback policy defined if no
+  eligible substitute exists." Decided: always create a `Substitution`
+  row, `status = UNSUPERVISED` with `substitute_employee_id = NULL` when
+  no candidate is available, never reject the request outright (FR-16's
+  own alt flow already names this outcome). An explicitly-supplied but
+  genuinely ineligible/unavailable substitute is still a hard reject —
+  that is caller error, not the undefined-fallback case.
+- **`SubjectTeacherEligibility`** — net-new entity (no Appendix-G card
+  names it), a minimal `employee_id`/`subject_id` pair, admin-managed
+  via create + list-by-subject only, no update/delete (ADR-009 §13
+  precedent against speculative CRUD).
+- **`Substitution`** — one row per `timetable_entry_id` +
+  `substitution_date`. Applies "for that date only" — creating one never
+  touches `timetable_entries` (no `UPDATE`, no `version_no` bump),
+  keeping it structurally separate from BR-TT-005's `reviseEntry()`.
+- **`StaffAttendanceService::wasAbsentOn()`** — new method, the
+  one-way Timetable → Attendance call gating substitution creation
+  (`Unauthorized`/`On Leave` that date, or `TEACHER_NOT_ABSENT`).
+- **Notification**: reuses `NotificationLogService::create()` exactly as
+  BR-TT-005 already does — log-only, no live dispatch (ADR-010 §3).
+  `NotificationLogService` validates `recipient_ref_id` against a real
+  entity, and Timetable has no guardian-enumeration dependency to
+  produce a real `Guardian` id for a section's students (a first-draft
+  section-level log against `recipient_type = Guardian` failed exactly
+  this validation in testing) — logs against the real Employee on the
+  other side of the transaction instead (substitute if `ASSIGNED`,
+  absent teacher if `UNSUPERVISED`).
+- New endpoints (base `/api/v1/timetable`): `POST`/`GET
+  subject-teacher-eligibilities`, `POST substitutions`, `GET
+  substitutions/{id}`, `GET entries/{id}/eligible-substitutes`.
+- Migrations: `subject_teacher_eligibilities`, `substitutions` — applied.
+- Verification: 6 new PHPUnit tests (163 total) — eligible-substitute
+  auto-assignment (asserting the actual computed substitute id, not just
+  status), explicit-substitute assignment, the UNSUPERVISED fallback
+  when no candidate exists, rejection when the absent teacher's
+  `StaffAttendanceRecord` doesn't actually show them absent that date,
+  rejection of an explicitly-supplied ineligible substitute, and the
+  eligible-substitutes review endpoint. Also asserts the originating
+  `TimetableEntry` row is untouched (`version_no` still 1,
+  `employee_id` unchanged) after a substitution is created — the
+  date-scoped/not-version-bumped distinction ADR-013 §3 makes
+  structural.
+
 ## Ongoing, every stage
 
 - Git: feature branches (Company Development Standard §6), PR review before
@@ -738,11 +788,11 @@ names it in Appendix-G — Fees' invoice PDF (FR-23).
 
 ## Immediate next action
 
-Stages 0 through 8 are done (2026-08-07) — every module in Appendix-G's
+Stages 0 through 9 are done (2026-08-07) — every module in Appendix-G's
 Data Dictionary is real, working, tested code, plus a real
-`Configuration` entity and a real `Document`/PDF-generation capability
-(157 passing tests). Remaining work is follow-up/deepening, not
-new-module design:
+`Configuration` entity, a real `Document`/PDF-generation capability, and
+Timetable Substitution (BR-TT-004/FR-16) (163 passing tests). Remaining
+work is follow-up/deepening, not new-module design:
 
 - A real SMS/Email/Push gateway integration once a vendor is chosen
   (ADR-010 §1/§2/§5) — unblocks BR-COM-002/003 and live delivery for the
@@ -755,8 +805,6 @@ new-module design:
   ADR-009 §13) and the Fees-side `PromotionRecord.fee_closure_confirmed`
   seam (ADR-005 §3, misattributed to HR & Payroll in this roadmap until
   Stage 6d's correction).
-- BR-TT-004/FR-16 Substitution (Timetable), now unblocked by
-  `StaffAttendanceRecord` existing (ADR-008 §11) but not yet built.
 - FR-09 ID Card/Certificate generation (SIS) — needs a real branding
   template and student-photo capability, explicitly deferred by
   ADR-012 §4.

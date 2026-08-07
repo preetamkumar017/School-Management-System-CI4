@@ -33,6 +33,13 @@ class StaffAttendanceRecordModel extends BaseModel
             ->countAllResults() > 0;
     }
 
+    public function findByEmployeeDate(int $employeeId, string $attendanceDate): ?StaffAttendanceRecord
+    {
+        return $this->where('employee_id', $employeeId)
+            ->where('attendance_date', $attendanceDate)
+            ->first();
+    }
+
     /**
      * @return list<StaffAttendanceRecord>
      */

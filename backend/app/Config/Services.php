@@ -85,7 +85,11 @@ use App\Modules\Sis\Models\StudentModel;
 use App\Modules\Sis\Services\GuardianService;
 use App\Modules\Sis\Services\StudentGuardianLinkService;
 use App\Modules\Sis\Services\StudentService;
+use App\Modules\Timetable\Models\SubjectTeacherEligibilityModel;
+use App\Modules\Timetable\Models\SubstitutionModel;
 use App\Modules\Timetable\Models\TimetableEntryModel;
+use App\Modules\Timetable\Services\SubjectTeacherEligibilityService;
+use App\Modules\Timetable\Services\SubstitutionService;
 use App\Modules\Timetable\Services\TimetableEntryService;
 use App\Modules\Transport\Models\RouteModel;
 use App\Modules\Transport\Models\TransportAllocationModel;
@@ -349,6 +353,29 @@ class Services extends BaseService
         }
 
         return new TimetableEntryService(new TimetableEntryModel(), static::auditService(), static::configurationService());
+    }
+
+    public static function subjectTeacherEligibilityService(bool $getShared = true): SubjectTeacherEligibilityService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('subjectTeacherEligibilityService');
+        }
+
+        return new SubjectTeacherEligibilityService(new SubjectTeacherEligibilityModel(), static::auditService());
+    }
+
+    public static function substitutionService(bool $getShared = true): SubstitutionService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('substitutionService');
+        }
+
+        return new SubstitutionService(
+            new SubstitutionModel(),
+            new TimetableEntryModel(),
+            new SubjectTeacherEligibilityModel(),
+            static::auditService(),
+        );
     }
 
     public static function attendanceService(bool $getShared = true): AttendanceService

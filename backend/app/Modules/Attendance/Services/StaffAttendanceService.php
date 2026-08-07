@@ -114,6 +114,24 @@ class StaffAttendanceService
     }
 
     /**
+     * BR-TT-004/FR-16 (Timetable Substitution, ADR-013 §4): the absence
+     * signal that gates whether a substitution may even be created for
+     * a given employee/date — true only for a recorded Unauthorized or
+     * On Leave StaffAttendanceRecord that date, false for Present or no
+     * record at all.
+     */
+    public function wasAbsentOn(int $employeeId, string $date): bool
+    {
+        $record = $this->staffAttendanceRecordModel->findByEmployeeDate($employeeId, $date);
+
+        if ($record === null) {
+            return false;
+        }
+
+        return in_array($record->state, [StaffAttendanceRecord::STATE_UNAUTHORIZED, StaffAttendanceRecord::STATE_ON_LEAVE], true);
+    }
+
+    /**
      * @return list<StaffAttendanceRecordResponse>
      */
     public function listByEmployeeBetween(int $employeeId, string $fromDate, string $toDate): array

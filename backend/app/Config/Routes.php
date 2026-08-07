@@ -142,6 +142,13 @@ $routes->group('api/v1/timetable', ['namespace' => 'App\Modules\Timetable\Contro
     $routes->post('entries/(:num)/revise', 'TimetableEntryController::revise/$1');
     $routes->get('entries/(:num)', 'TimetableEntryController::show/$1');
     $routes->get('entries', 'TimetableEntryController::index');
+    $routes->get('entries/(:num)/eligible-substitutes', 'SubstitutionController::eligibleSubstitutes/$1');
+
+    $routes->post('subject-teacher-eligibilities', 'SubjectTeacherEligibilityController::create');
+    $routes->get('subject-teacher-eligibilities', 'SubjectTeacherEligibilityController::index');
+
+    $routes->post('substitutions', 'SubstitutionController::create');
+    $routes->get('substitutions/(:num)', 'SubstitutionController::show/$1');
 });
 
 // docs/design/attendance/Phase-3-Service-Controller-Design.md

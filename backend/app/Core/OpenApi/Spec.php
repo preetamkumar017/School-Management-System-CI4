@@ -504,6 +504,47 @@ use OpenApi\Attributes as OA;
     type: 'object',
 )]
 #[OA\Schema(
+    schema: 'SubjectTeacherEligibilityRequest',
+    required: ['employee_id', 'subject_id'],
+    properties: [
+        new OA\Property(property: 'employee_id', type: 'integer'),
+        new OA\Property(property: 'subject_id', type: 'integer'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'SubjectTeacherEligibilityResponse',
+    properties: [
+        new OA\Property(property: 'subject_teacher_eligibility_id', type: 'integer'),
+        new OA\Property(property: 'employee_id', type: 'integer'),
+        new OA\Property(property: 'subject_id', type: 'integer'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'SubstitutionRequest',
+    description: 'substitute_employee_id is optional — omit it to let the system auto-pick the first eligible/available substitute; ADR-013 §1 falls back to UNSUPERVISED if none exists.',
+    required: ['timetable_entry_id', 'substitution_date'],
+    properties: [
+        new OA\Property(property: 'timetable_entry_id', type: 'integer'),
+        new OA\Property(property: 'substitution_date', type: 'string', format: 'date'),
+        new OA\Property(property: 'substitute_employee_id', type: 'integer', nullable: true),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'SubstitutionResponse',
+    properties: [
+        new OA\Property(property: 'substitution_id', type: 'integer'),
+        new OA\Property(property: 'timetable_entry_id', type: 'integer'),
+        new OA\Property(property: 'absent_employee_id', type: 'integer'),
+        new OA\Property(property: 'substitute_employee_id', type: 'integer', nullable: true),
+        new OA\Property(property: 'substitution_date', type: 'string', format: 'date'),
+        new OA\Property(property: 'status', type: 'string', enum: ['ASSIGNED', 'UNSUPERVISED']),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
     schema: 'AttendanceRecordCreateRequest',
     required: ['student_id', 'timetable_entry_id', 'attendance_date', 'state'],
     properties: [
