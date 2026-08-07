@@ -8,13 +8,15 @@ use App\Core\BaseEntity;
 
 /**
  * docs/design/transport/Phase-1-Domain-Model.md — ENT-TRN-001. Includes
- * the decided additive vehicle_id column (ADR-009 §8).
+ * the decided additive vehicle_id column (ADR-009 §8) and driver_id
+ * column (ADR-019 §3).
  *
  * @property int|null       $route_id
  * @property string         $route_name
  * @property array<int,string> $stops_json
  * @property int            $capacity
  * @property int|null       $vehicle_id
+ * @property int|null       $driver_id
  */
 class Route extends BaseEntity
 {
@@ -28,6 +30,7 @@ class Route extends BaseEntity
             'stops_json' => 'json-array',
             'capacity'   => 'integer',
             'vehicle_id' => '?integer',
+            'driver_id'  => '?integer',
         ]);
 
         parent::__construct($data);

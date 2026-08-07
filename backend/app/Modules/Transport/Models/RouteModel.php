@@ -22,6 +22,7 @@ class RouteModel extends BaseModel
         'stops_json',
         'capacity',
         'vehicle_id',
+        'driver_id',
         'created_by',
         'updated_by',
     ];
@@ -67,7 +68,7 @@ class RouteModel extends BaseModel
     public function findForUpdate(int $routeId): ?Route
     {
         $row = $this->db->query(
-            'SELECT route_id, route_name, stops_json, capacity, vehicle_id FROM routes WHERE route_id = ? FOR UPDATE',
+            'SELECT route_id, route_name, stops_json, capacity, vehicle_id, driver_id FROM routes WHERE route_id = ? FOR UPDATE',
             [$routeId],
         )->getRowArray();
 

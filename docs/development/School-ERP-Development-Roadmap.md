@@ -980,6 +980,41 @@ to a different, already-identified rule, not a broader sweep.
   new tests: a refund success case with the permission, a void
   rejection case without it. 188 passing tests total (2 new).
 
+## Stage 15 — BR-TRN-006: Transport Driver/Vehicle Assignment Validity — DONE (2026-08-07)
+
+Reference: `docs/ADR/ADR-019-transport-driver-trip-validity.md`. Closes
+the last named Transport follow-up seam ADR-009 §14 left open — the
+`Driver`/`Trip` entities that ADR then declined to invent are now
+designed and built.
+
+- New `Driver` entity (`drivers`: `full_name`, `license_number`,
+  `license_valid_until`, `status`) and `Trip` entity (`trips`:
+  `route_id`/`driver_id`/`vehicle_id`/`started_at`/`status`), both
+  Transport module surface with the same CRUD/audit conventions as
+  `Vehicle`.
+- Additive `Route.driver_id` FK, mirroring `Route.vehicle_id`'s existing
+  shape exactly (ADR-009 §8) — BR-TRN-006's own Statement locates the
+  assignment on the Route, not on a Trip.
+- `TripService::startTrip(int $routeId)` is the enforcement point: the
+  Route must have both a driver and a vehicle assigned, the driver must
+  be `Active` with a currently valid license, and the vehicle must have
+  a currently valid license, or the call is rejected with one of six
+  distinct error codes (`DRIVER_NOT_ASSIGNED_TO_ROUTE`,
+  `VEHICLE_NOT_ASSIGNED_TO_ROUTE`, `DRIVER_INACTIVE`,
+  `DRIVER_LICENSE_MISSING`/`DRIVER_LICENSE_EXPIRED`,
+  `VEHICLE_LICENSE_MISSING`/`VEHICLE_LICENSE_EXPIRED`) identifying the
+  specific missing/expired credential, per the BR's own Exception
+  Handling field. Only then is the `Trip` row inserted, logging the
+  start.
+- The external licensing-data-source integration named in BR-TRN-006's
+  own Precondition remains explicitly out of scope (ADR-019 §4) — no
+  vendor chosen, same restraint already applied to the SMS/Email/Push
+  gateway (ADR-010) and GPS device ingestion (ADR-009 §11).
+- Nine new tests (`RouteTest` gains driver-assignment coverage;
+  `TripTest` covers the success path and every rejection path, proving
+  the driver-vs-vehicle error codes are genuinely distinct). 197 passing
+  tests total (9 new).
+
 ## Ongoing, every stage
 
 - Git: feature branches (Company Development Standard §6), PR review before
@@ -998,15 +1033,26 @@ to a different, already-identified rule, not a broader sweep.
 
 ## Immediate next action
 
-Stages 0 through 14 are done (2026-08-07) — every module in Appendix-G's
+Stages 0 through 15 are done (2026-08-07) — every module in Appendix-G's
 Data Dictionary is real, working, tested code, plus a real
 `Configuration` entity, a real `Document`/PDF-generation capability,
 Timetable Substitution (BR-TT-004/FR-16), the Fees/Transport/
 Examination cross-module seams, the Admission seat-hold/waitlist and
-Library reservation-queue entities, and two RBAC enforcements
-(BR-HR-004, BR-FEE-002) closed (188 passing tests). Remaining work is
-follow-up/deepening, not new-module design:
+Library reservation-queue entities, two RBAC enforcements (BR-HR-004,
+BR-FEE-002), and Transport's Driver/Trip validity (BR-TRN-006) closed
+(197 passing tests). Remaining work is follow-up/deepening, not
+new-module design:
 
+- **Stage 15 (2026-08-07, ADR-019)**: BR-TRN-006 (Driver/Vehicle
+  Assignment Validity) — real `Driver`/`Trip` entities, an additive
+  `Route.driver_id` FK mirroring `Route.vehicle_id`, and
+  `TripService::startTrip()` gating trip-start on the assigned driver's/
+  vehicle's stored license validity, rejecting with one of six distinct
+  error codes identifying the specific missing/expired credential. The
+  external licensing-data-source integration named in BR-TRN-006's own
+  Precondition remains explicitly out of scope (ADR-019 §4) — no vendor
+  chosen, matching this project's restraint on unchosen external
+  integrations.
 - A real SMS/Email/Push gateway integration once a vendor is chosen
   (ADR-010 §1/§2/§5) — unblocks BR-COM-002/003 and live delivery for the
   three notification seams Stage 6f/Stage 13 closed only the logging
@@ -1018,17 +1064,16 @@ follow-up/deepening, not new-module design:
 - FR-09 ID Card/Certificate generation (SIS) — needs a real branding
   template and student-photo capability, explicitly deferred by
   ADR-012 §4.
-- The remaining ten Appendix-C §3.5 configurable items ADR-011 §5
+- The remaining nine Appendix-C §3.5 configurable items ADR-011 §5
   explicitly did not migrate (BR-TT-004's own entry resolved for real by
   ADR-013, BR-ADM-007/BR-ADM-008's entry resolved for real by ADR-016,
-  and BR-LIB-006's entry resolved for real by ADR-017 — see ADR-011's
-  corrected note, none by a `Configuration` row) — each needs its
-  underlying feature built first (a real entity, workflow, or
-  integration: GPS ingestion, driver/vehicle/trip entities, GST
-  line-items, RTE waived-fee-head list, PF/ESI/PT slabs, etc.), not
-  just a `Configuration` row with nothing to plug into yet. None of
-  these are small — every one is a real feature build, not a config
-  tweak.
+  BR-LIB-006's entry resolved for real by ADR-017, and BR-TRN-006's entry
+  resolved for real by ADR-019 — see ADR-011's corrected note, none by a
+  `Configuration` row) — each needs its underlying feature built first (a
+  real entity, workflow, or integration: GPS ingestion, GST line-items,
+  RTE waived-fee-head list, PF/ESI/PT slabs, etc.), not just a
+  `Configuration` row with nothing to plug into yet. None of these are
+  small — every one is a real feature build, not a config tweak.
 
 None of these block anything else — check with the project owner on
 priority before starting any of them.

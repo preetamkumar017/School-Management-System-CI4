@@ -179,6 +179,16 @@ Appendix-G, but no trip-start workflow exists to gate against it. Not
 implemented — a future design pass scoping `Driver`/`Trip` entities is
 the prerequisite, not something to invent here.
 
+**Since resolved, 2026-08-07**: ADR-019 built real `Driver`/`Trip`
+entities plus `TripService::startTrip()`, gating trip-start on the
+Route's own assigned driver's/vehicle's stored license validity
+(`license_valid_until >= today`), with six distinct error codes
+identifying the specific missing/expired credential. The external
+licensing-data-source integration named in BR-TRN-006's own
+Precondition remains explicitly out of scope (ADR-019 §4) — self-
+reported/stored data only, same restraint this ADR already applied to
+GPS live-tracking (§11).
+
 ## Consequences
 
 - `docs/design/School-ERP-Module-Architecture.md`'s Library and

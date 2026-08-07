@@ -33,13 +33,13 @@ class RouteController extends BaseController
         $body = $this->request->getJSON(true) ?? [];
 
         $routeName = (string) ($body['route_name'] ?? '');
-        [$stopsJson, $capacity, $vehicleId] = $this->validateFields($body);
+        [$stopsJson, $capacity, $vehicleId, $driverId] = $this->validateFields($body);
 
         if ($routeName === '' || strlen($routeName) > 50) {
             throw new ValidationException(['route_name' => 'route_name is required and must be at most 50 characters.']);
         }
 
-        $response = Services::routeService()->createRoute(new CreateRouteRequest($routeName, $stopsJson, $capacity, $vehicleId));
+        $response = Services::routeService()->createRoute(new CreateRouteRequest($routeName, $stopsJson, $capacity, $vehicleId, $driverId));
 
         return $this->respondCreated($response->toArray());
     }
@@ -56,9 +56,9 @@ class RouteController extends BaseController
     {
         $body = $this->request->getJSON(true) ?? [];
 
-        [$stopsJson, $capacity, $vehicleId] = $this->validateFields($body);
+        [$stopsJson, $capacity, $vehicleId, $driverId] = $this->validateFields($body);
 
-        $response = Services::routeService()->updateRoute($id, new UpdateRouteRequest($stopsJson, $capacity, $vehicleId));
+        $response = Services::routeService()->updateRoute($id, new UpdateRouteRequest($stopsJson, $capacity, $vehicleId, $driverId));
 
         return $this->respondSuccess($response->toArray());
     }
@@ -97,13 +97,14 @@ class RouteController extends BaseController
     /**
      * @param array<string, mixed> $body
      *
-     * @return array{0: list<string>, 1: int, 2: ?int}
+     * @return array{0: list<string>, 1: int, 2: ?int, 3: ?int}
      */
     private function validateFields(array $body): array
     {
         $stopsJson = is_array($body['stops_json'] ?? null) ? array_values($body['stops_json']) : [];
         $capacity  = (int) ($body['capacity'] ?? 0);
         $vehicleId = isset($body['vehicle_id']) ? (int) $body['vehicle_id'] : null;
+        $driverId  = isset($body['driver_id']) ? (int) $body['driver_id'] : null;
 
         $fields = [];
 
@@ -119,6 +120,6 @@ class RouteController extends BaseController
             throw new ValidationException($fields);
         }
 
-        return [$stopsJson, $capacity, $vehicleId];
+        return [$stopsJson, $capacity, $vehicleId, $driverId];
     }
 }

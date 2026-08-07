@@ -83,3 +83,8 @@ Active → De-allocated/Changed → Archived.
   ADR-007 §3 from the Fees side too, not closed here).
 - BR-TRN-006 Driver/vehicle trip-start validity (ADR-009 §14 — no
   `Driver`/`Trip` entity in Appendix-G).
+  **Superseded 2026-08-07**: `Driver` and `Trip` are designed and
+  implemented per ADR-019 and
+  `docs/design/transport/Phase-4-Driver-Trip-Design.md`. The external
+  licensing-data-source integration named in BR-TRN-006's own
+  Precondition remains out of scope (ADR-019 §4).

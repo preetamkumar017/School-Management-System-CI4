@@ -13,6 +13,7 @@ final class UpdateRouteRequest
         public readonly array $stopsJson,
         public readonly int $capacity,
         public readonly ?int $vehicleId,
+        public readonly ?int $driverId = null,
     ) {
     }
 }

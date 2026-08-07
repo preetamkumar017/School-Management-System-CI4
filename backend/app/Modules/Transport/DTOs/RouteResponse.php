@@ -18,6 +18,7 @@ final class RouteResponse
     public readonly array $stopsJson;
     public readonly int $capacity;
     public readonly ?int $vehicleId;
+    public readonly ?int $driverId;
 
     public function __construct(Route $route)
     {
@@ -26,6 +27,7 @@ final class RouteResponse
         $this->stopsJson = $route->stops_json;
         $this->capacity  = $route->capacity;
         $this->vehicleId = $route->vehicle_id;
+        $this->driverId  = $route->driver_id;
     }
 
     /**
@@ -39,6 +41,7 @@ final class RouteResponse
             'stops_json' => $this->stopsJson,
             'capacity'   => $this->capacity,
             'vehicle_id' => $this->vehicleId,
+            'driver_id'  => $this->driverId,
         ];
     }
 }

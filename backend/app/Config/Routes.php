@@ -267,6 +267,16 @@ $routes->group('api/v1/transport', ['namespace' => 'App\Modules\Transport\Contro
     $routes->post('allocations/(:num)/change-route', 'TransportAllocationController::changeRoute/$1');
     $routes->get('allocations/(:num)', 'TransportAllocationController::show/$1');
     $routes->get('allocations', 'TransportAllocationController::index');
+
+    // docs/ADR/ADR-019-transport-driver-trip-validity.md — BR-TRN-006.
+    $routes->post('drivers', 'DriverController::create');
+    $routes->patch('drivers/(:num)', 'DriverController::update/$1');
+    $routes->get('drivers/(:num)', 'DriverController::show/$1');
+    $routes->get('drivers', 'DriverController::index');
+
+    $routes->post('trips/start', 'TripController::start');
+    $routes->get('trips/(:num)', 'TripController::show/$1');
+    $routes->get('trips', 'TripController::index');
 });
 
 // docs/design/communication/Phase-3-Service-Controller-Design.md

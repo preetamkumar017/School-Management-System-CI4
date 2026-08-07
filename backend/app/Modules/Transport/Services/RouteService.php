@@ -11,6 +11,7 @@ use App\Modules\Transport\DTOs\CreateRouteRequest;
 use App\Modules\Transport\DTOs\RouteResponse;
 use App\Modules\Transport\DTOs\UpdateRouteRequest;
 use App\Modules\Transport\Entities\Route;
+use App\Modules\Transport\Models\DriverModel;
 use App\Modules\Transport\Models\RouteModel;
 use App\Modules\Transport\Models\VehicleModel;
 
@@ -23,6 +24,7 @@ class RouteService
         private readonly RouteModel $routeModel,
         private readonly VehicleModel $vehicleModel,
         private readonly AuditService $auditService,
+        private readonly DriverModel $driverModel,
     ) {
     }
 
@@ -33,12 +35,14 @@ class RouteService
         }
 
         $this->assertCapacityWithinVehicle($request->capacity, $request->vehicleId);
+        $this->assertDriverExists($request->driverId);
 
         $id = $this->routeModel->insert([
             'route_name' => $request->routeName,
             'stops_json' => $request->stopsJson,
             'capacity'   => $request->capacity,
             'vehicle_id' => $request->vehicleId,
+            'driver_id'  => $request->driverId,
         ], true);
 
         $route = $this->routeModel->find($id);
@@ -53,11 +57,13 @@ class RouteService
         $before = $this->requireRoute($id);
 
         $this->assertCapacityWithinVehicle($request->capacity, $request->vehicleId);
+        $this->assertDriverExists($request->driverId);
 
         $this->routeModel->update($id, [
             'stops_json' => $request->stopsJson,
             'capacity'   => $request->capacity,
             'vehicle_id' => $request->vehicleId,
+            'driver_id'  => $request->driverId,
         ]);
 
         $after = $this->routeModel->find($id);
@@ -104,6 +110,22 @@ class RouteService
                 'ROUTE_CAPACITY_EXCEEDS_VEHICLE',
                 'Route capacity cannot exceed the assigned vehicle\'s seating capacity (BR-TRN-001).',
             );
+        }
+    }
+
+    /**
+     * ADR-019 §3: assigning a driver_id that doesn't exist is rejected at
+     * assignment time, not silently accepted and only discovered later at
+     * trip-start.
+     */
+    private function assertDriverExists(?int $driverId): void
+    {
+        if ($driverId === null) {
+            return;
+        }
+
+        if ($this->driverModel->find($driverId) === null) {
+            throw new BusinessRuleException('DRIVER_NOT_FOUND', 'Driver not found.');
         }
     }
 

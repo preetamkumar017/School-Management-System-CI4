@@ -93,11 +93,15 @@ use App\Modules\Timetable\Models\TimetableEntryModel;
 use App\Modules\Timetable\Services\SubjectTeacherEligibilityService;
 use App\Modules\Timetable\Services\SubstitutionService;
 use App\Modules\Timetable\Services\TimetableEntryService;
+use App\Modules\Transport\Models\DriverModel;
 use App\Modules\Transport\Models\RouteModel;
 use App\Modules\Transport\Models\TransportAllocationModel;
+use App\Modules\Transport\Models\TripModel;
 use App\Modules\Transport\Models\VehicleModel;
+use App\Modules\Transport\Services\DriverService;
 use App\Modules\Transport\Services\RouteService;
 use App\Modules\Transport\Services\TransportAllocationService;
+use App\Modules\Transport\Services\TripService;
 use App\Modules\Transport\Services\VehicleService;
 use CodeIgniter\Config\BaseService;
 
@@ -536,7 +540,7 @@ class Services extends BaseService
             return static::getSharedInstance('routeService');
         }
 
-        return new RouteService(new RouteModel(), new VehicleModel(), static::auditService());
+        return new RouteService(new RouteModel(), new VehicleModel(), static::auditService(), new DriverModel());
     }
 
     public static function transportAllocationService(bool $getShared = true): TransportAllocationService
@@ -546,6 +550,24 @@ class Services extends BaseService
         }
 
         return new TransportAllocationService(new TransportAllocationModel(), new RouteModel(), static::auditService());
+    }
+
+    public static function driverService(bool $getShared = true): DriverService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('driverService');
+        }
+
+        return new DriverService(new DriverModel(), static::auditService());
+    }
+
+    public static function tripService(bool $getShared = true): TripService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('tripService');
+        }
+
+        return new TripService(new TripModel(), new RouteModel(), new DriverModel(), new VehicleModel(), static::auditService());
     }
 
     public static function circularService(bool $getShared = true): CircularService

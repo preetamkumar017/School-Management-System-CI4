@@ -38,7 +38,13 @@ Not all 24 items are eligible to migrate here. Cross-checking Appendix-C
   `Configuration` — the FIFO ranking itself is a strict
   `requested_at`-order rule, not a scalar, matching the reasoning this
   ADR already gave for why a policy/list doesn't fit `Configuration`'s
-  shape**), BR-TRN-003 GPS, BR-TRN-006 driver/vehicle, BR-FEE-007 GST,
+  shape**), BR-TRN-003 GPS, BR-TRN-006 driver/vehicle (**since resolved,
+  2026-08-07: ADR-019 built real `Driver`/`Trip` entities plus
+  `TripService::startTrip()` gating trip-start on stored license
+  validity — not a `Configuration` row; the trip-start check is a
+  cross-entity validation, not a scalar rate/threshold, matching the
+  reasoning this ADR already gave for why a policy/workflow doesn't fit
+  `Configuration`'s shape**), BR-FEE-007 GST,
   BR-COM-002/003/005 — all named out-of-scope in ADR-006/007/009/010), or
   the "configurable item" is a policy/list/role-name rather than a
   single scalar value naturally suited to `Configuration`'s

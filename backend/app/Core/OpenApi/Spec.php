@@ -1005,6 +1005,7 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'stops_json', type: 'array', items: new OA\Items(type: 'string')),
         new OA\Property(property: 'capacity', type: 'integer'),
         new OA\Property(property: 'vehicle_id', type: 'integer', nullable: true),
+        new OA\Property(property: 'driver_id', type: 'integer', nullable: true, description: 'ADR-019 §3 (BR-TRN-006).'),
     ],
     type: 'object',
 )]
@@ -1016,6 +1017,7 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'stops_json', type: 'array', items: new OA\Items(type: 'string')),
         new OA\Property(property: 'capacity', type: 'integer'),
         new OA\Property(property: 'vehicle_id', type: 'integer', nullable: true),
+        new OA\Property(property: 'driver_id', type: 'integer', nullable: true, description: 'ADR-019 §3 (BR-TRN-006).'),
     ],
     type: 'object',
 )]
@@ -1027,6 +1029,62 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'stops_json', type: 'array', items: new OA\Items(type: 'string')),
         new OA\Property(property: 'capacity', type: 'integer'),
         new OA\Property(property: 'vehicle_id', type: 'integer', nullable: true),
+        new OA\Property(property: 'driver_id', type: 'integer', nullable: true),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'DriverCreateRequest',
+    description: 'docs/ADR/ADR-019-transport-driver-trip-validity.md §1 — BR-TRN-006.',
+    required: ['full_name', 'license_number'],
+    properties: [
+        new OA\Property(property: 'full_name', type: 'string'),
+        new OA\Property(property: 'license_number', type: 'string'),
+        new OA\Property(property: 'license_valid_until', type: 'string', format: 'date', nullable: true),
+        new OA\Property(property: 'status', type: 'string', enum: ['Active', 'Inactive']),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'DriverUpdateRequest',
+    description: 'license_number is immutable post-creation — absent here.',
+    required: ['full_name'],
+    properties: [
+        new OA\Property(property: 'full_name', type: 'string'),
+        new OA\Property(property: 'license_valid_until', type: 'string', format: 'date', nullable: true),
+        new OA\Property(property: 'status', type: 'string', enum: ['Active', 'Inactive']),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'DriverResponse',
+    properties: [
+        new OA\Property(property: 'driver_id', type: 'integer'),
+        new OA\Property(property: 'full_name', type: 'string'),
+        new OA\Property(property: 'license_number', type: 'string'),
+        new OA\Property(property: 'license_valid_until', type: 'string', format: 'date', nullable: true),
+        new OA\Property(property: 'status', type: 'string', enum: ['Active', 'Inactive']),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'TripStartRequest',
+    description: 'docs/ADR/ADR-019-transport-driver-trip-validity.md §5 — BR-TRN-006. Driver/vehicle are read off the Route\'s own assignment, not supplied here.',
+    required: ['route_id'],
+    properties: [
+        new OA\Property(property: 'route_id', type: 'integer'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'TripResponse',
+    properties: [
+        new OA\Property(property: 'trip_id', type: 'integer'),
+        new OA\Property(property: 'route_id', type: 'integer'),
+        new OA\Property(property: 'driver_id', type: 'integer'),
+        new OA\Property(property: 'vehicle_id', type: 'integer'),
+        new OA\Property(property: 'started_at', type: 'string', format: 'date-time'),
+        new OA\Property(property: 'status', type: 'string', enum: ['Started']),
     ],
     type: 'object',
 )]
