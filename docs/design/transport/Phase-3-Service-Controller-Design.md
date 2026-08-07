@@ -28,6 +28,8 @@ delete — Master data.
 | `deallocate(int $id): TransportAllocationResponse` | `status → De-allocated`, freeing route capacity for the next allocation. |
 | `getAllocation(int $id): TransportAllocationResponse` | Plain read. |
 | `listByRoute(int $routeId): array` | Route roster. |
+| `getActiveAllocationForStudent(int $studentId): ?TransportAllocationResponse` | ADR-014 §1 (BR-FEE-003) — read-only lookup Fees' `InvoiceService::generateInvoice` calls to fold a route-tier `FeeStructure` into the invoice total. |
+| `changeRoute(int $id, ChangeRouteRequest): TransportAllocationResponse` | ADR-014 §1 (BR-TRN-005) — BR-TRN-005's route-change mutator, previously missing entirely. Same capacity/stop checks as `allocate()`; after committing, explicitly triggers `InvoiceService::recalculateForRouteChange()` — Transport pushing the fact into Fees, not the reverse. |
 
 ## Controllers — base path `/api/v1/transport/...`
 
@@ -35,7 +37,7 @@ delete — Master data.
 |---|---|---|
 | `VehicleController` | `/vehicles` | `POST /`, `PATCH /{id}`, `GET /{id}`, `GET /` |
 | `RouteController` | `/routes` | `POST /`, `PATCH /{id}`, `GET /{id}`, `GET /` |
-| `TransportAllocationController` | `/allocations` | `POST /` (allocate), `POST /{id}/deallocate`, `GET /{id}`, `GET /?route_id` |
+| `TransportAllocationController` | `/allocations` | `POST /` (allocate), `POST /{id}/deallocate`, `POST /{id}/change-route` (ADR-014 §1), `GET /{id}`, `GET /?route_id` |
 
 ## Conclusion
 

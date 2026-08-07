@@ -770,6 +770,48 @@ follow-up ADR-008 §11 flagged when `StaffAttendanceRecord` shipped.
   date-scoped/not-version-bumped distinction ADR-013 §3 makes
   structural.
 
+## Stage 10 — Fees/Transport route-tier linkage + Examination's fee_closure_confirmed — DONE (2026-08-07)
+
+Reference: `docs/ADR/ADR-014-fees-transport-promotion-seams.md`. Closes
+two named cross-module seams left open only because their dependency
+didn't exist yet at design time — same "unblocking pass" shape as
+Stage 9 (Substitution) — bundled together per this project's precedent
+of grouping small related follow-up items (Stage 6e Library+Transport,
+Stage 6f Communication+Reports).
+
+- **BR-FEE-003/BR-TRN-005 (route-based Transport fee-tier)** — additive
+  nullable `FeeStructure.route_id` (same additive-column shape as
+  Academic's `locked_by_closed_exam`), unique key extended to
+  `(class_id, fee_head_id, academic_session_id, category, route_id)` so
+  a route-tier row coexists with the base row. `InvoiceService::
+  generateInvoice()` now folds in the student's active
+  `TransportAllocation.route_id` automatically (Fees reading Transport,
+  same shape as its existing SIS/Academic calls). `TransportAllocationService`
+  gains `changeRoute()` (BR-TRN-005 had no route-change mutator before
+  this) which, after committing the route change, explicitly triggers
+  the new `InvoiceService::recalculateForRouteChange()` — Transport
+  pushing the fact into Fees, never the reverse; only recalculable
+  (`UNPAID`, unlocked) invoices are touched.
+- **`PromotionRecord.fee_closure_confirmed` (BR-SIS-001)** — now fully
+  system-computed via `InvoiceModel::
+  existsOutstandingByStudentIdAndSession()` (outstanding =
+  `UNPAID`/`PARTIALLY_PAID`/`DEFAULTER` for the `from_session_id` being
+  closed out of), the same treatment `academic_closure_confirmed`
+  already got in ADR-005 §3. `CreatePromotionRecordRequest.
+  feeClosureConfirmed` is removed entirely (a breaking API change to
+  `POST /examination/promotions`) rather than kept-but-ignored.
+- Migration: `2026-08-07-210001_AddRouteIdToFeeStructuresTable.php` —
+  applied.
+- Verification: 5 new PHPUnit tests (162 total) — automatic route-tier
+  fee inclusion at invoice generation (and its negative case: a
+  route-tier row for a route the student isn't on is excluded),
+  `changeRoute()`'s recalculation trigger asserting a real recomputed
+  `total_amount` before/after the route change, and `promoteStudent()`
+  now computing `fee_closure_confirmed` from real `Invoice` data (a
+  blocked case with an outstanding invoice, a succeeding case with a
+  `PAID` one). Rebased onto Stage 9's 163-test baseline, bringing the
+  total to 168 (163 + 5 new).
+
 ## Ongoing, every stage
 
 - Git: feature branches (Company Development Standard §6), PR review before
@@ -788,10 +830,11 @@ follow-up ADR-008 §11 flagged when `StaffAttendanceRecord` shipped.
 
 ## Immediate next action
 
-Stages 0 through 9 are done (2026-08-07) — every module in Appendix-G's
+Stages 0 through 10 are done (2026-08-07) — every module in Appendix-G's
 Data Dictionary is real, working, tested code, plus a real
-`Configuration` entity, a real `Document`/PDF-generation capability, and
-Timetable Substitution (BR-TT-004/FR-16) (163 passing tests). Remaining
+`Configuration` entity, a real `Document`/PDF-generation capability,
+Timetable Substitution (BR-TT-004/FR-16), and the Fees/Transport/
+Examination cross-module seams closed (168 passing tests). Remaining
 work is follow-up/deepening, not new-module design:
 
 - A real SMS/Email/Push gateway integration once a vendor is chosen
@@ -801,10 +844,6 @@ work is follow-up/deepening, not new-module design:
   adding aggregate query methods to the *owning* source modules (ADR-010
   §8), not retrofitting them speculatively. Can now reuse Stage 8's
   `dompdf`/`DocumentService` for Excel/PDF export once scoped.
-- The joint Fees/Transport route-based fee-tier seam (ADR-007 §3,
-  ADR-009 §13) and the Fees-side `PromotionRecord.fee_closure_confirmed`
-  seam (ADR-005 §3, misattributed to HR & Payroll in this roadmap until
-  Stage 6d's correction).
 - FR-09 ID Card/Certificate generation (SIS) — needs a real branding
   template and student-photo capability, explicitly deferred by
   ADR-012 §4.

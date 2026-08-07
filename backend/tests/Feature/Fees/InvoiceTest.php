@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Tests\Feature\Fees;
 
 use App\Core\Exceptions\BusinessRuleException;
+use App\Modules\Fees\Models\FeeStructureModel;
+use App\Modules\Transport\Models\RouteModel;
+use App\Modules\Transport\Models\TransportAllocationModel;
 use Tests\Support\Fees\FeesTestCase;
 
 /**
@@ -48,6 +51,105 @@ final class InvoiceTest extends FeesTestCase
         $this->assertSame('UNPAID', $body['status']);
         $this->assertFalse($body['is_locked']);
         $this->assertStringStartsWith('INV-', $body['invoice_no']);
+    }
+
+    /**
+     * ADR-014 §1 (BR-FEE-003): a route-tier FeeStructure is automatically
+     * folded into the total when the student has an active
+     * TransportAllocation on that route — no manual FeeHead entry needed.
+     */
+    public function testGenerateInvoiceIncludesRouteTierFeeForAllocatedStudent(): void
+    {
+        $user      = $this->createUser();
+        $tokens    = $this->loginAs($user['username']);
+        $headers   = $this->authHeaders($tokens['access_token']);
+        $classId   = $this->createClassFixture();
+        $sectionId = $this->createSection($classId);
+        $sessionId = $this->createAcademicSession();
+
+        $tuitionHeadId   = $this->createFeeHeadFixture('Tuition ' . uniqid('', true));
+        $transportHeadId = $this->createFeeHeadFixture('Transport Tier ' . uniqid('', true));
+
+        $routeId = (new RouteModel())->insert([
+            'route_name' => 'Route ' . uniqid('', true),
+            'stops_json' => ['Stop A'],
+            'capacity'   => 10,
+        ], true);
+
+        $this->createFeeStructureFixture($classId, $tuitionHeadId, $sessionId, 'GENERAL', 5000.0);
+        // Route-tier row — only applies to students allocated to $routeId.
+        (new FeeStructureModel())->insert([
+            'class_id'            => $classId,
+            'fee_head_id'         => $transportHeadId,
+            'academic_session_id' => $sessionId,
+            'route_id'            => $routeId,
+            'category'            => 'GENERAL',
+            'amount'              => 1500.0,
+        ], true);
+
+        $studentId = $this->createStudentFixture(null, $sectionId, 'ACTIVE', 'GENERAL');
+
+        (new TransportAllocationModel())->insert([
+            'student_id'        => $studentId,
+            'route_id'          => $routeId,
+            'stop_name'         => 'Stop A',
+            'emergency_contact' => '9876500000',
+            'status'            => 'Active',
+        ], true);
+
+        $create = $this->withHeaders($headers)->withBodyFormat('json')->post('api/v1/fees/invoices', [
+            'student_id'          => $studentId,
+            'academic_session_id' => $sessionId,
+            'due_date'            => '2026-12-31',
+        ]);
+        $create->assertStatus(201);
+
+        // 5000 tuition + 1500 route-tier transport fee.
+        $this->assertEquals(6500.0, $this->decode($create)['data']['total_amount']);
+    }
+
+    /**
+     * A route-tier fee row for a route the student is NOT allocated to
+     * must never be pulled into their invoice.
+     */
+    public function testGenerateInvoiceExcludesRouteTierFeeForUnallocatedStudent(): void
+    {
+        $user      = $this->createUser();
+        $tokens    = $this->loginAs($user['username']);
+        $headers   = $this->authHeaders($tokens['access_token']);
+        $classId   = $this->createClassFixture();
+        $sectionId = $this->createSection($classId);
+        $sessionId = $this->createAcademicSession();
+
+        $tuitionHeadId   = $this->createFeeHeadFixture('Tuition ' . uniqid('', true));
+        $transportHeadId = $this->createFeeHeadFixture('Transport Tier ' . uniqid('', true));
+
+        $routeId = (new RouteModel())->insert([
+            'route_name' => 'Route ' . uniqid('', true),
+            'stops_json' => ['Stop A'],
+            'capacity'   => 10,
+        ], true);
+
+        $this->createFeeStructureFixture($classId, $tuitionHeadId, $sessionId, 'GENERAL', 5000.0);
+        (new FeeStructureModel())->insert([
+            'class_id'            => $classId,
+            'fee_head_id'         => $transportHeadId,
+            'academic_session_id' => $sessionId,
+            'route_id'            => $routeId,
+            'category'            => 'GENERAL',
+            'amount'              => 1500.0,
+        ], true);
+
+        $studentId = $this->createStudentFixture(null, $sectionId, 'ACTIVE', 'GENERAL');
+
+        $create = $this->withHeaders($headers)->withBodyFormat('json')->post('api/v1/fees/invoices', [
+            'student_id'          => $studentId,
+            'academic_session_id' => $sessionId,
+            'due_date'            => '2026-12-31',
+        ]);
+        $create->assertStatus(201);
+
+        $this->assertEquals(5000.0, $this->decode($create)['data']['total_amount']);
     }
 
     public function testGenerateInvoiceRequiresAStudentSection(): void

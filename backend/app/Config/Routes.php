@@ -256,6 +256,7 @@ $routes->group('api/v1/transport', ['namespace' => 'App\Modules\Transport\Contro
 
     $routes->post('allocations', 'TransportAllocationController::create');
     $routes->post('allocations/(:num)/deallocate', 'TransportAllocationController::deallocate/$1');
+    $routes->post('allocations/(:num)/change-route', 'TransportAllocationController::changeRoute/$1');
     $routes->get('allocations/(:num)', 'TransportAllocationController::show/$1');
     $routes->get('allocations', 'TransportAllocationController::index');
 });

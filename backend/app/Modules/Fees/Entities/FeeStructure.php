@@ -13,6 +13,7 @@ use App\Core\BaseEntity;
  * @property int      $class_id
  * @property int      $fee_head_id
  * @property int      $academic_session_id
+ * @property int|null $route_id
  * @property string   $category
  * @property float    $amount
  */
@@ -31,6 +32,7 @@ class FeeStructure extends BaseEntity
             'class_id'            => 'integer',
             'fee_head_id'         => 'integer',
             'academic_session_id' => 'integer',
+            'route_id'            => '?integer',
             'amount'              => 'float',
         ]);
 

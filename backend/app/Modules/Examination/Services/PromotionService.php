@@ -17,8 +17,8 @@ use Config\Services as AppServices;
  * docs/design/examination/Phase-4-Service-Design.md
  * BR-SIS-001: promotion permitted only when both academic and fee closure
  * conditions are met. academic_closure_confirmed is system-computed
- * (ADR-005 §3); fee_closure_confirmed is caller-supplied since the Fees
- * module doesn't exist yet (ADR-005 §3).
+ * (ADR-005 §3); fee_closure_confirmed is now also system-computed by
+ * querying Fees (ADR-014 §2) — no caller-supplied override.
  */
 class PromotionService
 {
@@ -52,8 +52,9 @@ class PromotionService
         }
 
         $academicClosureConfirmed = $fromSession->status === 'CLOSED';
+        $feeClosureConfirmed      = ! AppServices::invoiceService()->hasOutstandingBalance($request->studentId, $request->fromSessionId);
 
-        if (! $academicClosureConfirmed || ! $request->feeClosureConfirmed) {
+        if (! $academicClosureConfirmed || ! $feeClosureConfirmed) {
             throw new BusinessRuleException(
                 'PROMOTION_CLOSURE_PRECONDITION_NOT_MET',
                 'Both academic and fee closure must be confirmed before a student can be promoted (BR-SIS-001).',
@@ -67,7 +68,7 @@ class PromotionService
             'from_class_id'              => $request->fromClassId,
             'to_class_id'                => $request->toClassId,
             'academic_closure_confirmed' => $academicClosureConfirmed,
-            'fee_closure_confirmed'      => $request->feeClosureConfirmed,
+            'fee_closure_confirmed'      => $feeClosureConfirmed,
         ], true);
 
         $promotionRecord = $this->promotionRecordModel->find($id);

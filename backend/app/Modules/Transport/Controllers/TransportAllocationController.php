@@ -7,6 +7,7 @@ namespace App\Modules\Transport\Controllers;
 use App\Core\BaseController;
 use App\Core\Exceptions\ValidationException;
 use App\Modules\Transport\DTOs\AllocateTransportRequest;
+use App\Modules\Transport\DTOs\ChangeRouteRequest;
 use Config\Services;
 use OpenApi\Attributes as OA;
 
@@ -75,6 +76,43 @@ class TransportAllocationController extends BaseController
     public function deallocate(int $id)
     {
         return $this->respondSuccess(Services::transportAllocationService()->deallocate($id)->toArray());
+    }
+
+    #[OA\Post(
+        path: '/transport/allocations/{id}/change-route',
+        tags: ['Transport Allocations'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(ref: '#/components/schemas/TransportAllocationChangeRouteRequest')),
+        responses: [
+            new OA\Response(response: 200, description: 'Route changed — BR-TRN-005; also recomputes any recalculable UNPAID invoice via ADR-014 §1.', content: new OA\JsonContent(ref: '#/components/schemas/TransportAllocationResponse')),
+            new OA\Response(response: 422, description: 'ROUTE_CAPACITY_EXCEEDED / ROUTE_NOT_FOUND / TRANSPORT_ALLOCATION_INVALID_STATUS_TRANSITION.', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+        ],
+    )]
+    public function changeRoute(int $id)
+    {
+        $body = $this->request->getJSON(true) ?? [];
+
+        $routeId  = (int) ($body['route_id'] ?? 0);
+        $stopName = (string) ($body['stop_name'] ?? '');
+
+        $fields = [];
+
+        if ($routeId <= 0) {
+            $fields['route_id'] = 'route_id is required.';
+        }
+
+        if ($stopName === '') {
+            $fields['stop_name'] = 'stop_name is required.';
+        }
+
+        if ($fields !== []) {
+            throw new ValidationException($fields);
+        }
+
+        $response = Services::transportAllocationService()->changeRoute($id, new ChangeRouteRequest($routeId, $stopName));
+
+        return $this->respondSuccess($response->toArray());
     }
 
     #[OA\Get(

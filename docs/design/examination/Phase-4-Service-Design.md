@@ -42,7 +42,7 @@ exposes no delete.
 
 | Operation | Reason |
 |---|---|
-| `promoteStudent(CreatePromotionRecordRequest): PromotionRecordResponse` | Computes `academic_closure_confirmed` from `from_session_id`'s `AcademicSession.status = CLOSED` (Academic's `AcademicSessionService`, ADR-005 §3); takes `fee_closure_confirmed` as given; rejects (BR-SIS-001) unless both are `true`; validates `to_class_id`'s `sequence_order` is `from_class_id`'s `+ 1` or equal (repeat); validates all four cross-module FKs exist; uniqueness on `(student_id, from_session_id)`. |
+| `promoteStudent(CreatePromotionRecordRequest): PromotionRecordResponse` | Computes `academic_closure_confirmed` from `from_session_id`'s `AcademicSession.status = CLOSED` (Academic's `AcademicSessionService`, ADR-005 §3); computes `fee_closure_confirmed` by querying Fees' `InvoiceService::hasOutstandingBalance($studentId, $fromSessionId)` (ADR-014 §2 — no longer caller-supplied); rejects (BR-SIS-001) unless both are `true`; validates `to_class_id`'s `sequence_order` is `from_class_id`'s `+ 1` or equal (repeat); validates all four cross-module FKs exist; uniqueness on `(student_id, from_session_id)`. |
 | `getPromotionRecord(int $id): PromotionRecordResponse` | Plain read. |
 | `listPromotionsByToSession(int $toSessionId): array` | Listing. |
 

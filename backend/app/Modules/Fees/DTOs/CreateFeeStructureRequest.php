@@ -12,6 +12,7 @@ final class CreateFeeStructureRequest
         public readonly int $academicSessionId,
         public readonly string $category,
         public readonly float $amount,
+        public readonly ?int $routeId = null,
     ) {
     }
 }

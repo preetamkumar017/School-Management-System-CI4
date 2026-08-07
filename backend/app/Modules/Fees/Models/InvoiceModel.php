@@ -54,4 +54,34 @@ class InvoiceModel extends BaseModel
             ->whereNotIn('status', [Invoice::STATUS_PAID, Invoice::STATUS_CANCELLED])
             ->findAll();
     }
+
+    /**
+     * ADR-014 §2: "fee closure" for BR-SIS-001 means no outstanding
+     * balance for that student for the session being closed out of —
+     * an UNPAID/PARTIALLY_PAID/DEFAULTER invoice is outstanding, a
+     * PAID or CANCELLED one is not.
+     */
+    public function existsOutstandingByStudentIdAndSession(int $studentId, int $academicSessionId): bool
+    {
+        return $this->where('student_id', $studentId)
+            ->where('academic_session_id', $academicSessionId)
+            ->whereIn('status', [Invoice::STATUS_UNPAID, Invoice::STATUS_PARTIALLY_PAID, Invoice::STATUS_DEFAULTER])
+            ->countAllResults() > 0;
+    }
+
+    /**
+     * Input to InvoiceService::recalculateForRouteChange (BR-TRN-005) —
+     * only untouched UNPAID invoices are safe to silently recompute;
+     * anything partially paid, paid, defaulted, cancelled, or locked is
+     * left alone.
+     *
+     * @return list<Invoice>
+     */
+    public function findRecalculableByStudentId(int $studentId): array
+    {
+        return $this->where('student_id', $studentId)
+            ->where('status', Invoice::STATUS_UNPAID)
+            ->where('is_locked', false)
+            ->findAll();
+    }
 }

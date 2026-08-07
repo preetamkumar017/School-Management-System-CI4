@@ -43,9 +43,12 @@ Extends `App\Core\BaseEntity`.
 | academic_session_id | BIGINT UNSIGNED | N | – | FK → Academic's `academic_sessions` (cross-module, plain FK, validated via `AcademicSessionService`) |
 | category | enum (`GENERAL`, `RTE`) | N | GENERAL | BR-FEE-005 |
 | amount | DECIMAL(10,2) | N | – | Positive |
+| route_id | BIGINT UNSIGNED | Y | NULL | FK → Transport's `routes` (cross-module, no DB-level FK). ADR-014 §1 (BR-FEE-003) — NULL applies to every student in the class/session/category; a real value pins a route-tier row (e.g. transport) that only applies to a student with a matching active `TransportAllocation`. |
 
 Unique constraint: `(class_id, fee_head_id, academic_session_id,
-category)`. No discovered lock flag anywhere in Appendix-G's attribute
+category, route_id)` (extended by ADR-014 §1 — was `(class_id,
+fee_head_id, academic_session_id, category)` before `route_id`
+existed). No discovered lock flag anywhere in Appendix-G's attribute
 catalogue for this entity — "Update (pre-lock)" in its CRUD Operations
 line names no concrete lock condition, so none is invented; `FeeStructure`
 is freely editable in place, same reasoning as Academic's `Class`.

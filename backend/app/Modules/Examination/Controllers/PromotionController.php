@@ -23,17 +23,17 @@ class PromotionController extends BaseController
         security: [['bearerAuth' => []]],
         requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(ref: '#/components/schemas/PromotionRecordCreateRequest')),
         responses: [
-            new OA\Response(response: 201, description: 'Created — BR-SIS-001.', content: new OA\JsonContent(ref: '#/components/schemas/PromotionRecordResponse')),
+            new OA\Response(response: 201, description: 'Created — BR-SIS-001. fee_closure_confirmed is computed from Fees (ADR-014 §2).', content: new OA\JsonContent(ref: '#/components/schemas/PromotionRecordResponse')),
             new OA\Response(response: 422, description: 'PROMOTION_CLOSURE_PRECONDITION_NOT_MET, PROMOTION_INVALID_CLASS_SEQUENCE, or PROMOTION_RECORD_ALREADY_EXISTS.', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
         ],
     )]
     public function create()
     {
         $body = $this->request->getJSON(true) ?? [];
-        [$studentId, $fromSessionId, $toSessionId, $fromClassId, $toClassId, $feeClosureConfirmed] = $this->validateFields($body);
+        [$studentId, $fromSessionId, $toSessionId, $fromClassId, $toClassId] = $this->validateFields($body);
 
         $response = Services::promotionService()->promoteStudent(
-            new CreatePromotionRecordRequest($studentId, $fromSessionId, $toSessionId, $fromClassId, $toClassId, $feeClosureConfirmed),
+            new CreatePromotionRecordRequest($studentId, $fromSessionId, $toSessionId, $fromClassId, $toClassId),
         );
 
         return $this->respondCreated($response->toArray());
@@ -80,7 +80,7 @@ class PromotionController extends BaseController
     /**
      * @param array<string, mixed> $body
      *
-     * @return array{0: int, 1: int, 2: int, 3: int, 4: int, 5: bool}
+     * @return array{0: int, 1: int, 2: int, 3: int, 4: int}
      */
     private function validateFields(array $body): array
     {
@@ -112,14 +112,10 @@ class PromotionController extends BaseController
             $fields['to_class_id'] = 'to_class_id is required.';
         }
 
-        if (! isset($body['fee_closure_confirmed']) || ! is_bool($body['fee_closure_confirmed'])) {
-            $fields['fee_closure_confirmed'] = 'fee_closure_confirmed is required and must be a boolean.';
-        }
-
         if ($fields !== []) {
             throw new ValidationException($fields);
         }
 
-        return [$studentId, $fromSessionId, $toSessionId, $fromClassId, $toClassId, (bool) $body['fee_closure_confirmed']];
+        return [$studentId, $fromSessionId, $toSessionId, $fromClassId, $toClassId];
     }
 }

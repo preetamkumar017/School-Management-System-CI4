@@ -48,4 +48,15 @@ class TransportAllocationModel extends BaseModel
     {
         return $this->where('route_id', $routeId)->findAll();
     }
+
+    /**
+     * ADR-014 §1 — the fact InvoiceService::generateInvoice reads to
+     * decide whether a route-tier FeeStructure applies.
+     */
+    public function findActiveByStudentId(int $studentId): ?TransportAllocation
+    {
+        return $this->where('student_id', $studentId)
+            ->where('status', TransportAllocation::STATUS_ACTIVE)
+            ->first();
+    }
 }

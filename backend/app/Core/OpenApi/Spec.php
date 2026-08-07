@@ -448,15 +448,14 @@ use OpenApi\Attributes as OA;
 )]
 #[OA\Schema(
     schema: 'PromotionRecordCreateRequest',
-    description: 'academic_closure_confirmed is excluded — system-computed from the source AcademicSession\'s status (ADR-005 §3).',
-    required: ['student_id', 'from_session_id', 'to_session_id', 'from_class_id', 'to_class_id', 'fee_closure_confirmed'],
+    description: 'Both academic_closure_confirmed and fee_closure_confirmed are excluded — both are now system-computed (ADR-005 §3; fee closure resolved in ADR-014 §2 now that Fees exists), never caller-supplied.',
+    required: ['student_id', 'from_session_id', 'to_session_id', 'from_class_id', 'to_class_id'],
     properties: [
         new OA\Property(property: 'student_id', type: 'integer'),
         new OA\Property(property: 'from_session_id', type: 'integer'),
         new OA\Property(property: 'to_session_id', type: 'integer'),
         new OA\Property(property: 'from_class_id', type: 'integer'),
         new OA\Property(property: 'to_class_id', type: 'integer'),
-        new OA\Property(property: 'fee_closure_confirmed', type: 'boolean', description: 'Caller-attested — Fees module does not exist yet (ADR-005 §3).'),
     ],
     type: 'object',
 )]
@@ -603,11 +602,13 @@ use OpenApi\Attributes as OA;
 )]
 #[OA\Schema(
     schema: 'FeeStructureCreateRequest',
+    description: 'route_id is optional (ADR-014 §1) — omit it for a normal class/session/category fee row, or set it to pin a route-tier fee (e.g. transport) that only applies to students with an active TransportAllocation on that route.',
     required: ['class_id', 'fee_head_id', 'academic_session_id', 'category', 'amount'],
     properties: [
         new OA\Property(property: 'class_id', type: 'integer'),
         new OA\Property(property: 'fee_head_id', type: 'integer'),
         new OA\Property(property: 'academic_session_id', type: 'integer'),
+        new OA\Property(property: 'route_id', type: 'integer', nullable: true),
         new OA\Property(property: 'category', type: 'string', enum: ['GENERAL', 'RTE']),
         new OA\Property(property: 'amount', type: 'number', format: 'float'),
     ],
@@ -627,6 +628,7 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'class_id', type: 'integer'),
         new OA\Property(property: 'fee_head_id', type: 'integer'),
         new OA\Property(property: 'academic_session_id', type: 'integer'),
+        new OA\Property(property: 'route_id', type: 'integer', nullable: true),
         new OA\Property(property: 'category', type: 'string', enum: ['GENERAL', 'RTE']),
         new OA\Property(property: 'amount', type: 'number', format: 'float'),
     ],
@@ -1023,6 +1025,16 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'stop_name', type: 'string'),
         new OA\Property(property: 'emergency_contact', type: 'string'),
         new OA\Property(property: 'status', type: 'string', enum: ['Active', 'Waitlisted', 'De-allocated']),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'TransportAllocationChangeRouteRequest',
+    description: 'BR-TRN-005 — moves an Active allocation to a new route/stop; triggers ADR-014 §1\'s InvoiceService::recalculateForRouteChange for that student\'s recalculable invoices.',
+    required: ['route_id', 'stop_name'],
+    properties: [
+        new OA\Property(property: 'route_id', type: 'integer'),
+        new OA\Property(property: 'stop_name', type: 'string'),
     ],
     type: 'object',
 )]

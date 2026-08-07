@@ -32,11 +32,13 @@ abstract class FeesTestCase extends AttendanceTestCase
         ?int $academicSessionId = null,
         string $category = 'GENERAL',
         float $amount = 5000.0,
+        ?int $routeId = null,
     ): int {
         return (new FeeStructureModel())->insert([
             'class_id'            => $classId ?? $this->createClassFixture(),
             'fee_head_id'         => $feeHeadId ?? $this->createFeeHeadFixture(),
             'academic_session_id' => $academicSessionId ?? $this->createAcademicSession(),
+            'route_id'            => $routeId,
             'category'            => $category,
             'amount'              => $amount,
         ], true);

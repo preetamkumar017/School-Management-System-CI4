@@ -40,6 +40,14 @@ class InvoiceService
      * FeeStructure rows minus matching ScholarshipWaivers), never
      * client-supplied; the student must have a section_id (resolves to
      * class_id) or generation is rejected.
+     *
+     * ADR-014 §1 (BR-FEE-003): if the student has an active
+     * TransportAllocation, its route_id is folded into the FeeStructure
+     * lookup so a route-tier fee is included automatically — Fees
+     * querying Transport here is the same "reach into another module for
+     * a fact needed by this request" shape already used for
+     * StudentService/AcademicSessionService/SectionService above, not a
+     * live/polling dependency.
      */
     public function generateInvoice(GenerateInvoiceRequest $request): InvoiceResponse
     {
@@ -54,25 +62,10 @@ class InvoiceService
 
         AppServices::academicSessionService()->getSession($request->academicSessionId);
 
-        $section  = AppServices::sectionService()->getSection($student->sectionId);
-        $feeStructureService = AppServices::feeStructureService();
-        $structures = $feeStructureService->listByClassSessionCategory($section->classId, $request->academicSessionId, $student->category);
+        $section = AppServices::sectionService()->getSection($student->sectionId);
+        $routeId = AppServices::transportAllocationService()->getActiveAllocationForStudent($request->studentId)?->routeId;
 
-        $feeHeadIds = array_map(static fn ($structure) => $structure->feeHeadId, $structures);
-        $waivers    = $this->scholarshipWaiverModel->findByStudentIdAndFeeHeadIds($request->studentId, $feeHeadIds);
-
-        $waiverByFeeHead = [];
-
-        foreach ($waivers as $waiver) {
-            $waiverByFeeHead[$waiver->fee_head_id] = ($waiverByFeeHead[$waiver->fee_head_id] ?? 0.0) + $waiver->waiver_amount;
-        }
-
-        $totalAmount = 0.0;
-
-        foreach ($structures as $structure) {
-            $waiverAmount = $waiverByFeeHead[$structure->feeHeadId] ?? 0.0;
-            $totalAmount += max(0.0, $structure->amount - $waiverAmount);
-        }
+        $totalAmount = $this->computeTotalAmount($section->classId, $request->academicSessionId, $student->category, $routeId, $request->studentId);
 
         $id = $this->invoiceModel->insert([
             'invoice_no'          => $this->generateInvoiceNo(),
@@ -88,6 +81,83 @@ class InvoiceService
         $this->auditService->record('Invoice', $id, AuditLog::ACTION_CREATE, null, $invoice->toRawArray());
 
         return new InvoiceResponse($invoice);
+    }
+
+    /**
+     * ADR-014 §1 (BR-TRN-005): explicit trigger, not a scheduled job —
+     * same shape as applyLateFee/flagOverdueAsDefaulter. Called by
+     * TransportAllocationService::changeRoute() the moment a student's
+     * route actually changes; Fees never watches Transport for this.
+     * Only untouched UNPAID invoices are recomputed (see
+     * InvoiceModel::findRecalculableByStudentId) — anything already
+     * paid against, partially paid, defaulted, cancelled, or locked is
+     * left exactly as it was.
+     *
+     * @return list<InvoiceResponse>
+     */
+    public function recalculateForRouteChange(int $studentId, ?int $newRouteId): array
+    {
+        $student = AppServices::studentService()->getStudent($studentId);
+
+        if ($student->sectionId === null) {
+            return [];
+        }
+
+        $section = AppServices::sectionService()->getSection($student->sectionId);
+        $updated = [];
+
+        foreach ($this->invoiceModel->findRecalculableByStudentId($studentId) as $before) {
+            $invoiceId = $before->invoice_id;
+
+            if ($invoiceId === null) {
+                continue;
+            }
+
+            $totalAmount = $this->computeTotalAmount($section->classId, $before->academic_session_id, $student->category, $newRouteId, $studentId);
+
+            $this->invoiceModel->update($invoiceId, ['total_amount' => round($totalAmount, 2)]);
+            $after = $this->requireInvoice($invoiceId);
+
+            $this->auditService->record('Invoice', $invoiceId, AuditLog::ACTION_UPDATE, $before->toRawArray(), $after->toRawArray());
+
+            $updated[] = new InvoiceResponse($after);
+        }
+
+        return $updated;
+    }
+
+    /**
+     * ADR-014 §2 (BR-SIS-001): what PromotionService now queries instead
+     * of taking a caller-supplied boolean — true when this student has
+     * no outstanding (UNPAID/PARTIALLY_PAID/DEFAULTER) invoice for the
+     * session being closed out of.
+     */
+    public function hasOutstandingBalance(int $studentId, int $academicSessionId): bool
+    {
+        return $this->invoiceModel->existsOutstandingByStudentIdAndSession($studentId, $academicSessionId);
+    }
+
+    private function computeTotalAmount(int $classId, int $academicSessionId, string $category, ?int $routeId, int $studentId): float
+    {
+        $structures = AppServices::feeStructureService()->listByClassSessionCategory($classId, $academicSessionId, $category, $routeId);
+
+        $feeHeadIds = array_map(static fn ($structure) => $structure->feeHeadId, $structures);
+        $waivers    = $this->scholarshipWaiverModel->findByStudentIdAndFeeHeadIds($studentId, $feeHeadIds);
+
+        $waiverByFeeHead = [];
+
+        foreach ($waivers as $waiver) {
+            $waiverByFeeHead[$waiver->fee_head_id] = ($waiverByFeeHead[$waiver->fee_head_id] ?? 0.0) + $waiver->waiver_amount;
+        }
+
+        $totalAmount = 0.0;
+
+        foreach ($structures as $structure) {
+            $waiverAmount = $waiverByFeeHead[$structure->feeHeadId] ?? 0.0;
+            $totalAmount += max(0.0, $structure->amount - $waiverAmount);
+        }
+
+        return $totalAmount;
     }
 
     /**

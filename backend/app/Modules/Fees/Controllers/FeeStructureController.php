@@ -40,6 +40,7 @@ class FeeStructureController extends BaseController
         $sessionId = (int) ($body['academic_session_id'] ?? 0);
         $category  = (string) ($body['category'] ?? FeeStructure::CATEGORY_GENERAL);
         $amount    = $this->validateAmount($body);
+        $routeId   = isset($body['route_id']) ? (int) $body['route_id'] : null;
 
         $fields = [];
 
@@ -64,7 +65,7 @@ class FeeStructureController extends BaseController
         }
 
         $response = Services::feeStructureService()->createFeeStructure(
-            new CreateFeeStructureRequest($classId, $feeHeadId, $sessionId, $category, $amount),
+            new CreateFeeStructureRequest($classId, $feeHeadId, $sessionId, $category, $amount, $routeId),
         );
 
         return $this->respondCreated($response->toArray());
@@ -121,6 +122,7 @@ class FeeStructureController extends BaseController
         $classId   = (int) ($this->request->getGet('class_id') ?? 0);
         $sessionId = (int) ($this->request->getGet('academic_session_id') ?? 0);
         $category  = (string) ($this->request->getGet('category') ?? FeeStructure::CATEGORY_GENERAL);
+        $routeId   = $this->request->getGet('route_id') !== null ? (int) $this->request->getGet('route_id') : null;
 
         $fields = [];
 
@@ -136,7 +138,7 @@ class FeeStructureController extends BaseController
             throw new ValidationException($fields);
         }
 
-        $responses = Services::feeStructureService()->listByClassSessionCategory($classId, $sessionId, $category);
+        $responses = Services::feeStructureService()->listByClassSessionCategory($classId, $sessionId, $category, $routeId);
 
         return $this->respondSuccess(array_map(static fn ($response) => $response->toArray(), $responses));
     }

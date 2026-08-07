@@ -6,6 +6,7 @@ namespace Tests\Feature\Transport;
 
 use App\Core\Exceptions\BusinessRuleException;
 use App\Core\Exceptions\ValidationException;
+use App\Modules\Fees\Models\FeeStructureModel;
 use Tests\Support\Transport\TransportTestCase;
 
 /**
@@ -124,5 +125,60 @@ final class TransportAllocationTest extends TransportTestCase
         ]);
 
         $response->assertStatus(201);
+    }
+
+    /**
+     * ADR-014 §1 (BR-TRN-005): changing an allocation's route recomputes
+     * that student's recalculable (UNPAID, unlocked) invoice total —
+     * dropping the old route's tier fee and picking up the new route's.
+     */
+    public function testChangeRouteRecalculatesUnpaidInvoiceTotal(): void
+    {
+        $user      = $this->createUser();
+        $tokens    = $this->loginAs($user['username']);
+        $headers   = $this->authHeaders($tokens['access_token']);
+        $classId   = $this->createClassFixture();
+        $sectionId = $this->createSection($classId);
+        $sessionId = $this->createAcademicSession();
+        $studentId = $this->createStudentFixture(null, $sectionId, 'ACTIVE', 'GENERAL');
+
+        $tuitionHeadId = $this->createFeeHeadFixture('Tuition ' . uniqid('', true));
+        $this->createFeeStructureFixture($classId, $tuitionHeadId, $sessionId, 'GENERAL', 5000.0);
+
+        $transportHeadId = $this->createFeeHeadFixture('Transport Tier ' . uniqid('', true));
+        $oldRouteId      = $this->createRouteFixture(null, ['Stop A'], 5);
+        $newRouteId      = $this->createRouteFixture(null, ['Stop B'], 5);
+
+        (new FeeStructureModel())->insert([
+            'class_id' => $classId, 'fee_head_id' => $transportHeadId,
+            'academic_session_id' => $sessionId, 'route_id' => $oldRouteId,
+            'category' => 'GENERAL', 'amount' => 1500.0,
+        ], true);
+        (new FeeStructureModel())->insert([
+            'class_id' => $classId, 'fee_head_id' => $transportHeadId,
+            'academic_session_id' => $sessionId, 'route_id' => $newRouteId,
+            'category' => 'GENERAL', 'amount' => 2200.0,
+        ], true);
+
+        $allocationId = $this->createTransportAllocationFixture($studentId, $oldRouteId, 'Stop A');
+
+        $invoiceCreate = $this->withHeaders($headers)->withBodyFormat('json')->post('api/v1/fees/invoices', [
+            'student_id' => $studentId, 'academic_session_id' => $sessionId, 'due_date' => '2026-12-31',
+        ]);
+        $invoiceCreate->assertStatus(201);
+        $invoiceBody = $this->decode($invoiceCreate)['data'];
+        // 5000 + 1500 (old route tier).
+        $this->assertEquals(6500.0, $invoiceBody['total_amount']);
+        $invoiceId = $invoiceBody['invoice_id'];
+
+        $change = $this->withHeaders($headers)->withBodyFormat('json')->post("api/v1/transport/allocations/{$allocationId}/change-route", [
+            'route_id'  => $newRouteId,
+            'stop_name' => 'Stop B',
+        ]);
+        $change->assertStatus(200);
+        $this->assertSame($newRouteId, $this->decode($change)['data']['route_id']);
+        $show      = $this->withHeaders($headers)->get("api/v1/fees/invoices/{$invoiceId}");
+        // 5000 + 2200 (new route tier).
+        $this->assertEquals(7200.0, $this->decode($show)['data']['total_amount']);
     }
 }

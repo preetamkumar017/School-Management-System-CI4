@@ -15,6 +15,7 @@ final class FeeStructureResponse
     public readonly int $classId;
     public readonly int $feeHeadId;
     public readonly int $academicSessionId;
+    public readonly ?int $routeId;
     public readonly string $category;
     public readonly float $amount;
 
@@ -24,6 +25,7 @@ final class FeeStructureResponse
         $this->classId           = $feeStructure->class_id;
         $this->feeHeadId         = $feeStructure->fee_head_id;
         $this->academicSessionId = $feeStructure->academic_session_id;
+        $this->routeId           = $feeStructure->route_id;
         $this->category          = $feeStructure->category;
         $this->amount            = $feeStructure->amount;
     }
@@ -38,6 +40,7 @@ final class FeeStructureResponse
             'class_id'            => $this->classId,
             'fee_head_id'         => $this->feeHeadId,
             'academic_session_id' => $this->academicSessionId,
+            'route_id'            => $this->routeId,
             'category'            => $this->category,
             'amount'              => $this->amount,
         ];

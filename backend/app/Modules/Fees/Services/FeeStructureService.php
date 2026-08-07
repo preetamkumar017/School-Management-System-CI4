@@ -36,10 +36,16 @@ class FeeStructureService
             throw new BusinessRuleException('FEE_HEAD_NOT_FOUND', 'Fee head not found.');
         }
 
-        if ($this->feeStructureModel->existsByClassHeadSessionCategory($request->classId, $request->feeHeadId, $request->academicSessionId, $request->category)) {
+        // ADR-014 §1: route_id is an additive, optional tier key. A route
+        // must be a real Route before a fee tier can be pinned to it.
+        if ($request->routeId !== null) {
+            AppServices::routeService()->getRoute($request->routeId);
+        }
+
+        if ($this->feeStructureModel->existsByClassHeadSessionCategory($request->classId, $request->feeHeadId, $request->academicSessionId, $request->category, $request->routeId)) {
             throw new BusinessRuleException(
                 'FEE_STRUCTURE_ALREADY_EXISTS',
-                'A fee structure already exists for this class, fee head, session, and category.',
+                'A fee structure already exists for this class, fee head, session, category, and route.',
             );
         }
 
@@ -47,6 +53,7 @@ class FeeStructureService
             'class_id'            => $request->classId,
             'fee_head_id'         => $request->feeHeadId,
             'academic_session_id' => $request->academicSessionId,
+            'route_id'            => $request->routeId,
             'category'            => $request->category,
             'amount'              => $request->amount,
         ], true);
@@ -79,11 +86,11 @@ class FeeStructureService
     /**
      * @return list<FeeStructureResponse>
      */
-    public function listByClassSessionCategory(int $classId, int $academicSessionId, string $category): array
+    public function listByClassSessionCategory(int $classId, int $academicSessionId, string $category, ?int $routeId = null): array
     {
         return array_map(
             static fn (FeeStructure $feeStructure): FeeStructureResponse => new FeeStructureResponse($feeStructure),
-            $this->feeStructureModel->findByClassSessionCategory($classId, $academicSessionId, $category),
+            $this->feeStructureModel->findByClassSessionCategory($classId, $academicSessionId, $category, $routeId),
         );
     }
 

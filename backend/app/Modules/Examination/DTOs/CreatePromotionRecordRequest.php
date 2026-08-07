@@ -12,7 +12,6 @@ final class CreatePromotionRecordRequest
         public readonly int $toSessionId,
         public readonly int $fromClassId,
         public readonly int $toClassId,
-        public readonly bool $feeClosureConfirmed,
     ) {
     }
 }

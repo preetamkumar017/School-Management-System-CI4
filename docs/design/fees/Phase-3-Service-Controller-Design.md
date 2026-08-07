@@ -16,8 +16,10 @@ delete — Master data, same reasoning as every prior Master entity.
 
 | Operation | Reason |
 |---|---|
-| `generateInvoice(GenerateInvoiceRequest): InvoiceResponse` | Resolves the student's `class_id` via SIS `Student.section_id` → Academic `SectionService` (`STUDENT_HAS_NO_SECTION` if null, ADR-007 §2); sums `FeeStructure` for `(class_id, academic_session_id, student's category)` minus matching `ScholarshipWaiver`s (ADR-007 §1); generates `invoice_no` (ADR-007 §10); `status = UNPAID`. |
+| `generateInvoice(GenerateInvoiceRequest): InvoiceResponse` | Resolves the student's `class_id` via SIS `Student.section_id` → Academic `SectionService` (`STUDENT_HAS_NO_SECTION` if null, ADR-007 §2); sums `FeeStructure` for `(class_id, academic_session_id, student's category)` — plus, per ADR-014 §1, the route-tier row (if any) matching the student's active `TransportAllocation.route_id` via `TransportAllocationService::getActiveAllocationForStudent` — minus matching `ScholarshipWaiver`s (ADR-007 §1); generates `invoice_no` (ADR-007 §10); `status = UNPAID`. |
+| `recalculateForRouteChange(int $studentId, ?int $newRouteId): array<InvoiceResponse>` | ADR-014 §1 (BR-TRN-005) — explicit trigger only (BR-FEE-004/008 precedent), called by `TransportAllocationService::changeRoute()`, never polled. Recomputes `total_amount` for that student's recalculable (`UNPAID`, unlocked) invoices only. |
 | `applyLateFee(int $id): InvoiceResponse` | BR-FEE-004: adds 5% of `total_amount` (ADR-007 §4), tracked via a decided additive `late_fee_applied` boolean (not in Appendix-G's literal attribute list — needed for idempotency, same kind of decided addition as Academic's `locked_by_closed_exam`, ADR-005 §10). Rejects with `LATE_FEE_ALREADY_APPLIED` if already `true`. |
+| `hasOutstandingBalance(int $studentId, int $academicSessionId): bool` | ADR-014 §2 (BR-SIS-001) — what Examination's `PromotionService` now queries instead of taking a caller-supplied `fee_closure_confirmed` boolean. |
 | `flagOverdueAsDefaulter(int $id): InvoiceResponse` | BR-FEE-008: `status → DEFAULTER` if `due_date` has passed and `status` not in `PAID`/`CANCELLED`. |
 | `getInvoice(int $id): InvoiceResponse` | Plain read. |
 | `listByStudent(int $studentId): array` | Invoice history. |
