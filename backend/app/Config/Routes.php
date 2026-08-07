@@ -29,6 +29,11 @@ $routes->group('api/v1/administration', ['namespace' => 'App\Modules\Administrat
 
     $routes->get('audit-logs/by-entity/(:segment)/(:num)', 'AuditLogController::byEntity/$1/$2');
     $routes->get('audit-logs/by-user/(:num)', 'AuditLogController::byUser/$1');
+
+    // docs/design/administration/Phase-7-Configuration-Design.md
+    $routes->patch('configurations/(:segment)', 'ConfigurationController::update/$1');
+    $routes->get('configurations/(:segment)', 'ConfigurationController::show/$1');
+    $routes->get('configurations', 'ConfigurationController::index');
 });
 
 // docs/design/academic/Phase-5-Controller-Design.md

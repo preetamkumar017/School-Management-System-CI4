@@ -22,11 +22,13 @@ use App\Modules\Admission\Models\SeatAllocationModel;
 use App\Modules\Admission\Services\ApplicationService;
 use App\Modules\Admission\Services\SeatAllocationService;
 use App\Modules\Administration\Models\AuditLogModel;
+use App\Modules\Administration\Models\ConfigurationModel;
 use App\Modules\Administration\Models\RefreshTokenModel;
 use App\Modules\Administration\Models\RoleModel;
 use App\Modules\Administration\Models\UserModel;
 use App\Modules\Administration\Services\AuditService;
 use App\Modules\Administration\Services\AuthService;
+use App\Modules\Administration\Services\ConfigurationService;
 use App\Modules\Administration\Services\RoleService;
 use App\Modules\Administration\Services\UserService;
 use App\Modules\Attendance\Models\AttendanceRecordModel;
@@ -114,6 +116,15 @@ class Services extends BaseService
         }
 
         return new AuditService(new AuditLogModel());
+    }
+
+    public static function configurationService(bool $getShared = true): ConfigurationService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('configurationService');
+        }
+
+        return new ConfigurationService(new ConfigurationModel(), static::auditService());
     }
 
     public static function authService(bool $getShared = true): AuthService
@@ -288,6 +299,7 @@ class Services extends BaseService
             new ExamModel(),
             static::examService(),
             static::auditService(),
+            static::configurationService(),
         );
     }
 
@@ -315,7 +327,7 @@ class Services extends BaseService
             return static::getSharedInstance('timetableEntryService');
         }
 
-        return new TimetableEntryService(new TimetableEntryModel(), static::auditService());
+        return new TimetableEntryService(new TimetableEntryModel(), static::auditService(), static::configurationService());
     }
 
     public static function attendanceService(bool $getShared = true): AttendanceService
@@ -324,7 +336,7 @@ class Services extends BaseService
             return static::getSharedInstance('attendanceService');
         }
 
-        return new AttendanceService(new AttendanceRecordModel(), static::auditService());
+        return new AttendanceService(new AttendanceRecordModel(), static::auditService(), static::configurationService());
     }
 
     public static function staffAttendanceService(bool $getShared = true): StaffAttendanceService
@@ -360,7 +372,7 @@ class Services extends BaseService
             return static::getSharedInstance('invoiceService');
         }
 
-        return new InvoiceService(new InvoiceModel(), new ScholarshipWaiverModel(), static::auditService());
+        return new InvoiceService(new InvoiceModel(), new ScholarshipWaiverModel(), static::auditService(), static::configurationService());
     }
 
     public static function paymentService(bool $getShared = true): PaymentService
@@ -429,7 +441,7 @@ class Services extends BaseService
             return static::getSharedInstance('leaveRequestService');
         }
 
-        return new LeaveRequestService(new LeaveRequestModel(), new EmployeeModel(), static::auditService());
+        return new LeaveRequestService(new LeaveRequestModel(), new EmployeeModel(), static::auditService(), static::configurationService());
     }
 
     public static function bookService(bool $getShared = true): BookService
@@ -447,7 +459,7 @@ class Services extends BaseService
             return static::getSharedInstance('bookIssueService');
         }
 
-        return new BookIssueService(new BookIssueModel(), new BookModel(), static::auditService());
+        return new BookIssueService(new BookIssueModel(), new BookModel(), static::auditService(), static::configurationService());
     }
 
     public static function vehicleService(bool $getShared = true): VehicleService

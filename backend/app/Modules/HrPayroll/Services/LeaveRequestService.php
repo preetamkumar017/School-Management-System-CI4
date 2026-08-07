@@ -9,6 +9,7 @@ use App\Core\Exceptions\ValidationException;
 use App\Core\Http\RequestContext;
 use App\Modules\Administration\Entities\AuditLog;
 use App\Modules\Administration\Services\AuditService;
+use App\Modules\Administration\Services\ConfigurationService;
 use App\Modules\HrPayroll\DTOs\CreateLeaveRequestRequest;
 use App\Modules\HrPayroll\DTOs\DecideLeaveRequestRequest;
 use App\Modules\HrPayroll\DTOs\LeaveRequestResponse;
@@ -24,16 +25,17 @@ use App\Modules\HrPayroll\Models\LeaveRequestModel;
  */
 class LeaveRequestService
 {
-    private const ANNUAL_ALLOCATION = [
-        LeaveRequest::TYPE_CL => 12,
-        LeaveRequest::TYPE_SL => 10,
-        LeaveRequest::TYPE_EL => 15,
+    private const ALLOCATION_CONFIG_KEYS = [
+        LeaveRequest::TYPE_CL => 'hr_payroll.leave_allocation.cl',
+        LeaveRequest::TYPE_SL => 'hr_payroll.leave_allocation.sl',
+        LeaveRequest::TYPE_EL => 'hr_payroll.leave_allocation.el',
     ];
 
     public function __construct(
         private readonly LeaveRequestModel $leaveRequestModel,
         private readonly EmployeeModel $employeeModel,
         private readonly AuditService $auditService,
+        private readonly ConfigurationService $configurationService,
     ) {
     }
 
@@ -145,7 +147,8 @@ class LeaveRequestService
     private function projectedBalanceAfter(LeaveRequest $leaveRequest): int
     {
         $year       = (int) (new \DateTimeImmutable((string) $leaveRequest->start_date))->format('Y');
-        $allocation = self::ANNUAL_ALLOCATION[$leaveRequest->leave_type] ?? 0;
+        $allocationKey = self::ALLOCATION_CONFIG_KEYS[$leaveRequest->leave_type] ?? null;
+        $allocation    = $allocationKey === null ? 0 : (int) $this->configurationService->getNumber($allocationKey);
         $consumed   = $this->leaveRequestModel->sumApprovedDaysByEmployeeTypeYear($leaveRequest->employee_id, $leaveRequest->leave_type, $year);
         $thisRequest = (new \DateTimeImmutable((string) $leaveRequest->start_date))
             ->diff(new \DateTimeImmutable((string) $leaveRequest->end_date))->days + 1;

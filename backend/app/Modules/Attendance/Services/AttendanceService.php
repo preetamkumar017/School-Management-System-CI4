@@ -9,6 +9,7 @@ use App\Core\Exceptions\ValidationException;
 use App\Core\Http\RequestContext;
 use App\Modules\Administration\Entities\AuditLog;
 use App\Modules\Administration\Services\AuditService;
+use App\Modules\Administration\Services\ConfigurationService;
 use App\Modules\Attendance\DTOs\AttendanceCorrectionRequest;
 use App\Modules\Attendance\DTOs\AttendancePercentageResponse;
 use App\Modules\Attendance\DTOs\AttendanceRecordResponse;
@@ -25,16 +26,10 @@ use Config\Services as AppServices;
  */
 class AttendanceService
 {
-    /**
-     * ADR-006 §11 — decided default (BR-ATT-006's threshold is "Client/
-     * Product Decision Required" per Appendix-C), pending a future
-     * Configuration entity.
-     */
-    private const EXAM_ELIGIBILITY_MINIMUM_PERCENTAGE = 75.0;
-
     public function __construct(
         private readonly AttendanceRecordModel $attendanceRecordModel,
         private readonly AuditService $auditService,
+        private readonly ConfigurationService $configurationService,
     ) {
     }
 
@@ -127,26 +122,31 @@ class AttendanceService
     }
 
     /**
-     * ADR-006 §8 — same-day correction is direct; past the same calendar
-     * day as attendance_date, a reason is required and logged as an
-     * override.
+     * ADR-006 §8 / ADR-011 §4 — within the configured edit window
+     * (attendance.edit_window_days, default 0 = same day only),
+     * correction is direct; beyond it, a reason is required and logged
+     * as an override.
      */
     public function correctAttendance(int $id, AttendanceCorrectionRequest $request): AttendanceRecordResponse
     {
         $before = $this->requireRecord($id);
 
-        $sameDay = Time::now()->toDateString() === (string) $before->attendance_date;
+        $editWindowDays = (int) $this->configurationService->getNumber('attendance.edit_window_days');
+        $attendanceDate = new \DateTimeImmutable((string) $before->attendance_date);
+        $today          = new \DateTimeImmutable(Time::now()->toDateString());
+        $daysSince      = $today > $attendanceDate ? $today->diff($attendanceDate)->days : 0;
+        $withinWindow   = $daysSince <= $editWindowDays;
 
-        if (! $sameDay && ($request->reason === null || trim($request->reason) === '')) {
+        if (! $withinWindow && ($request->reason === null || trim($request->reason) === '')) {
             throw new ValidationException(
-                ['reason' => 'reason is required when correcting attendance beyond the same-day edit window.'],
+                ['reason' => 'reason is required when correcting attendance beyond the configured edit window.'],
             );
         }
 
         $this->attendanceRecordModel->update($id, ['state' => $request->state]);
         $after = $this->attendanceRecordModel->find($id);
 
-        if ($sameDay) {
+        if ($withinWindow) {
             $this->auditService->record('AttendanceRecord', $id, AuditLog::ACTION_UPDATE, $before->toRawArray(), $after->toRawArray());
         } else {
             $this->auditService->record(
@@ -206,7 +206,7 @@ class AttendanceService
             $fromDate,
             $toDate,
             $percentage,
-            $percentage < self::EXAM_ELIGIBILITY_MINIMUM_PERCENTAGE,
+            $percentage < $this->configurationService->getNumber('attendance.exam_eligibility_min_percentage'),
         );
     }
 

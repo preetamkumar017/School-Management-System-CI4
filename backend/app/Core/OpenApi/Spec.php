@@ -1061,6 +1061,24 @@ use OpenApi\Attributes as OA;
     ],
     type: 'object',
 )]
+#[OA\Schema(
+    schema: 'ConfigurationUpdateRequest',
+    required: ['setting_value'],
+    properties: [new OA\Property(property: 'setting_value', type: 'string')],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'ConfigurationResponse',
+    properties: [
+        new OA\Property(property: 'setting_id', type: 'integer'),
+        new OA\Property(property: 'setting_key', type: 'string', example: 'library.max_books_per_borrower'),
+        new OA\Property(property: 'setting_value', type: 'string'),
+        new OA\Property(property: 'data_type', type: 'string', enum: ['String', 'Number', 'Boolean', 'Date']),
+        new OA\Property(property: 'module', type: 'string'),
+        new OA\Property(property: 'is_editable', type: 'boolean'),
+    ],
+    type: 'object',
+)]
 final class Spec
 {
     // No instances — attributes only.

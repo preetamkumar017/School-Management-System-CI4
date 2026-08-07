@@ -7,6 +7,7 @@ namespace App\Modules\Library\Services;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Modules\Administration\Entities\AuditLog;
 use App\Modules\Administration\Services\AuditService;
+use App\Modules\Administration\Services\ConfigurationService;
 use App\Modules\Library\DTOs\BookIssueResponse;
 use App\Modules\Library\DTOs\IssueBookRequest;
 use App\Modules\Library\Entities\Book;
@@ -24,22 +25,11 @@ use Config\Services as AppServices;
  */
 class BookIssueService
 {
-    /** ADR-009 §2 — decided default, "Client/Product Decision Required" per Appendix-C. */
-    private const MAX_BOOKS_PER_BORROWER = 3;
-
-    /** ADR-009 §3 — decided default. */
-    private const FINE_PER_DAY = 2.00;
-
-    /** ADR-009 §4 — decided default; no `price` field exists on Book to compute a variable charge from. */
-    private const REPLACEMENT_CHARGE = 500.00;
-
-    /** ADR-009 §6 — decided default: any nonzero unpaid fine blocks a new issue. */
-    private const OUTSTANDING_FINE_THRESHOLD = 0.0;
-
     public function __construct(
         private readonly BookIssueModel $bookIssueModel,
         private readonly BookModel $bookModel,
         private readonly AuditService $auditService,
+        private readonly ConfigurationService $configurationService,
     ) {
     }
 
@@ -64,14 +54,14 @@ class BookIssueService
 
         $this->validateBorrower($request->borrowerType, $request->borrowerRefId);
 
-        if ($this->bookIssueModel->countIssuedByBorrower($request->borrowerType, $request->borrowerRefId) >= self::MAX_BOOKS_PER_BORROWER) {
+        if ($this->bookIssueModel->countIssuedByBorrower($request->borrowerType, $request->borrowerRefId) >= $this->configurationService->getNumber('library.max_books_per_borrower')) {
             throw new BusinessRuleException(
                 'MAX_BOOKS_LIMIT_REACHED',
                 'This borrower is already at the configured maximum-books limit (BR-LIB-001).',
             );
         }
 
-        if ($this->bookIssueModel->sumUnsettledFinesByBorrower($request->borrowerType, $request->borrowerRefId) > self::OUTSTANDING_FINE_THRESHOLD) {
+        if ($this->bookIssueModel->sumUnsettledFinesByBorrower($request->borrowerType, $request->borrowerRefId) > $this->configurationService->getNumber('library.outstanding_fine_threshold')) {
             throw new BusinessRuleException(
                 'OUTSTANDING_FINE_BLOCKS_ISSUE',
                 'This borrower has an outstanding library fine that must be settled first (BR-LIB-005).',
@@ -114,7 +104,7 @@ class BookIssueService
         $dueDate    = new \DateTimeImmutable((string) $before->due_date);
         $today      = new \DateTimeImmutable($returnDate->toDateString());
         $daysOverdue = $today > $dueDate ? $today->diff($dueDate)->days : 0;
-        $fineAmount  = $daysOverdue > 0 ? round($daysOverdue * self::FINE_PER_DAY, 2) : 0.0;
+        $fineAmount  = $daysOverdue > 0 ? round($daysOverdue * $this->configurationService->getNumber('library.fine_per_day_rate'), 2) : 0.0;
 
         $this->bookIssueModel->update($id, [
             'return_date' => $returnDate->toDateString(),
@@ -147,7 +137,7 @@ class BookIssueService
 
         $this->bookIssueModel->update($id, [
             'status'                    => BookIssue::STATUS_LOST,
-            'replacement_charge_amount' => self::REPLACEMENT_CHARGE,
+            'replacement_charge_amount' => $this->configurationService->getNumber('library.replacement_charge'),
         ]);
 
         // The book stays unavailable — it's lost, not merely overdue.

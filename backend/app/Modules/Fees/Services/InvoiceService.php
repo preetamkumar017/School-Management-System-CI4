@@ -7,6 +7,7 @@ namespace App\Modules\Fees\Services;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Modules\Administration\Entities\AuditLog;
 use App\Modules\Administration\Services\AuditService;
+use App\Modules\Administration\Services\ConfigurationService;
 use App\Modules\Fees\DTOs\GenerateInvoiceRequest;
 use App\Modules\Fees\DTOs\InvoiceResponse;
 use App\Modules\Fees\Entities\Invoice;
@@ -20,16 +21,11 @@ use Config\Services as AppServices;
  */
 class InvoiceService
 {
-    /**
-     * ADR-007 §4 — decided default; "Client/Product Decision Required"
-     * per Appendix-C, pending a future Configuration entity.
-     */
-    private const LATE_FEE_PERCENTAGE = 5.0;
-
     public function __construct(
         private readonly InvoiceModel $invoiceModel,
         private readonly ScholarshipWaiverModel $scholarshipWaiverModel,
         private readonly AuditService $auditService,
+        private readonly ConfigurationService $configurationService,
     ) {
     }
 
@@ -99,7 +95,7 @@ class InvoiceService
             throw new BusinessRuleException('LATE_FEE_ALREADY_APPLIED', 'A late fee has already been applied to this invoice.');
         }
 
-        $lateFee = round($before->total_amount * (self::LATE_FEE_PERCENTAGE / 100), 2);
+        $lateFee = round($before->total_amount * ($this->configurationService->getNumber('fees.late_fee_rate_percentage') / 100), 2);
 
         $this->invoiceModel->update($id, [
             'total_amount'     => $before->total_amount + $lateFee,

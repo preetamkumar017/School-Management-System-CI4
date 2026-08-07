@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature\Library;
 
 use App\Core\Exceptions\BusinessRuleException;
+use App\Modules\Administration\Models\ConfigurationModel;
 use App\Modules\Library\Models\BookIssueModel;
 use App\Modules\Library\Models\BookModel;
 use Tests\Support\Library\LibraryTestCase;
@@ -72,6 +73,39 @@ final class BookIssueTest extends LibraryTestCase
         for ($i = 0; $i < 3; $i++) {
             $this->createBookIssueFixture(null, 'Student', $studentId);
         }
+
+        $this->assertApiException(
+            fn () => $this->withHeaders($headers)->withBodyFormat('json')->post('api/v1/library/book-issues', [
+                'book_id'         => $this->createBookFixture(),
+                'borrower_type'   => 'Student',
+                'borrower_ref_id' => $studentId,
+                'due_date'        => '2026-08-20',
+            ]),
+            BusinessRuleException::class,
+            'MAX_BOOKS_LIMIT_REACHED',
+            422,
+        );
+    }
+
+    /**
+     * ADR-011 §4: the limit reads live from Configuration, not a
+     * hardcoded constant — proven by changing the seeded value and
+     * observing the enforced ceiling change with it.
+     */
+    public function testMaxBooksLimitReadsLiveFromConfiguration(): void
+    {
+        $user      = $this->createUser();
+        $tokens    = $this->loginAs($user['username']);
+        $headers   = $this->authHeaders($tokens['access_token']);
+        $studentId = $this->createStudentFixture();
+
+        $configModel = new ConfigurationModel();
+        $configModel->update(
+            $configModel->findByKey('library.max_books_per_borrower')->setting_id,
+            ['setting_value' => '1'],
+        );
+
+        $this->createBookIssueFixture(null, 'Student', $studentId);
 
         $this->assertApiException(
             fn () => $this->withHeaders($headers)->withBodyFormat('json')->post('api/v1/library/book-issues', [

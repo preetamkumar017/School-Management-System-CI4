@@ -7,6 +7,7 @@ namespace App\Modules\Timetable\Services;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Modules\Administration\Entities\AuditLog;
 use App\Modules\Administration\Services\AuditService;
+use App\Modules\Administration\Services\ConfigurationService;
 use App\Modules\Communication\DTOs\CreateNotificationLogRequest;
 use App\Modules\Communication\Entities\NotificationLog;
 use App\Modules\Timetable\DTOs\CreateTimetableEntryRequest;
@@ -20,15 +21,10 @@ use Config\Services as AppServices;
  */
 class TimetableEntryService
 {
-    /**
-     * ADR-006 §7 — decided default; "Client/Product Decision Required"
-     * per Appendix-C, pending a future Configuration entity.
-     */
-    private const WEEKLY_LOAD_CEILING = 30;
-
     public function __construct(
         private readonly TimetableEntryModel $timetableEntryModel,
         private readonly AuditService $auditService,
+        private readonly ConfigurationService $configurationService,
     ) {
     }
 
@@ -181,7 +177,7 @@ class TimetableEntryService
             ? $this->timetableEntryModel->countByEmployeeId($request->employeeId)
             : $this->timetableEntryModel->countByEmployeeIdExceptId($request->employeeId, $exceptId);
 
-        if ($currentLoad >= self::WEEKLY_LOAD_CEILING) {
+        if ($currentLoad >= $this->configurationService->getNumber('timetable.weekly_load_ceiling')) {
             throw new BusinessRuleException(
                 'WEEKLY_LOAD_CEILING_EXCEEDED',
                 'This teacher is already at the configured weekly teaching load ceiling (BR-TT-006).',

@@ -8,6 +8,7 @@ use App\Core\Exceptions\BusinessRuleException;
 use App\Core\Exceptions\ValidationException;
 use App\Modules\Administration\Entities\AuditLog;
 use App\Modules\Administration\Services\AuditService;
+use App\Modules\Administration\Services\ConfigurationService;
 use App\Modules\Examination\DTOs\CreateMarksRecordRequest;
 use App\Modules\Examination\DTOs\MarksRecordReevaluateRequest;
 use App\Modules\Examination\DTOs\MarksRecordResponse;
@@ -24,19 +25,12 @@ class MarksRecordService
 {
     use ClosedSessionGuard;
 
-    /**
-     * ADR-005 §6 — a mark is flagged if it deviates from the student's
-     * historical average percentage for that subject by more than this
-     * many percentage points. Documented default, not a hardcoded law —
-     * see ADR-005 §6 for why no Configuration entity backs it yet.
-     */
-    private const ANOMALY_THRESHOLD_PERCENTAGE_POINTS = 30.0;
-
     public function __construct(
         private readonly MarksRecordModel $marksRecordModel,
         private readonly ExamModel $examModel,
         private readonly ExamService $examService,
         private readonly AuditService $auditService,
+        private readonly ConfigurationService $configurationService,
     ) {
     }
 
@@ -222,7 +216,7 @@ class MarksRecordService
         $historicalAverage = array_sum($historicalPercentages) / count($historicalPercentages);
         $newPercentage     = $maxMarks > 0 ? ($marksObtained / $maxMarks) * 100 : 0.0;
 
-        return abs($newPercentage - $historicalAverage) > self::ANOMALY_THRESHOLD_PERCENTAGE_POINTS;
+        return abs($newPercentage - $historicalAverage) > $this->configurationService->getNumber('examination.anomaly_threshold_percentage_points');
     }
 
     private function requireMarksRecord(int $id): MarksRecord

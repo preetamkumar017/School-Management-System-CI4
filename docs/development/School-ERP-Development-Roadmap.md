@@ -616,6 +616,53 @@ Library/Transport, ADR-009) needing zero undesigned-dependency stubs.
 Every module Appendix-G's Data Dictionary defines is now designed and
 implemented. Stage 6 is complete.
 
+## Stage 7 — Configuration entity — DONE (2026-08-07)
+
+Reference: `docs/design/administration/Phase-7-Configuration-Design.md`,
+per `docs/ADR/ADR-011-configuration-entity-scope-decisions.md`. The
+first Stage 7 follow-up item, picked first because it's the one every
+other follow-up item's own ADR explicitly named as blocking it
+("pending a future Configuration entity").
+
+- **Design pass first**: ADR-011 cross-checked Appendix-C §3.5's full
+  24-item Consolidated Configurable Items list against what Stage 6
+  actually built, and found only **10 items** exist as real, working
+  decided-default constants in already-shipped Service code — the other
+  14 were never implemented as a scalar constant at all (either the
+  surrounding feature is itself out of scope in an already-accepted ADR,
+  or the item is a policy/list/role-name, not a single value
+  `Configuration`'s `setting_value VARCHAR(500)` shape can naturally
+  hold). Only the 10 real ones migrate, plus HR & Payroll's leave
+  allocations (CL/SL/EL, three keys) folded in from ADR-008 §7 — twelve
+  `configurations` rows total, seeded directly in the creation migration
+  per Appendix-G's own Lifecycle line ("Created at implementation"), not
+  via a runtime `POST` (no such endpoint exists).
+  `docs/design/School-ERP-Module-Architecture.md`'s Administration row
+  gains `Configuration` as designed.
+- **Six already-shipped Services refactored in the same pass** —
+  `BookIssueService`, `TimetableEntryService`, `AttendanceService`,
+  `MarksRecordService`, `InvoiceService`, `LeaveRequestService` — each
+  had its private decided-default constant removed and replaced with a
+  call to `ConfigurationService::getNumber()`. `Config\Services.php`'s
+  six corresponding factory methods now inject `static::
+  configurationService()`. `AttendanceService::correctAttendance`'s
+  same-day boolean check was reworked into a numeric day-window
+  comparison against `attendance.edit_window_days` (default 0 = same day
+  only) — same semantic, now genuinely parametrized rather than
+  hardcoded to "today."
+- Migration: `configurations` — applied, with its twelve-row seed.
+- Verification: 5 new PHPUnit tests (151 total) — seeded-value read,
+  update, `is_editable = false` rejection, list-by-module, and the
+  headline test proving a refactored Service's enforcement is genuinely
+  config-driven (not still secretly hardcoded): changing
+  `library.max_books_per_borrower` to 1 via the API and confirming
+  `BookIssueService` immediately enforces the new ceiling. All 151 prior
+  tests still pass unmodified — the seeded defaults match the removed
+  constants exactly, so no existing assertion needed to change. Also
+  manually smoke-tested end-to-end against the real dev server: read a
+  seeded key → list by module → update → confirm the change persisted →
+  reverted back to the original seeded value.
+
 ## Ongoing, every stage
 
 - Git: feature branches (Company Development Standard §6), PR review before
@@ -634,18 +681,12 @@ implemented. Stage 6 is complete.
 
 ## Immediate next action
 
-Stages 0 through 6f are done (2026-08-07) — every module in Appendix-G's
-Data Dictionary (Academic, Admission, SIS with Confirm Enrollment,
-Examination/ADR-005, Timetable/Attendance/ADR-006, Fees/ADR-007,
-HR & Payroll/ADR-008, Library/Transport/ADR-009, Communication/Reports/
-ADR-010) is real, working, tested code (146 passing tests). Stage 6 —
-"implement every remaining undesigned module" — is complete. Remaining
-work is entirely follow-up/deepening, not new-module design:
+Stages 0 through 7 are done (2026-08-07) — every module in Appendix-G's
+Data Dictionary is real, working, tested code, plus a real
+`Configuration` entity backing ten of the decided defaults those modules
+shipped with (151 passing tests). Remaining work is follow-up/deepening,
+not new-module design:
 
-- The `Configuration` entity (Administration) — collects the ~15
-  decided-default candidates ADR-005/006/008/009 have been accumulating
-  (anomaly thresholds, leave allocations, fine rates, weekly-load
-  ceilings, etc.) into one real, editable settings store.
 - A real SMS/Email/Push gateway integration once a vendor is chosen
   (ADR-010 §1/§2/§5) — unblocks BR-COM-002/003 and live delivery for the
   two notification seams Stage 6f closed only the logging half of.
@@ -661,6 +702,10 @@ work is entirely follow-up/deepening, not new-module design:
 - A `Document`/PDF-generation module for report cards, payslips, and
   rendered exports — named as a gap by Examination (ADR-005 §9),
   HR & Payroll (ADR-008 §10), and Reports (ADR-010 §8) alike.
+- The fourteen Appendix-C §3.5 configurable items ADR-011 §5 explicitly
+  did not migrate — each needs its underlying feature built first (a
+  real entity, workflow, or integration), not just a `Configuration` row
+  with nothing to plug into yet.
 
 None of these block anything else — check with the project owner on
 priority before starting any of them.
