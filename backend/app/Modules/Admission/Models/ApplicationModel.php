@@ -29,6 +29,7 @@ class ApplicationModel extends BaseModel
         'status',
         'submitted_at',
         'decided_at',
+        'hold_expires_at',
         'created_by',
         'updated_by',
     ];
@@ -94,5 +95,56 @@ class ApplicationModel extends BaseModel
         }
 
         return $builder->paginate($perPage, 'default', $page);
+    }
+
+    /**
+     * docs/ADR/ADR-016-admission-seat-hold-and-waitlist.md §4/§5 — the
+     * candidate-gathering read for `releaseExpiredHolds()`. Deliberately
+     * a plain (non-locked) read: each candidate id is re-verified under
+     * its own row lock inside the per-application transaction that
+     * actually acts on it, matching `incrementSeatsFilled()`'s own
+     * "guarded read, then lock-and-recheck" shape.
+     *
+     * @return list<Application>
+     */
+    public function findExpiredHolds(string $nowDateTime): array
+    {
+        return $this->where('status', Application::STATUS_SHORTLISTED)
+            ->where('hold_expires_at IS NOT NULL')
+            ->where('hold_expires_at <=', $nowDateTime)
+            ->orderBy('hold_expires_at', 'ASC')
+            ->findAll();
+    }
+
+    /**
+     * BR-ADM-008 ranking (ADR-016 §3): strictly `submitted_at` ascending,
+     * scoped to the class a vacated seat belongs to — no priority
+     * category exists on `Application` to rank on instead.
+     */
+    public function findEarliestWaitlistedForClass(int $classAppliedId): ?Application
+    {
+        return $this->where('status', Application::STATUS_WAITLISTED)
+            ->where('class_applied_id', $classAppliedId)
+            ->orderBy('submitted_at', 'ASC')
+            ->first();
+    }
+
+    /**
+     * ADR-016 §4/§5's row-lock discipline, reusing
+     * `SeatAllocationModel::incrementSeatsFilled()`'s exact raw-SQL
+     * `SELECT ... FOR UPDATE` shape (must run inside a transaction the
+     * caller owns). Returns the raw row (not a hydrated Entity) since
+     * callers only need `status`/`hold_expires_at` to re-verify
+     * eligibility under the lock before writing.
+     *
+     * @return array<string, mixed>|null
+     */
+    public function lockForUpdate(int $id): ?array
+    {
+        return $this->db->query(
+            'SELECT application_id, status, hold_expires_at, class_applied_id '
+                . 'FROM applications WHERE application_id = ? FOR UPDATE',
+            [$id],
+        )->getRowArray();
     }
 }

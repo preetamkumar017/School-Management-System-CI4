@@ -37,7 +37,14 @@ Not all 24 items are eligible to migrate here. Cross-checking Appendix-C
   single scalar value naturally suited to `Configuration`'s
   `setting_value VARCHAR(500)` shape (BR-ADM-007/008 seat-hold/waitlist
   policy — Admission's approved design never modeled a hold-timer at
-  all; BR-TT-004 subject-teacher eligibility source (**since resolved,
+  all (**since resolved, 2026-08-07: ADR-016 built a real
+  `applications.hold_expires_at` column plus
+  `ApplicationService::releaseExpiredHolds()`, with only the hold
+  *duration* (`admission.seat_hold_period_hours`) migrated into
+  `Configuration` — the ranking policy itself (BR-ADM-008) is a strict
+  `submitted_at`-order rule, not a scalar, matching the reasoning this
+  ADR already gave for why a policy/list doesn't fit `Configuration`'s
+  shape**); BR-TT-004 subject-teacher eligibility source (**since resolved,
   2026-08-07: ADR-013 built this as a real `SubjectTeacherEligibility`
   table, not a `Configuration` row — a persisted mapping, not a scalar,
   matching the reasoning this ADR already gave for why a policy/list

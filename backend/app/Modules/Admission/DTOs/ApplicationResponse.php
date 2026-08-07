@@ -21,6 +21,7 @@ final class ApplicationResponse
     public readonly string $status;
     public readonly string $submittedAt;
     public readonly ?string $decidedAt;
+    public readonly ?string $holdExpiresAt;
 
     public function __construct(Application $application)
     {
@@ -34,6 +35,7 @@ final class ApplicationResponse
         $this->status                 = $application->status;
         $this->submittedAt            = $application->submitted_at->toDateTimeString();
         $this->decidedAt              = $application->decided_at?->toDateTimeString();
+        $this->holdExpiresAt          = $application->hold_expires_at?->toDateTimeString();
     }
 
     /**
@@ -52,6 +54,7 @@ final class ApplicationResponse
             'status'                   => $this->status,
             'submitted_at'             => $this->submittedAt,
             'decided_at'               => $this->decidedAt,
+            'hold_expires_at'          => $this->holdExpiresAt,
         ];
     }
 }

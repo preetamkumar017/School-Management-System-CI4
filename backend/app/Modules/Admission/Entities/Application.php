@@ -22,6 +22,7 @@ use App\Core\BaseEntity;
  * @property string      $status
  * @property \CodeIgniter\I18n\Time $submitted_at
  * @property \CodeIgniter\I18n\Time|null $decided_at
+ * @property \CodeIgniter\I18n\Time|null $hold_expires_at
  */
 class Application extends BaseEntity
 {
@@ -45,7 +46,7 @@ class Application extends BaseEntity
             'class_applied_id' => 'integer',
         ]);
 
-        $this->dates = array_merge($this->dates, ['submitted_at', 'decided_at']);
+        $this->dates = array_merge($this->dates, ['submitted_at', 'decided_at', 'hold_expires_at']);
 
         parent::__construct($data);
     }

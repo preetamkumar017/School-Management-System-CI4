@@ -847,6 +847,52 @@ attribution, but no permission check existed anywhere before this).
   total (1 new test; the existing override test also changed shape but
   wasn't new).
 
+## Stage 12 — BR-ADM-007/BR-ADM-008: Admission seat-hold expiry and waitlist ranking — DONE (2026-08-07)
+
+Reference: `docs/ADR/ADR-016-admission-seat-hold-and-waitlist.md`. Closes
+the two Appendix-C items ADR-011 §5 could not migrate into
+`Configuration` because Admission's approved design never modeled a
+hold-timer at all (BR-ADM-007) and the "ranking/priority policy" is a
+policy/list rather than a `Configuration`-shaped scalar (BR-ADM-008).
+
+- **BR-ADM-007 (Provisional Seat Hold Expiry)** — additive nullable
+  `applications.hold_expires_at`, set whenever an application is
+  `SHORTLISTED` (first offer or waitlist promotion) to
+  `now + admission.seat_hold_period_hours` (a new `Configuration` key,
+  **72 hours**, the documented default). No new status value: `SHORTLISTED`
+  already means "offered a seat, pending confirmation." New
+  `ApplicationService::releaseExpiredHolds()` — explicit-trigger only (no
+  scheduler exists in this codebase) — releases every lapsed hold to
+  `REJECTED` and, per BR-ADM-008, promotes the earliest-`submitted_at`
+  `WAITLISTED` applicant for the same class, if any. New endpoint:
+  `POST /admission/applications/release-expired-holds`.
+- **BR-ADM-008 (Waitlist Ranking Order)** — strict `Application.submitted_at`
+  ascending order, scoped to the vacated seat's class. No sibling/staff-ward
+  priority-category field exists anywhere in Appendix-G's `Application`
+  entity card, so none is invented (ADR-016 §3) — first-come-first-served
+  is the only defensible ranking with the data actually approved.
+- **Race condition closed** (Appendix-C §3.2 Observation A: BR-ADM-007's
+  auto-release vs. BR-ADM-001's seat-ceiling-guarding `confirmEnrollment()`):
+  both `releaseExpiredHolds()` and `confirmEnrollment()` now lock the same
+  `Application` row (`SELECT ... FOR UPDATE`, the same row-lock discipline
+  `SeatAllocationModel::incrementSeatsFilled()` established in Stage 4)
+  before acting — whichever transaction acquires the lock first completes
+  atomically before the other proceeds, so the two operations can never
+  both succeed for the same seat offer.
+- New migrations: `2026-08-07-220001_AddHoldExpiresAtToApplicationsTable.php`,
+  `2026-08-07-220002_AddAdmissionSeatHoldPeriodConfigKey.php`.
+- Verification: 8 new PHPUnit tests (177 total) — an untouched
+  not-yet-expired hold, an expired hold releasing the seat and promoting
+  the earliest-submitted waitlisted applicant (asserting the actual
+  promoted `application_id`, not just "someone"), strict rank order across
+  three waitlisted candidates, `confirmEnrollment()` rejecting an
+  already-released application, and a genuine two-connection concurrency
+  test (`SeatHoldConcurrencyTest`, matching Stage 4's
+  `SeatAllocationConcurrencyTest` precedent) proving the row lock actually
+  blocks a concurrent `confirmEnrollment()`-style lock attempt and that
+  the release, not a double-allocation, is the only write that ever takes
+  effect.
+
 ## Ongoing, every stage
 
 - Git: feature branches (Company Development Standard §6), PR review before
@@ -865,12 +911,13 @@ attribution, but no permission check existed anywhere before this).
 
 ## Immediate next action
 
-Stages 0 through 11 are done (2026-08-07) — every module in Appendix-G's
+Stages 0 through 12 are done (2026-08-07) — every module in Appendix-G's
 Data Dictionary is real, working, tested code, plus a real
 `Configuration` entity, a real `Document`/PDF-generation capability,
 Timetable Substitution (BR-TT-004/FR-16), the Fees/Transport/
-Examination cross-module seams, and BR-HR-004's RBAC enforcement closed
-(169 passing tests). Remaining work is follow-up/deepening, not
+Examination cross-module seams, BR-HR-004's RBAC enforcement, and
+Admission's seat-hold expiry/waitlist ranking (BR-ADM-007/BR-ADM-008)
+closed (177 passing tests). Remaining work is follow-up/deepening, not
 new-module design:
 
 - A real SMS/Email/Push gateway integration once a vendor is chosen
@@ -883,15 +930,16 @@ new-module design:
 - FR-09 ID Card/Certificate generation (SIS) — needs a real branding
   template and student-photo capability, explicitly deferred by
   ADR-012 §4.
-- The remaining thirteen Appendix-C §3.5 configurable items ADR-011 §5
-  explicitly did not migrate (BR-TT-004's own entry now resolved for
-  real by ADR-013, not by this list — see ADR-011's corrected note) —
-  each needs its underlying feature built first (a real entity,
+- The remaining eleven Appendix-C §3.5 configurable items ADR-011 §5
+  explicitly did not migrate (BR-TT-004's own entry resolved for real by
+  ADR-013, and BR-ADM-007/BR-ADM-008's entry resolved for real by
+  ADR-016 — see ADR-011's corrected note, neither by a `Configuration`
+  row) — each needs its underlying feature built first (a real entity,
   workflow, or integration: GPS ingestion, driver/vehicle/trip entities,
-  GST line-items, RTE waived-fee-head list, PF/ESI/PT slabs, seat-hold
-  policy, etc.), not just a `Configuration` row with nothing to plug
-  into yet. None of these are small — every one is a real feature build,
-  not a config tweak.
+  GST line-items, RTE waived-fee-head list, PF/ESI/PT slabs, etc.), not
+  just a `Configuration` row with nothing to plug into yet. None of
+  these are small — every one is a real feature build, not a config
+  tweak.
 
 None of these block anything else — check with the project owner on
 priority before starting any of them.

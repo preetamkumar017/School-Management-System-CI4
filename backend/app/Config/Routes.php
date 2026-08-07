@@ -83,6 +83,7 @@ $routes->group('api/v1/admission', ['namespace' => 'App\Modules\Admission\Contro
     $routes->post('applications/(:num)/waitlist', 'ApplicationController::waitlist/$1');
     $routes->post('applications/(:num)/reject', 'ApplicationController::reject/$1');
     $routes->post('applications/(:num)/confirm-enrollment', 'ApplicationController::confirmEnrollment/$1');
+    $routes->post('applications/release-expired-holds', 'ApplicationController::releaseExpiredHolds');
     $routes->get('applications/(:num)', 'ApplicationController::show/$1');
     $routes->get('applications', 'ApplicationController::index');
 

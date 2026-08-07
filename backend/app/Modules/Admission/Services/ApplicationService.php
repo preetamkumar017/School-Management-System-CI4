@@ -7,6 +7,7 @@ namespace App\Modules\Admission\Services;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Modules\Administration\Entities\AuditLog;
 use App\Modules\Administration\Services\AuditService;
+use App\Modules\Administration\Services\ConfigurationService;
 use App\Modules\Admission\DTOs\ApplicationRejectRequest;
 use App\Modules\Admission\DTOs\ApplicationResponse;
 use App\Modules\Admission\DTOs\ApplicationShortlistRequest;
@@ -14,6 +15,7 @@ use App\Modules\Admission\DTOs\ApplicationVerifyRequest;
 use App\Modules\Admission\DTOs\ApplicationWaitlistRequest;
 use App\Modules\Admission\DTOs\ConfirmEnrollmentResult;
 use App\Modules\Admission\DTOs\CreateApplicationRequest;
+use App\Modules\Admission\DTOs\ReleaseExpiredHoldsResult;
 use App\Modules\Admission\Entities\Application;
 use App\Modules\Admission\Models\ApplicationModel;
 use App\Modules\Admission\Models\SeatAllocationModel;
@@ -30,10 +32,16 @@ use Throwable;
  */
 class ApplicationService
 {
+    /**
+     * docs/ADR/ADR-016-admission-seat-hold-and-waitlist.md §2.
+     */
+    private const CONFIG_KEY_SEAT_HOLD_PERIOD_HOURS = 'admission.seat_hold_period_hours';
+
     public function __construct(
         private readonly ApplicationModel $applicationModel,
         private readonly SeatAllocationModel $seatAllocationModel,
         private readonly AuditService $auditService,
+        private readonly ConfigurationService $configurationService,
     ) {
     }
 
@@ -67,9 +75,19 @@ class ApplicationService
         return $this->transition($id, [Application::STATUS_SUBMITTED], Application::STATUS_VERIFIED);
     }
 
+    /**
+     * docs/ADR/ADR-016-admission-seat-hold-and-waitlist.md §1: shortlisting
+     * is the moment a seat offer's hold begins — `hold_expires_at` is set
+     * here, not via a separate "place a hold" action.
+     */
     public function shortlistApplication(int $id, ApplicationShortlistRequest $request): ApplicationResponse
     {
-        return $this->transition($id, [Application::STATUS_VERIFIED], Application::STATUS_SHORTLISTED);
+        return $this->transition(
+            $id,
+            [Application::STATUS_VERIFIED],
+            Application::STATUS_SHORTLISTED,
+            ['hold_expires_at' => $this->newHoldExpiry()],
+        );
     }
 
     public function waitlistApplication(int $id, ApplicationWaitlistRequest $request): ApplicationResponse
@@ -78,6 +96,7 @@ class ApplicationService
             $id,
             [Application::STATUS_VERIFIED, Application::STATUS_SHORTLISTED],
             Application::STATUS_WAITLISTED,
+            ['hold_expires_at' => null],
         );
     }
 
@@ -93,8 +112,9 @@ class ApplicationService
         }
 
         $this->applicationModel->update($id, [
-            'status'      => Application::STATUS_REJECTED,
-            'decided_at'  => Time::now()->toDateTimeString(),
+            'status'          => Application::STATUS_REJECTED,
+            'decided_at'      => Time::now()->toDateTimeString(),
+            'hold_expires_at' => null,
         ]);
 
         $after = $this->applicationModel->find($id);
@@ -108,6 +128,150 @@ class ApplicationService
         );
 
         return new ApplicationResponse($after);
+    }
+
+    /**
+     * docs/ADR/ADR-016-admission-seat-hold-and-waitlist.md §4 — explicit
+     * trigger only (no scheduler exists in this codebase). For every
+     * `SHORTLISTED` application whose hold has lapsed: locks that
+     * `Application` row, re-verifies eligibility under the lock (a
+     * concurrent `confirmEnrollment()` may have already resolved it —
+     * see §5's matching lock), releases it to `REJECTED`, then promotes
+     * the earliest-`submitted_at` `WAITLISTED` application for the same
+     * class (BR-ADM-008), if any, into the vacated offer — all inside one
+     * transaction per candidate, closing the BR-ADM-001/BR-ADM-007 race
+     * named in Appendix-C §3.2 Observation A.
+     */
+    public function releaseExpiredHolds(): ReleaseExpiredHoldsResult
+    {
+        $now        = Time::now();
+        $candidates = $this->applicationModel->findExpiredHolds($now->toDateTimeString());
+
+        $releases = [];
+
+        foreach ($candidates as $candidate) {
+            $release = $this->releaseOneExpiredHold($candidate->application_id, $now);
+
+            if ($release !== null) {
+                $releases[] = $release;
+            }
+        }
+
+        return new ReleaseExpiredHoldsResult($releases);
+    }
+
+    /**
+     * @return array{released_application_id: int, promoted_application_id: ?int}|null
+     *               null when the candidate was no longer eligible by the
+     *               time its row lock was acquired (already resolved by a
+     *               concurrent confirmEnrollment()).
+     */
+    private function releaseOneExpiredHold(int $applicationId, Time $now): ?array
+    {
+        $db = Database::connect();
+        $db->transStart();
+
+        try {
+            $locked = $this->applicationModel->lockForUpdate($applicationId);
+
+            if (
+                $locked === null
+                || $locked['status'] !== Application::STATUS_SHORTLISTED
+                || $locked['hold_expires_at'] === null
+                || $locked['hold_expires_at'] > $now->toDateTimeString()
+            ) {
+                $db->transComplete();
+
+                return null;
+            }
+
+            $before = $this->applicationModel->find($applicationId);
+
+            $this->applicationModel->update($applicationId, [
+                'status'          => Application::STATUS_REJECTED,
+                'decided_at'      => $now->toDateTimeString(),
+                'hold_expires_at' => null,
+            ]);
+
+            $after = $this->applicationModel->find($applicationId);
+
+            $this->auditService->record(
+                'Application',
+                $applicationId,
+                AuditLog::ACTION_UPDATE,
+                $before->toRawArray(),
+                $after->toRawArray(),
+                'BR-ADM-007: provisional seat hold expired without confirmation.',
+            );
+
+            $promotedId = $this->promoteEarliestWaitlisted((int) $locked['class_applied_id'], $now);
+        } catch (Throwable $e) {
+            $db->transRollback();
+
+            throw $e;
+        }
+
+        $db->transComplete();
+
+        if ($db->transStatus() === false) {
+            throw new BusinessRuleException(
+                'RELEASE_EXPIRED_HOLD_FAILED',
+                "Could not release the expired hold for application {$applicationId}.",
+            );
+        }
+
+        return ['released_application_id' => $applicationId, 'promoted_application_id' => $promotedId];
+    }
+
+    /**
+     * BR-ADM-008: promotes the earliest-`submitted_at` `WAITLISTED`
+     * application for the class, re-verified under its own row lock
+     * (guards against two concurrent `releaseExpiredHolds()` calls both
+     * promoting the same applicant). Must be called inside the same
+     * transaction `releaseOneExpiredHold()` already owns.
+     */
+    private function promoteEarliestWaitlisted(int $classAppliedId, Time $now): ?int
+    {
+        $candidate = $this->applicationModel->findEarliestWaitlistedForClass($classAppliedId);
+
+        if ($candidate === null) {
+            return null;
+        }
+
+        $candidateId = (int) $candidate->application_id;
+
+        $lockedCandidate = $this->applicationModel->lockForUpdate($candidateId);
+
+        if ($lockedCandidate === null || $lockedCandidate['status'] !== Application::STATUS_WAITLISTED) {
+            return null;
+        }
+
+        $before = $this->applicationModel->find($candidateId);
+
+        $this->applicationModel->update($candidateId, [
+            'status'          => Application::STATUS_SHORTLISTED,
+            'hold_expires_at' => $this->newHoldExpiry($now),
+        ]);
+
+        $after = $this->applicationModel->find($candidateId);
+
+        $this->auditService->record(
+            'Application',
+            $candidateId,
+            AuditLog::ACTION_UPDATE,
+            $before->toRawArray(),
+            $after->toRawArray(),
+            'BR-ADM-008: promoted from waitlist to fill a vacated seat hold, strict submitted_at order.',
+        );
+
+        return $candidateId;
+    }
+
+    private function newHoldExpiry(?Time $from = null): string
+    {
+        $hours = (int) $this->configurationService->getNumber(self::CONFIG_KEY_SEAT_HOLD_PERIOD_HOURS);
+
+        return ($from ?? Time::now())->addHours($hours)->toDateTimeString();
     }
 
     /**
@@ -167,6 +331,25 @@ class ApplicationService
         $db->transStart();
 
         try {
+            // docs/ADR/ADR-016-admission-seat-hold-and-waitlist.md §5:
+            // re-verify the application's status under a row lock on the
+            // same row releaseExpiredHolds() locks — closes the
+            // BR-ADM-001/BR-ADM-007 race named in Appendix-C §3.2
+            // Observation A. A stale pre-lock read (the plain find()
+            // above, used for the seat/session/duplicate-identity
+            // pre-checks) is not sufficient on its own.
+            $locked = $this->applicationModel->lockForUpdate($id);
+
+            if (
+                $locked === null
+                || ! in_array($locked['status'], [Application::STATUS_SHORTLISTED, Application::STATUS_WAITLISTED], true)
+            ) {
+                throw new BusinessRuleException(
+                    'APPLICATION_INVALID_STATUS_TRANSITION',
+                    'Cannot confirm enrollment: the application status changed before this request could be processed.',
+                );
+            }
+
             $incremented = $this->seatAllocationModel->incrementSeatsFilled($seatAllocation->seat_allocation_id, $isRte);
 
             if (! $incremented) {
@@ -190,8 +373,9 @@ class ApplicationService
             ]);
 
             $this->applicationModel->update($id, [
-                'status'     => Application::STATUS_ADMITTED,
-                'decided_at' => Time::now()->toDateTimeString(),
+                'status'          => Application::STATUS_ADMITTED,
+                'decided_at'      => Time::now()->toDateTimeString(),
+                'hold_expires_at' => null,
             ]);
 
             $after = $this->applicationModel->find($id);
@@ -245,7 +429,12 @@ class ApplicationService
     /**
      * @param list<string> $allowedFrom
      */
-    private function transition(int $id, array $allowedFrom, string $to): ApplicationResponse
+    /**
+     * @param list<string>         $allowedFrom
+     * @param array<string, mixed> $extra       additional fields to write alongside `status`
+     *                                          (e.g. `hold_expires_at`, ADR-016 §1)
+     */
+    private function transition(int $id, array $allowedFrom, string $to, array $extra = []): ApplicationResponse
     {
         $before = $this->requireApplication($id);
 
@@ -256,7 +445,7 @@ class ApplicationService
             );
         }
 
-        $this->applicationModel->update($id, ['status' => $to]);
+        $this->applicationModel->update($id, ['status' => $to] + $extra);
 
         $after = $this->applicationModel->find($id);
 

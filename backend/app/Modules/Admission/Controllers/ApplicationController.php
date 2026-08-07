@@ -173,6 +173,45 @@ class ApplicationController extends BaseController
         return $this->respondSuccess($result->toArray());
     }
 
+    /**
+     * docs/ADR/ADR-016-admission-seat-hold-and-waitlist.md §4/§6 —
+     * BR-ADM-007/BR-ADM-008. Explicit trigger only (no scheduler exists
+     * in this codebase); releases every SHORTLISTED application whose
+     * hold has lapsed back to REJECTED and promotes the earliest-
+     * submitted_at WAITLISTED application for the same class, if any.
+     */
+    #[OA\Post(
+        path: '/admission/applications/release-expired-holds',
+        tags: ['Applications'],
+        security: [['bearerAuth' => []]],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'BR-ADM-007/BR-ADM-008 — every lapsed seat hold is released to REJECTED and, where a WAITLISTED applicant exists for the same class, the earliest-submitted one is promoted to SHORTLISTED with a fresh hold.',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'released_count', type: 'integer'),
+                        new OA\Property(property: 'promoted_count', type: 'integer'),
+                        new OA\Property(property: 'releases', type: 'array', items: new OA\Items(
+                            properties: [
+                                new OA\Property(property: 'released_application_id', type: 'integer'),
+                                new OA\Property(property: 'promoted_application_id', type: 'integer', nullable: true),
+                            ],
+                            type: 'object',
+                        )),
+                    ],
+                    type: 'object',
+                ),
+            ),
+        ],
+    )]
+    public function releaseExpiredHolds()
+    {
+        $result = Services::applicationService()->releaseExpiredHolds();
+
+        return $this->respondSuccess($result->toArray());
+    }
+
     #[OA\Get(
         path: '/admission/applications/{id}',
         tags: ['Applications'],

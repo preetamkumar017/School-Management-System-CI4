@@ -249,7 +249,7 @@ class Services extends BaseService
             return static::getSharedInstance('applicationService');
         }
 
-        return new ApplicationService(new ApplicationModel(), new SeatAllocationModel(), static::auditService());
+        return new ApplicationService(new ApplicationModel(), new SeatAllocationModel(), static::auditService(), static::configurationService());
     }
 
     public static function seatAllocationService(bool $getShared = true): SeatAllocationService
