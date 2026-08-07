@@ -42,13 +42,13 @@ was resolved), not by allowing both directions to depend on each other.
 | Admission | `App\Modules\Admission` | Application (`ENT-ADM-001`), SeatAllocation (`ENT-ADM-002`) | Fully designed — see `docs/design/admission/Phase-1` through `Phase-7` | ADR-003, ADR-004 |
 | Academic | `App\Modules\Academic` | AcademicSession (`ENT-ACAD-001`), Class (`ENT-ACAD-002`), Section (`ENT-ACAD-003`), Subject (`ENT-ACAD-004`), GradingScheme (`ENT-ACAD-005`), ClassSubjectMap (junction) | Designed — see `docs/design/academic/` | ADR-001 |
 | SIS (Student Information) | `App\Modules\Sis` | Student (`ENT-SIS-001`), Guardian (`ENT-SYS-003` — reassigned from Administration, see below), StudentGuardianLink (junction) | Fully designed — see `docs/design/sis/` | ADR-002, ADR-003, ADR-004, DG-SIS-001 (Resolved) |
-| Attendance | `App\Modules\Attendance` | AttendanceRecord (`ENT-ATT-001`), StaffAttendanceRecord (`ENT-ATT-002`) | **Partially designed** (`AttendanceRecord` only — see `docs/design/attendance/`); `StaffAttendanceRecord` deferred to HR & Payroll's design pass (needs `Employee`/`Leave`) | ADR-006 |
+| Attendance | `App\Modules\Attendance` | AttendanceRecord (`ENT-ATT-001`), StaffAttendanceRecord (`ENT-ATT-002`) | Designed — see `docs/design/attendance/` (`AttendanceRecord`) and `docs/design/hr-payroll/Phase-1` (`StaffAttendanceRecord`, built alongside HR & Payroll) | ADR-006, ADR-008 |
 | Timetable | `App\Modules\Timetable` | TimetableEntry (`ENT-TT-001`) | Designed — see `docs/design/timetable/` | ADR-006 |
 | Examination | `App\Modules\Examination` | Exam (`ENT-EXM-001`), MarksRecord (`ENT-EXM-002`), ReportCard (`ENT-EXM-003`), PromotionRecord (`ENT-EXM-004`) | Designed — see `docs/design/examination/` | ADR-002 (BR-SIS-004 deferred here, resolved by ADR-005), ADR-005 |
 | Fees | `App\Modules\Fees` | FeeHead (`ENT-FEE-001`), FeeStructure (`ENT-FEE-002`), Invoice (`ENT-FEE-003`), Payment (`ENT-FEE-004`), ScholarshipWaiver (`ENT-FEE-005`) | Designed — see `docs/design/fees/` | ADR-007 |
 | Library | `App\Modules\Library` | Book (`ENT-LIB-001`), BookIssue (`ENT-LIB-002`) | Not yet designed | — |
 | Transport | `App\Modules\Transport` | Route (`ENT-TRN-001`), Vehicle (`ENT-TRN-002`), TransportAllocation (`ENT-TRN-003`) | Not yet designed | — |
-| HR & Payroll | `App\Modules\HrPayroll` | Employee (`ENT-HR-001`), Department (`ENT-HR-002`), Designation (`ENT-HR-003`), PayrollRun (`ENT-HR-004`), LeaveRequest (`ENT-HR-005`) | Not yet designed | — |
+| HR & Payroll | `App\Modules\HrPayroll` | Employee (`ENT-HR-001`), Department (`ENT-HR-002`), Designation (`ENT-HR-003`), PayrollRun (`ENT-HR-004`), LeaveRequest (`ENT-HR-005`) | Designed — see `docs/design/hr-payroll/` | ADR-008 |
 | Communication | `App\Modules\Communication` | Circular (`ENT-COM-001`), NotificationLog (`ENT-COM-002`) | Not yet designed | — |
 | Reports | `App\Modules\Reports` | None (read-only; aggregates across other modules' Service classes, never their Models directly) | Not yet designed | — |
 

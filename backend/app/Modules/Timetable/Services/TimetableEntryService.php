@@ -34,6 +34,7 @@ class TimetableEntryService
     {
         AppServices::sectionService()->getSection($request->sectionId);
         AppServices::subjectService()->getSubject($request->subjectId);
+        AppServices::employeeService()->getEmployee($request->employeeId);
 
         $this->assertNoConflicts($request, null);
 
@@ -91,6 +92,7 @@ class TimetableEntryService
 
         AppServices::sectionService()->getSection($request->sectionId);
         AppServices::subjectService()->getSubject($request->subjectId);
+        AppServices::employeeService()->getEmployee($request->employeeId);
 
         $this->assertNoConflicts($request, $id);
 

@@ -662,6 +662,178 @@ use OpenApi\Attributes as OA;
     ],
     type: 'object',
 )]
+#[OA\Schema(
+    schema: 'DepartmentRequest',
+    description: 'Same shape for create and update.',
+    required: ['department_name'],
+    properties: [new OA\Property(property: 'department_name', type: 'string')],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'DepartmentResponse',
+    properties: [
+        new OA\Property(property: 'department_id', type: 'integer'),
+        new OA\Property(property: 'department_name', type: 'string'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'DesignationRequest',
+    description: 'Same shape for create and update.',
+    required: ['designation_name'],
+    properties: [new OA\Property(property: 'designation_name', type: 'string')],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'DesignationResponse',
+    properties: [
+        new OA\Property(property: 'designation_id', type: 'integer'),
+        new OA\Property(property: 'designation_name', type: 'string'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'EmployeeCreateRequest',
+    required: ['employee_code', 'full_name', 'department_id', 'designation_id', 'joining_date', 'salary_structure_json'],
+    properties: [
+        new OA\Property(property: 'employee_code', type: 'string'),
+        new OA\Property(property: 'full_name', type: 'string'),
+        new OA\Property(property: 'department_id', type: 'integer'),
+        new OA\Property(property: 'designation_id', type: 'integer'),
+        new OA\Property(property: 'joining_date', type: 'string', format: 'date'),
+        new OA\Property(property: 'salary_structure_json', type: 'object', example: ['basic' => 40000]),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'EmployeeUpdateRequest',
+    description: 'employee_code/joining_date are immutable post-creation — absent here. Setting exit_date triggers BR-HR-002.',
+    required: ['full_name', 'department_id', 'designation_id', 'salary_structure_json'],
+    properties: [
+        new OA\Property(property: 'full_name', type: 'string'),
+        new OA\Property(property: 'department_id', type: 'integer'),
+        new OA\Property(property: 'designation_id', type: 'integer'),
+        new OA\Property(property: 'salary_structure_json', type: 'object', example: ['basic' => 42000]),
+        new OA\Property(property: 'exit_date', type: 'string', format: 'date', nullable: true),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'EmployeeResponse',
+    properties: [
+        new OA\Property(property: 'employee_id', type: 'integer'),
+        new OA\Property(property: 'employee_code', type: 'string'),
+        new OA\Property(property: 'full_name', type: 'string'),
+        new OA\Property(property: 'department_id', type: 'integer'),
+        new OA\Property(property: 'designation_id', type: 'integer'),
+        new OA\Property(property: 'joining_date', type: 'string', format: 'date'),
+        new OA\Property(property: 'exit_date', type: 'string', format: 'date', nullable: true),
+        new OA\Property(property: 'salary_structure_json', type: 'object'),
+        new OA\Property(property: 'status', type: 'string', enum: ['Active', 'Exited']),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'PayrollRunCreateRequest',
+    description: 'deductions_json is caller-supplied, not auto-calculated (ADR-008 §8).',
+    required: ['employee_id', 'pay_period', 'gross_pay', 'deductions_json'],
+    properties: [
+        new OA\Property(property: 'employee_id', type: 'integer'),
+        new OA\Property(property: 'pay_period', type: 'string', example: '2026-07', description: 'YYYY-MM'),
+        new OA\Property(property: 'gross_pay', type: 'number', format: 'float'),
+        new OA\Property(property: 'deductions_json', type: 'object', example: ['PF' => 1800]),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'PayrollRunResponse',
+    properties: [
+        new OA\Property(property: 'payroll_run_id', type: 'integer'),
+        new OA\Property(property: 'employee_id', type: 'integer'),
+        new OA\Property(property: 'pay_period', type: 'string'),
+        new OA\Property(property: 'gross_pay', type: 'number', format: 'float'),
+        new OA\Property(property: 'deductions_json', type: 'object'),
+        new OA\Property(property: 'net_pay', type: 'number', format: 'float'),
+        new OA\Property(property: 'status', type: 'string', enum: ['Draft', 'Approved', 'Processed']),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'LeaveRequestCreateRequest',
+    required: ['employee_id', 'leave_type', 'start_date', 'end_date'],
+    properties: [
+        new OA\Property(property: 'employee_id', type: 'integer'),
+        new OA\Property(property: 'leave_type', type: 'string', enum: ['CL', 'SL', 'EL']),
+        new OA\Property(property: 'start_date', type: 'string', format: 'date'),
+        new OA\Property(property: 'end_date', type: 'string', format: 'date'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'LeaveRequestDecideRequest',
+    description: 'override_reason is required only if approval would take the balance below zero (BR-HR-004).',
+    required: ['decision'],
+    properties: [
+        new OA\Property(property: 'decision', type: 'string', enum: ['Approved', 'Rejected']),
+        new OA\Property(property: 'override_reason', type: 'string', nullable: true),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'LeaveRequestResponse',
+    properties: [
+        new OA\Property(property: 'leave_request_id', type: 'integer'),
+        new OA\Property(property: 'employee_id', type: 'integer'),
+        new OA\Property(property: 'leave_type', type: 'string', enum: ['CL', 'SL', 'EL']),
+        new OA\Property(property: 'start_date', type: 'string', format: 'date'),
+        new OA\Property(property: 'end_date', type: 'string', format: 'date'),
+        new OA\Property(property: 'status', type: 'string', enum: ['Pending', 'Approved', 'Rejected']),
+        new OA\Property(property: 'approver_id', type: 'integer', nullable: true),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'StaffAttendanceRecordCreateRequest',
+    required: ['employee_id', 'attendance_date', 'state'],
+    properties: [
+        new OA\Property(property: 'employee_id', type: 'integer'),
+        new OA\Property(property: 'attendance_date', type: 'string', format: 'date'),
+        new OA\Property(property: 'state', type: 'string', enum: ['Present', 'On Leave', 'Unauthorized']),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'StaffAttendanceRecordResponse',
+    properties: [
+        new OA\Property(property: 'staff_attendance_id', type: 'integer'),
+        new OA\Property(property: 'employee_id', type: 'integer'),
+        new OA\Property(property: 'attendance_date', type: 'string', format: 'date'),
+        new OA\Property(property: 'state', type: 'string', enum: ['Present', 'On Leave', 'Unauthorized']),
+        new OA\Property(property: 'is_reconciled', type: 'boolean'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'StaffAttendanceReconcileRequest',
+    description: 'BR-ATT-005 — cross-checks the range against Leave.',
+    required: ['employee_id', 'from_date', 'to_date'],
+    properties: [
+        new OA\Property(property: 'employee_id', type: 'integer'),
+        new OA\Property(property: 'from_date', type: 'string', format: 'date'),
+        new OA\Property(property: 'to_date', type: 'string', format: 'date'),
+    ],
+    type: 'object',
+)]
+#[OA\Schema(
+    schema: 'StaffAttendanceClosePeriodRequest',
+    description: 'BR-HR-001 — pushes a one-way closure record into HR & Payroll (ADR-008 §4).',
+    required: ['employee_id', 'pay_period'],
+    properties: [
+        new OA\Property(property: 'employee_id', type: 'integer'),
+        new OA\Property(property: 'pay_period', type: 'string', example: '2026-07', description: 'YYYY-MM'),
+    ],
+    type: 'object',
+)]
 final class Spec
 {
     // No instances — attributes only.

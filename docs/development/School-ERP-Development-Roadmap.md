@@ -1,6 +1,6 @@
 ---
 status: Active
-last-updated: 2026-08-06
+last-updated: 2026-08-07
 references: Company Development Standard, School-ERP-Module-Architecture.md, docs/design/academic, docs/design/admission, docs/design/sis
 ---
 
@@ -423,23 +423,79 @@ clean this time (no hidden HR/Communication chain).
   → full payment → invoice locked/`PAID` → duplicate reference correctly
   rejected.
 
-## Stage 6d onward — remaining undesigned modules
+## Stage 6d — HR & Payroll implementation — DONE (2026-08-07)
 
-Not yet designed: Library, Transport, HR & Payroll, Communication,
-Reports. Suggested order, by dependency:
+Reference: `docs/design/hr-payroll/Phase-1` through `Phase-3`, per
+`docs/ADR/ADR-008-hr-payroll-module-scope-decisions.md`. Depends only on
+Academic/SIS (transitively, via Timetable/Attendance) and Administration's
+`User` — Appendix-G's FK graph was checked first, per Stage 6b's own
+lesson, and confirmed clean (no Academic/SIS/Examination dependency).
 
-1. **HR & Payroll** — closes three seams left open by prior stages:
-   `TimetableEntry.employee_id` validation (ADR-006 §1),
-   `StaffAttendanceRecord` (ADR-006 §2, likely a joint pass with
-   Attendance revisited), and `PromotionRecord.fee_closure_confirmed`
-   (ADR-005 §3, moving it from caller-supplied to system-computed once
-   `PayrollRun`/fee-ledger-adjacent data exists). Also unlocks
-   BR-TT-004/FR-16 Substitution, which needs staff-absence data.
-2. **Library**, **Transport**, **Communication**, **Reports** — lowest
-   inter-dependency; freely reprioritizable by business value.
-   Communication also closes two seams: BR-TT-005's revision notification
-   (ADR-006 §6) and BR-ATT-004's absence notification (ADR-006 §9).
-   Transport closes BR-FEE-003's auto-linkage seam (ADR-007 §3).
+- **Design pass first**: ADR-008 resolves BR-HR-001 (attendance-closure
+  precondition — implemented via a one-way push from Attendance into a
+  new HR-owned `attendance_closures` table, mirroring ADR-005 §10's
+  `locked_by_closed_exam` pattern, rather than a live cross-module read
+  that would have completed a cycle), BR-HR-004 (leave balance — decided
+  annual allocations, CL 12/SL 10/EL 15, computed on the fly like
+  Attendance's percentage, no persisted balance entity), BR-HR-005
+  (statutory deductions — `deductions_json` is caller-supplied, matching
+  Fees' GST-gap precedent), BR-HR-006 (Full & Final Settlement — out of
+  scope, no `Settlement`/`ExitRecord` entity anywhere in Appendix-G,
+  matching Fees' `CreditNote` deferral), and payslip generation (data-only
+  via `PayrollRun`'s own fields, no `Document`/PDF, matching Examination's
+  report-card precedent). `docs/design/School-ERP-Module-Architecture.md`'s
+  HR & Payroll row updated to Designed.
+- **Closed two of the three seams ADR-006 left open**: `TimetableEntry.
+  employee_id` now gets a real existence check via the new
+  `EmployeeService::getEmployee()` (ADR-006 §1, ADR-008 §2) —
+  `TimetableEntryService` updated in this same pass, a small targeted
+  change to already-shipped Stage 6b code. `StaffAttendanceRecord`
+  (`ENT-ATT-002`) is built for real, inside the Attendance module (per
+  Appendix-G's own `Module: ATT` designation, not HR & Payroll) — a joint
+  addition across two modules in one stage, the same shape ADR-006 itself
+  used for Timetable+Attendance (ADR-006 §2, ADR-008 §3).
+- **Correction to this roadmap's own prior text**: the third seam this
+  section previously listed, `PromotionRecord.fee_closure_confirmed`
+  (ADR-005 §3), is a **Fees** seam, not an HR & Payroll one — Fees already
+  exists (Stage 6c) and could close it, but that's out of this stage's
+  scope and wasn't done here. Left open, correctly attributed, for a
+  small dedicated follow-up rather than silently expanded into this
+  already-substantial stage.
+- Migrations: `departments`, `designations`, `employees`, `payroll_runs`,
+  `leave_requests`, `attendance_closures` (additive, HR-owned),
+  `staff_attendance_records` (Attendance-owned) — all seven applied.
+- Verification: 12 new PHPUnit tests (122 total) — BR-HR-001's gate
+  (blocked without closure, succeeds once Attendance pushes one, correct
+  `net_pay` computation), BR-HR-002 (exit revokes the linked User's
+  access in the same transaction), BR-HR-003 (duplicate run rejected),
+  BR-HR-004 (over-balance approval blocked, succeeds with a logged
+  override), BR-HR-007 (a `Processed` run can't be processed again), and
+  the Attendance-side reconcile → close-period → closure-record
+  integration test. Also manually smoke-tested the full flow end-to-end
+  against the real dev server: department/designation/employee create →
+  payroll run blocked pre-closure → staff attendance record → reconcile
+  → close-period → payroll run succeeds with correct net pay → leave
+  request create/approve → employee exit deactivates the linked user
+  account — all verified over real HTTP.
+
+## Stage 6e onward — remaining undesigned modules
+
+Not yet designed: Library, Transport, Communication, Reports. Freely
+reprioritizable by business value; no remaining hard dependency chain
+between them. Known seams each would close:
+
+- **Communication** closes three seams: BR-TT-005's revision notification
+  (ADR-006 §6), BR-ATT-004's absence notification (ADR-006 §9), and
+  rendered payslip generation (ADR-008 §10).
+- **Transport** closes BR-FEE-003's auto-linkage seam (ADR-007 §3).
+- **Timetable follow-up** (not a new module): BR-TT-004/FR-16
+  Substitution is now unblocked by `StaffAttendanceRecord` existing
+  (ADR-008 §11), but wasn't pulled into Stage 6d's own scope.
+- **Fees follow-up** (not a new module): `PromotionRecord.
+  fee_closure_confirmed` (ADR-005 §3) can now move from caller-supplied
+  to system-computed, now that Fees has real invoice/payment data —
+  this roadmap previously misattributed this seam to HR & Payroll; see
+  Stage 6d's correction note above.
 
 Each follows the same design-then-implement pattern Academic/Admission/
 SIS/Examination/Timetable/Attendance/Fees now demonstrate seven times
@@ -467,12 +523,12 @@ extrapolating from the pattern.
 
 ## Immediate next action
 
-Stages 0 through 6c are done (2026-08-06) — Academic, Admission, SIS
+Stages 0 through 6d are done (2026-08-07) — Academic, Admission, SIS
 (with Confirm Enrollment), Examination (ADR-005), Timetable/Attendance
-(ADR-006), and Fees (ADR-007) are all real, working, tested code (110
-passing tests). Next: **Stage 6d** — HR & Payroll is the suggested next
-module, since it closes the most open seams (see the Stage 6d section
-above). Run it through the same Requirement → Design → Approval sequence
-the last three modules went through (ADR-005/ADR-006/ADR-007 as
-templates), and check Appendix-G's actual FK graph for the entity before
-assuming its dependency ordering.
+(ADR-006), Fees (ADR-007), and HR & Payroll (ADR-008) are all real,
+working, tested code (122 passing tests). Next: **Stage 6e** — Library,
+Transport, Communication, or Reports, in any order (see the Stage 6e
+section above for the seams each closes). Run each through the same
+Requirement → Design → Approval sequence the last four modules went
+through (ADR-005/006/007/008 as templates), and check Appendix-G's
+actual FK graph for the entity before assuming its dependency ordering.

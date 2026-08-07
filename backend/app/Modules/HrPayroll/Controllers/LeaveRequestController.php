@@ -1,0 +1,133 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Modules\HrPayroll\Controllers;
+
+use App\Core\BaseController;
+use App\Core\Exceptions\ValidationException;
+use App\Modules\HrPayroll\DTOs\CreateLeaveRequestRequest;
+use App\Modules\HrPayroll\DTOs\DecideLeaveRequestRequest;
+use App\Modules\HrPayroll\Entities\LeaveRequest;
+use Config\Services;
+use OpenApi\Attributes as OA;
+
+/**
+ * docs/design/hr-payroll/Phase-3-Service-Controller-Design.md
+ * Base path /api/v1/hr-payroll/leave-requests
+ */
+#[OA\Tag(name: 'Leave Requests')]
+class LeaveRequestController extends BaseController
+{
+    private const VALID_TYPES     = [LeaveRequest::TYPE_CL, LeaveRequest::TYPE_SL, LeaveRequest::TYPE_EL];
+    private const VALID_DECISIONS = [LeaveRequest::STATUS_APPROVED, LeaveRequest::STATUS_REJECTED];
+
+    #[OA\Post(
+        path: '/hr-payroll/leave-requests',
+        tags: ['Leave Requests'],
+        security: [['bearerAuth' => []]],
+        requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(ref: '#/components/schemas/LeaveRequestCreateRequest')),
+        responses: [
+            new OA\Response(response: 201, description: 'Created.', content: new OA\JsonContent(ref: '#/components/schemas/LeaveRequestResponse')),
+            new OA\Response(response: 422, description: 'LEAVE_DATES_OVERLAP.', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+        ],
+    )]
+    public function create()
+    {
+        $body = $this->request->getJSON(true) ?? [];
+
+        $employeeId = (int) ($body['employee_id'] ?? 0);
+        $leaveType  = (string) ($body['leave_type'] ?? '');
+        $startDate  = (string) ($body['start_date'] ?? '');
+        $endDate    = (string) ($body['end_date'] ?? '');
+
+        $fields = [];
+
+        if ($employeeId <= 0) {
+            $fields['employee_id'] = 'employee_id is required.';
+        }
+
+        if (! in_array($leaveType, self::VALID_TYPES, true)) {
+            $fields['leave_type'] = 'leave_type must be one of CL, SL, EL.';
+        }
+
+        if ($startDate === '' || $endDate === '' || $endDate < $startDate) {
+            $fields['end_date'] = 'start_date and end_date are required and end_date must be >= start_date.';
+        }
+
+        if ($fields !== []) {
+            throw new ValidationException($fields);
+        }
+
+        $response = Services::leaveRequestService()->createLeaveRequest(
+            new CreateLeaveRequestRequest($employeeId, $leaveType, $startDate, $endDate),
+        );
+
+        return $this->respondCreated($response->toArray());
+    }
+
+    #[OA\Post(
+        path: '/hr-payroll/leave-requests/{id}/decide',
+        tags: ['Leave Requests'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(ref: '#/components/schemas/LeaveRequestDecideRequest')),
+        responses: [
+            new OA\Response(response: 200, description: 'Decided.', content: new OA\JsonContent(ref: '#/components/schemas/LeaveRequestResponse')),
+            new OA\Response(response: 422, description: 'INSUFFICIENT_LEAVE_BALANCE.', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
+        ],
+    )]
+    public function decide(int $id)
+    {
+        $body = $this->request->getJSON(true) ?? [];
+
+        $decision       = (string) ($body['decision'] ?? '');
+        $overrideReason = isset($body['override_reason']) && $body['override_reason'] !== '' ? (string) $body['override_reason'] : null;
+
+        if (! in_array($decision, self::VALID_DECISIONS, true)) {
+            throw new ValidationException(['decision' => 'decision must be Approved or Rejected.']);
+        }
+
+        $response = Services::leaveRequestService()->decide($id, new DecideLeaveRequestRequest($decision, $overrideReason));
+
+        return $this->respondSuccess($response->toArray());
+    }
+
+    #[OA\Get(
+        path: '/hr-payroll/leave-requests/{id}',
+        tags: ['Leave Requests'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
+        responses: [new OA\Response(response: 200, description: 'OK.', content: new OA\JsonContent(ref: '#/components/schemas/LeaveRequestResponse'))],
+    )]
+    public function show(int $id)
+    {
+        return $this->respondSuccess(Services::leaveRequestService()->getLeaveRequest($id)->toArray());
+    }
+
+    #[OA\Get(
+        path: '/hr-payroll/leave-requests',
+        tags: ['Leave Requests'],
+        security: [['bearerAuth' => []]],
+        parameters: [new OA\Parameter(name: 'employee_id', in: 'query', required: true, schema: new OA\Schema(type: 'integer'))],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'OK.',
+                content: new OA\JsonContent(type: 'array', items: new OA\Items(ref: '#/components/schemas/LeaveRequestResponse')),
+            ),
+        ],
+    )]
+    public function index()
+    {
+        $employeeId = (int) ($this->request->getGet('employee_id') ?? 0);
+
+        if ($employeeId <= 0) {
+            throw new ValidationException(['employee_id' => 'employee_id query parameter is required.']);
+        }
+
+        $responses = Services::leaveRequestService()->listByEmployee($employeeId);
+
+        return $this->respondSuccess(array_map(static fn ($response) => $response->toArray(), $responses));
+    }
+}

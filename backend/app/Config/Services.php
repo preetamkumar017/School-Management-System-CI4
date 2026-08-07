@@ -30,7 +30,9 @@ use App\Modules\Administration\Services\AuthService;
 use App\Modules\Administration\Services\RoleService;
 use App\Modules\Administration\Services\UserService;
 use App\Modules\Attendance\Models\AttendanceRecordModel;
+use App\Modules\Attendance\Models\StaffAttendanceRecordModel;
 use App\Modules\Attendance\Services\AttendanceService;
+use App\Modules\Attendance\Services\StaffAttendanceService;
 use App\Modules\Examination\Models\ExamModel;
 use App\Modules\Examination\Models\MarksRecordModel;
 use App\Modules\Examination\Models\PromotionRecordModel;
@@ -49,6 +51,17 @@ use App\Modules\Fees\Services\FeeStructureService;
 use App\Modules\Fees\Services\InvoiceService;
 use App\Modules\Fees\Services\PaymentService;
 use App\Modules\Fees\Services\ScholarshipWaiverService;
+use App\Modules\HrPayroll\Models\AttendanceClosureModel;
+use App\Modules\HrPayroll\Models\DepartmentModel;
+use App\Modules\HrPayroll\Models\DesignationModel;
+use App\Modules\HrPayroll\Models\EmployeeModel;
+use App\Modules\HrPayroll\Models\LeaveRequestModel;
+use App\Modules\HrPayroll\Models\PayrollRunModel;
+use App\Modules\HrPayroll\Services\DepartmentService;
+use App\Modules\HrPayroll\Services\DesignationService;
+use App\Modules\HrPayroll\Services\EmployeeService;
+use App\Modules\HrPayroll\Services\LeaveRequestService;
+use App\Modules\HrPayroll\Services\PayrollRunService;
 use App\Modules\Sis\Mappers\GuardianMapper;
 use App\Modules\Sis\Mappers\StudentGuardianLinkMapper;
 use App\Modules\Sis\Mappers\StudentMapper;
@@ -299,6 +312,15 @@ class Services extends BaseService
         return new AttendanceService(new AttendanceRecordModel(), static::auditService());
     }
 
+    public static function staffAttendanceService(bool $getShared = true): StaffAttendanceService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('staffAttendanceService');
+        }
+
+        return new StaffAttendanceService(new StaffAttendanceRecordModel(), static::auditService());
+    }
+
     public static function feeHeadService(bool $getShared = true): FeeHeadService
     {
         if ($getShared) {
@@ -342,5 +364,56 @@ class Services extends BaseService
         }
 
         return new ScholarshipWaiverService(new ScholarshipWaiverModel(), new FeeHeadModel(), static::auditService());
+    }
+
+    public static function departmentService(bool $getShared = true): DepartmentService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('departmentService');
+        }
+
+        return new DepartmentService(new DepartmentModel(), static::auditService());
+    }
+
+    public static function designationService(bool $getShared = true): DesignationService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('designationService');
+        }
+
+        return new DesignationService(new DesignationModel(), static::auditService());
+    }
+
+    public static function employeeService(bool $getShared = true): EmployeeService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('employeeService');
+        }
+
+        return new EmployeeService(
+            new EmployeeModel(),
+            new DepartmentModel(),
+            new DesignationModel(),
+            new AttendanceClosureModel(),
+            static::auditService(),
+        );
+    }
+
+    public static function payrollRunService(bool $getShared = true): PayrollRunService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('payrollRunService');
+        }
+
+        return new PayrollRunService(new PayrollRunModel(), new EmployeeModel(), new AttendanceClosureModel(), static::auditService());
+    }
+
+    public static function leaveRequestService(bool $getShared = true): LeaveRequestService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('leaveRequestService');
+        }
+
+        return new LeaveRequestService(new LeaveRequestModel(), new EmployeeModel(), static::auditService());
     }
 }

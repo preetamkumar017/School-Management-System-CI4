@@ -141,6 +141,12 @@ $routes->group('api/v1/attendance', ['namespace' => 'App\Modules\Attendance\Cont
     $routes->get('records/percentage', 'AttendanceController::percentage');
     $routes->get('records/(:num)', 'AttendanceController::show/$1');
     $routes->get('records', 'AttendanceController::index');
+
+    // docs/design/hr-payroll/Phase-3-Service-Controller-Design.md (ADR-008 §3)
+    $routes->post('staff-attendance', 'StaffAttendanceRecordController::create');
+    $routes->post('staff-attendance/reconcile', 'StaffAttendanceRecordController::reconcile');
+    $routes->post('staff-attendance/close-period', 'StaffAttendanceRecordController::closePeriod');
+    $routes->get('staff-attendance', 'StaffAttendanceRecordController::index');
 });
 
 // docs/design/fees/Phase-3-Service-Controller-Design.md
@@ -170,4 +176,33 @@ $routes->group('api/v1/fees', ['namespace' => 'App\Modules\Fees\Controllers'], s
     $routes->post('scholarship-waivers', 'ScholarshipWaiverController::create');
     $routes->get('scholarship-waivers/(:num)', 'ScholarshipWaiverController::show/$1');
     $routes->get('scholarship-waivers', 'ScholarshipWaiverController::index');
+});
+
+// docs/design/hr-payroll/Phase-3-Service-Controller-Design.md
+$routes->group('api/v1/hr-payroll', ['namespace' => 'App\Modules\HrPayroll\Controllers'], static function (RouteCollection $routes): void {
+    $routes->post('departments', 'DepartmentController::create');
+    $routes->patch('departments/(:num)', 'DepartmentController::update/$1');
+    $routes->get('departments/(:num)', 'DepartmentController::show/$1');
+    $routes->get('departments', 'DepartmentController::index');
+
+    $routes->post('designations', 'DesignationController::create');
+    $routes->patch('designations/(:num)', 'DesignationController::update/$1');
+    $routes->get('designations/(:num)', 'DesignationController::show/$1');
+    $routes->get('designations', 'DesignationController::index');
+
+    $routes->post('employees', 'EmployeeController::create');
+    $routes->patch('employees/(:num)', 'EmployeeController::update/$1');
+    $routes->get('employees/(:num)', 'EmployeeController::show/$1');
+    $routes->get('employees', 'EmployeeController::index');
+
+    $routes->post('payroll-runs', 'PayrollRunController::create');
+    $routes->post('payroll-runs/(:num)/approve', 'PayrollRunController::approve/$1');
+    $routes->post('payroll-runs/(:num)/process', 'PayrollRunController::process/$1');
+    $routes->get('payroll-runs/(:num)', 'PayrollRunController::show/$1');
+    $routes->get('payroll-runs', 'PayrollRunController::index');
+
+    $routes->post('leave-requests', 'LeaveRequestController::create');
+    $routes->post('leave-requests/(:num)/decide', 'LeaveRequestController::decide/$1');
+    $routes->get('leave-requests/(:num)', 'LeaveRequestController::show/$1');
+    $routes->get('leave-requests', 'LeaveRequestController::index');
 });
