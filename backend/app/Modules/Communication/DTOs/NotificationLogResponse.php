@@ -16,6 +16,7 @@ final class NotificationLogResponse
     public readonly int $recipientRefId;
     public readonly string $channel;
     public readonly string $triggerEvent;
+    public readonly ?string $messageBody;
     public readonly string $status;
     public readonly ?string $dispatchedAt;
     public readonly ?string $failureReason;
@@ -27,6 +28,7 @@ final class NotificationLogResponse
         $this->recipientRefId    = $notificationLog->recipient_ref_id;
         $this->channel           = $notificationLog->channel;
         $this->triggerEvent      = $notificationLog->trigger_event;
+        $this->messageBody       = $notificationLog->message_body;
         $this->status            = $notificationLog->status;
         $this->dispatchedAt      = $notificationLog->dispatched_at;
         $this->failureReason     = $notificationLog->failure_reason;
@@ -43,6 +45,7 @@ final class NotificationLogResponse
             'recipient_ref_id'    => $this->recipientRefId,
             'channel'             => $this->channel,
             'trigger_event'       => $this->triggerEvent,
+            'message_body'        => $this->messageBody,
             'status'              => $this->status,
             'dispatched_at'       => $this->dispatchedAt,
             'failure_reason'      => $this->failureReason,

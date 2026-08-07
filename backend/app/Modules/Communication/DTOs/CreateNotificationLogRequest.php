@@ -11,6 +11,7 @@ final class CreateNotificationLogRequest
         public readonly int $recipientRefId,
         public readonly string $channel,
         public readonly string $triggerEvent,
+        public readonly ?string $messageBody = null,
     ) {
     }
 }

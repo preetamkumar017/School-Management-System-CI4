@@ -83,6 +83,15 @@ the same shape as Fees'/HR's "compute and store, don't post externally"
 precedent (ADR-009 §3/§4) — a caller records that a notification was
 queued/attempted; nothing here calls out to a real channel.
 
+> **Resolved by [ADR-021](ADR-021-communication-sms-email-gateway.md)**
+> (2026-08-07): MSG91 chosen as the first gateway vendor, behind a
+> pluggable `SmsGatewayInterface`/`EmailGatewayInterface` design; a new
+> `NotificationLogService::dispatch()` performs real dispatch for
+> Guardian-direct and Student-via-primary-Guardian recipients.
+> Employee/User recipients remain genuinely unsupported (no contact
+> field in Appendix-G) and fail with a documented reason rather than
+> silently succeeding.
+
 ### 3. Closes two of ADR-006's remaining notification seams
 
 `TimetableEntryService::reviseEntry` (BR-TT-005) and
@@ -108,6 +117,13 @@ Both govern the actual multi-channel dispatch mechanism (Context, item
 1), which isn't implemented. Not implemented here either — no bulk-send
 endpoint, no emergency-alert priority path, since there is no dispatch
 to prioritize or gate.
+
+> **Partially resolved by [ADR-021](ADR-021-communication-sms-email-gateway.md)**
+> (2026-08-07): real per-notification-log dispatch now exists (§2's
+> update above), which was the missing prerequisite named here — but
+> BR-COM-002/003 themselves (a bulk-send endpoint, an emergency-alert
+> priority path) are still not built; ADR-021 only closes the dispatch-
+> mechanism gap this section pointed at, not these two BRs.
 
 ### 6. BR-COM-005 (Communication Retention Period) is not separately implemented
 

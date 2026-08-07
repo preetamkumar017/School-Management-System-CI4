@@ -1171,6 +1171,7 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'recipient_ref_id', type: 'integer'),
         new OA\Property(property: 'channel', type: 'string', enum: ['SMS', 'Email', 'Push']),
         new OA\Property(property: 'trigger_event', type: 'string', example: 'BR-ATT-004 absence'),
+        new OA\Property(property: 'message_body', type: 'string', nullable: true, example: 'Your child was marked absent today.'),
     ],
     type: 'object',
 )]
@@ -1188,6 +1189,7 @@ use OpenApi\Attributes as OA;
         new OA\Property(property: 'recipient_ref_id', type: 'integer'),
         new OA\Property(property: 'channel', type: 'string', enum: ['SMS', 'Email', 'Push']),
         new OA\Property(property: 'trigger_event', type: 'string'),
+        new OA\Property(property: 'message_body', type: 'string', nullable: true),
         new OA\Property(property: 'status', type: 'string', enum: ['Queued', 'Dispatched', 'Delivered', 'Failed']),
         new OA\Property(property: 'dispatched_at', type: 'string', format: 'date-time', nullable: true),
         new OA\Property(property: 'failure_reason', type: 'string', nullable: true),

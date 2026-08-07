@@ -38,6 +38,9 @@ use App\Modules\Attendance\Models\AttendanceRecordModel;
 use App\Modules\Attendance\Models\StaffAttendanceRecordModel;
 use App\Modules\Attendance\Services\AttendanceService;
 use App\Modules\Attendance\Services\StaffAttendanceService;
+use App\Modules\Communication\Gateways\EmailGatewayInterface;
+use App\Modules\Communication\Gateways\Msg91\Msg91Gateway;
+use App\Modules\Communication\Gateways\SmsGatewayInterface;
 use App\Modules\Communication\Models\CircularModel;
 use App\Modules\Communication\Models\NotificationLogModel;
 use App\Modules\Communication\Services\CircularService;
@@ -586,7 +589,38 @@ class Services extends BaseService
             return static::getSharedInstance('notificationLogService');
         }
 
-        return new NotificationLogService(new NotificationLogModel(), static::auditService());
+        return new NotificationLogService(
+            new NotificationLogModel(),
+            static::auditService(),
+            new GuardianModel(),
+            new StudentGuardianLinkModel(),
+            static::smsGateway(),
+            static::emailGateway(),
+        );
+    }
+
+    /**
+     * docs/ADR/ADR-021-communication-sms-email-gateway.md §a/§b —
+     * NotificationLogService depends on SmsGatewayInterface, never the
+     * concrete Msg91Gateway directly. Swapping vendors later means
+     * changing only this one factory method.
+     */
+    public static function smsGateway(bool $getShared = true): SmsGatewayInterface
+    {
+        if ($getShared) {
+            return static::getSharedInstance('smsGateway');
+        }
+
+        return new Msg91Gateway(config('Notification'));
+    }
+
+    public static function emailGateway(bool $getShared = true): EmailGatewayInterface
+    {
+        if ($getShared) {
+            return static::getSharedInstance('emailGateway');
+        }
+
+        return new Msg91Gateway(config('Notification'));
     }
 
     public static function reportsService(bool $getShared = true): ReportsService

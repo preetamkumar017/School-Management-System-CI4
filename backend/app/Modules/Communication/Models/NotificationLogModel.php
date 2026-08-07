@@ -22,6 +22,7 @@ class NotificationLogModel extends BaseModel
         'recipient_ref_id',
         'channel',
         'trigger_event',
+        'message_body',
         'status',
         'dispatched_at',
         'failure_reason',

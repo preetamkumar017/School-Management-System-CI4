@@ -17,6 +17,7 @@ use App\Core\BaseEntity;
  * @property int      $recipient_ref_id
  * @property string   $channel
  * @property string   $trigger_event
+ * @property string|null $message_body
  * @property string   $status
  * @property string|null $dispatched_at
  * @property string|null $failure_reason

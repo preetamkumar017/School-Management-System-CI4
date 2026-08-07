@@ -72,8 +72,10 @@ class NotificationLogController extends BaseController
             throw new ValidationException($fields);
         }
 
+        $messageBody = isset($body['message_body']) ? (string) $body['message_body'] : null;
+
         $response = Services::notificationLogService()->create(
-            new CreateNotificationLogRequest($recipientType, $recipientRefId, $channel, $triggerEvent),
+            new CreateNotificationLogRequest($recipientType, $recipientRefId, $channel, $triggerEvent, $messageBody),
         );
 
         return $this->respondCreated($response->toArray());
@@ -84,11 +86,11 @@ class NotificationLogController extends BaseController
         tags: ['Notification Logs'],
         security: [['bearerAuth' => []]],
         parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
-        responses: [new OA\Response(response: 200, description: 'Marked Dispatched.', content: new OA\JsonContent(ref: '#/components/schemas/NotificationLogResponse'))],
+        responses: [new OA\Response(response: 200, description: 'Real dispatch attempted via the configured gateway (ADR-021); marks Dispatched on success or Failed with a reason on failure.', content: new OA\JsonContent(ref: '#/components/schemas/NotificationLogResponse'))],
     )]
     public function dispatch(int $id)
     {
-        return $this->respondSuccess(Services::notificationLogService()->markDispatched($id)->toArray());
+        return $this->respondSuccess(Services::notificationLogService()->dispatch($id)->toArray());
     }
 
     #[OA\Post(

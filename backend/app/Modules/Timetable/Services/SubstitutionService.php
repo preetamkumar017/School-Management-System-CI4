@@ -104,6 +104,9 @@ class SubstitutionService
             $status === Substitution::STATUS_ASSIGNED ? $substituteEmployeeId : $entry->employee_id,
             NotificationLog::CHANNEL_EMAIL,
             $status === Substitution::STATUS_ASSIGNED ? 'FR-16 substitution assigned' : 'FR-16 period unsupervised',
+            $status === Substitution::STATUS_ASSIGNED
+                ? "You have been assigned as substitute teacher for period {$entry->period_no} ({$entry->day_of_week}) on {$request->substitutionDate}."
+                : "No eligible substitute was found for your period {$entry->period_no} ({$entry->day_of_week}) on {$request->substitutionDate}. It remains unsupervised pending manual resolution.",
         ));
 
         return new SubstitutionResponse($substitution);

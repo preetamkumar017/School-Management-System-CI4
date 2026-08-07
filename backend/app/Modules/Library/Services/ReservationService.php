@@ -166,11 +166,14 @@ class ReservationService
             'BR-LIB-006: book available, longest-waiting reservation holder notified.',
         );
 
+        $book = $this->bookModel->find($bookId);
+
         $this->notificationLogService->create(new CreateNotificationLogRequest(
             $after->borrower_type === Reservation::BORROWER_STUDENT ? NotificationLog::RECIPIENT_STUDENT : NotificationLog::RECIPIENT_EMPLOYEE,
             $after->borrower_ref_id,
             NotificationLog::CHANNEL_SMS,
             'BR-LIB-006 book available for reservation',
+            'The book "' . ($book !== null ? $book->title : 'you reserved') . '" is now available for you to collect. Please visit the library within the response window.',
         ));
 
         return new ReservationResponse($after);

@@ -115,6 +115,7 @@ class TimetableEntryService
             $request->employeeId,
             NotificationLog::CHANNEL_EMAIL,
             'BR-TT-005 timetable revision',
+            "Your timetable entry for {$request->dayOfWeek}, period {$request->periodNo}, has been revised. Please check the updated schedule.",
         ));
 
         return new TimetableEntryResponse($after);

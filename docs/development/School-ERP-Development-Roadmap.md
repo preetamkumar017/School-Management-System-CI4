@@ -1053,6 +1053,61 @@ satisfy.
   route-tier and `fee_closure_confirmed`/outstanding-balance tests)
   verified still passing, unmodified. 201 passing tests total (4 new).
 
+## Stage 17 — Communication SMS/Email gateway (MSG91) — DONE (2026-08-07)
+
+Reference: `docs/ADR/ADR-021-communication-sms-email-gateway.md`. Closes
+ADR-010 §1/§2/§5's "no gateway vendor chosen" deferral — the user
+explicitly chose MSG91 and explicitly required a pluggable/dynamic
+design, not a hardcoded single-vendor integration.
+
+- New `SmsGatewayInterface`/`EmailGatewayInterface`
+  (`App\Modules\Communication\Gateways`) — the pluggable seam. A future
+  non-MSG91 vendor is a new class implementing whichever interface(s)
+  it supports, not a rewrite of `NotificationLogService`.
+- `Msg91Gateway` — the first concrete driver, implementing both
+  interfaces (shared account/HTTP client), calling MSG91's real Send
+  SMS (flow-based v5) and transactional Email v5 HTTP APIs via
+  `\Config\Services::curlrequest()`. `authkey`/`sender_id` sourced from
+  `.env` via new `Config\Notification`, mirroring `Config\Auth`'s
+  established pattern exactly — never hardcoded.
+- Additive `notification_logs.message_body` (nullable `TEXT`) —
+  `NotificationLog` has no message-body field in Appendix-G's approved
+  schema; a real dispatch needs real content, supplied by the caller at
+  `create()` time (the same shape `override_reason` already uses).
+  Every existing call site (Attendance absence, Timetable revision,
+  Substitution, Library reservation) now passes a real, trigger-
+  specific message instead of leaving it null.
+- New `NotificationLogService::dispatch(int $id)` — explicit-trigger
+  only, no scheduler. Resolves real contact info per recipient type:
+  Guardian directly (`Guardian.mobile_number`/`email`), Student via
+  their primary-contact Guardian (`StudentGuardianLink.is_primary_contact`,
+  falling back to the first linked guardian), Employee/User fail with a
+  documented reason — Appendix-G models no phone/email field for
+  either entity, and none is invented here (that's future HR &
+  Payroll/Administration module scope). Push-channel dispatch always
+  fails — no provider chosen. Every failure path (unsupported
+  recipient, no linked guardian, gateway error) is caught and recorded
+  as `Failed` + `failure_reason`; nothing throws an unhandled exception
+  to the Controller.
+- Dependency injection: `Config\Services::notificationLogService()` now
+  wires `SmsGatewayInterface`/`EmailGatewayInterface` (backed by
+  `Msg91Gateway` today) via two new factory methods
+  (`smsGateway()`/`emailGateway()`) — swapping vendors later touches
+  only these two methods.
+- `POST /communication/notification-logs/{id}/dispatch` now performs
+  real dispatch (previously an unconditional `markDispatched()` status
+  flip).
+- Nine new tests: `NotificationDispatchTest` (Guardian-direct dispatch,
+  Student-via-primary-Guardian resolution — asserting the *specific*
+  guardian's contact info was used, Employee/User documented-failure
+  path, gateway-failure path, Push-channel failure path, `message_body`
+  persistence — all offline via `FakeSmsGateway`/`FakeEmailGateway`
+  bound with `Services::injectMock()`) and `Msg91GatewayPayloadTest`
+  (payload-building only, via reflection, no network call). All
+  pre-existing Communication/Timetable/Attendance/Library tests verified
+  still passing, unmodified aside from the new `message_body` argument
+  their call sites now supply. 210 passing tests total (9 new).
+
 ## Ongoing, every stage
 
 - Git: feature branches (Company Development Standard §6), PR review before
@@ -1071,15 +1126,16 @@ satisfy.
 
 ## Immediate next action
 
-Stages 0 through 16 are done (2026-08-07) — every module in Appendix-G's
+Stages 0 through 17 are done (2026-08-07) — every module in Appendix-G's
 Data Dictionary is real, working, tested code, plus a real
 `Configuration` entity, a real `Document`/PDF-generation capability,
 Timetable Substitution (BR-TT-004/FR-16), the Fees/Transport/
 Examination cross-module seams, the Admission seat-hold/waitlist and
 Library reservation-queue entities, two RBAC enforcements (BR-HR-004,
-BR-FEE-002), Transport's Driver/Trip validity (BR-TRN-006), and Fees'
-GST line-item itemization (BR-FEE-007) closed (201 passing tests).
-Remaining work is follow-up/deepening, not new-module design:
+BR-FEE-002), Transport's Driver/Trip validity (BR-TRN-006), Fees'
+GST line-item itemization (BR-FEE-007), and a real MSG91-backed SMS/
+Email notification gateway closed (210 passing tests). Remaining work
+is follow-up/deepening, not new-module design:
 
 - **Stage 15 (2026-08-07, ADR-019)**: BR-TRN-006 (Driver/Vehicle
   Assignment Validity) — real `Driver`/`Trip` entities, an additive
@@ -1098,10 +1154,21 @@ Remaining work is follow-up/deepening, not new-module design:
   `gst_rate`, and an itemized receipt PDF. `Invoice.total_amount` remains
   the single authoritative grand total; every existing consumer is
   unmodified.
-- A real SMS/Email/Push gateway integration once a vendor is chosen
-  (ADR-010 §1/§2/§5) — unblocks BR-COM-002/003 and live delivery for the
-  three notification seams Stage 6f/Stage 13 closed only the logging
-  half of.
+- **Stage 17 (2026-08-07, ADR-021)**: a real SMS/Email notification
+  gateway — MSG91 chosen as the first vendor, behind a pluggable
+  `SmsGatewayInterface`/`EmailGatewayInterface` design so a future
+  second vendor is a new class, not a rewrite. A new
+  `NotificationLogService::dispatch()` (explicit-trigger, no scheduler)
+  resolves real contact info per recipient type: Guardian directly,
+  Student via their primary-contact Guardian, Employee/User fail with a
+  documented reason (Appendix-G models no phone/email field for
+  either). An additive `message_body` column lets every existing
+  notification call site (Attendance absence, Timetable revision,
+  Substitution, Library reservation) supply real, trigger-specific
+  content. Push channel dispatch still fails by design — no provider
+  chosen. BR-COM-002/003 (bulk send, emergency-alert priority) remain
+  unbuilt — this closes the dispatch-mechanism gap they depended on,
+  not the BRs themselves.
 - A genuine Reports dashboard pass, once real requirements are scoped —
   adding aggregate query methods to the *owning* source modules (ADR-010
   §8), not retrofitting them speculatively. Can now reuse Stage 8's

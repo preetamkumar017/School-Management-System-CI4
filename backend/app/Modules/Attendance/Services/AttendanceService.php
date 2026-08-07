@@ -102,6 +102,7 @@ class AttendanceService
             $guardianId,
             NotificationLog::CHANNEL_SMS,
             'BR-ATT-004 absence alert',
+            'Your child was marked absent today. Please contact the school if this is unexpected.',
         ));
     }
 
