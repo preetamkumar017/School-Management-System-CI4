@@ -37,7 +37,11 @@ Not all 24 items are eligible to migrate here. Cross-checking Appendix-C
   single scalar value naturally suited to `Configuration`'s
   `setting_value VARCHAR(500)` shape (BR-ADM-007/008 seat-hold/waitlist
   policy — Admission's approved design never modeled a hold-timer at
-  all; BR-TT-004 subject-teacher eligibility source; BR-EXM-007 board
+  all; BR-TT-004 subject-teacher eligibility source (**since resolved,
+  2026-08-07: ADR-013 built this as a real `SubjectTeacherEligibility`
+  table, not a `Configuration` row — a persisted mapping, not a scalar,
+  matching the reasoning this ADR already gave for why a policy/list
+  doesn't fit `Configuration`'s shape**); BR-EXM-007 board
   affiliation — already a per-`GradingScheme` column, not a global
   setting; BR-FEE-005 RTE waived fee-head list; BR-HR-002 exit SLA —
   ADR-008 §5 already resolved this by making deactivation synchronous,
