@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature\HrPayroll;
 
+use App\Core\Exceptions\AuthorizationException;
 use App\Core\Exceptions\BusinessRuleException;
+use App\Modules\HrPayroll\Services\LeaveRequestService;
 use Tests\Support\HrPayroll\HrPayrollTestCase;
 
 /**
@@ -58,9 +60,15 @@ final class LeaveRequestTest extends HrPayrollTestCase
         );
     }
 
-    public function testApprovalSucceedsOverBalanceWithOverrideReason(): void
+    /**
+     * BR-HR-004 override authority (ADR-008 §7, enforcement wired ADR-015):
+     * only a caller whose role carries the override permission may
+     * approve past a negative projected balance.
+     */
+    public function testApprovalSucceedsOverBalanceWithOverrideReasonAndPermission(): void
     {
-        $user       = $this->createUser();
+        $roleId     = $this->createRole([LeaveRequestService::PERMISSION_OVERRIDE]);
+        $user       = $this->createUser($roleId);
         $tokens     = $this->loginAs($user['username']);
         $headers    = $this->authHeaders($tokens['access_token']);
         $employeeId = $this->createEmployeeFixture();
@@ -74,5 +82,29 @@ final class LeaveRequestTest extends HrPayrollTestCase
 
         $decide->assertStatus(200);
         $this->assertSame('Approved', $this->decode($decide)['data']['status']);
+    }
+
+    /**
+     * BR-HR-004: a caller without the override permission cannot approve
+     * past a negative projected balance even with an override_reason.
+     */
+    public function testApprovalRejectedOverBalanceWithoutOverridePermission(): void
+    {
+        $user       = $this->createUser();
+        $tokens     = $this->loginAs($user['username']);
+        $headers    = $this->authHeaders($tokens['access_token']);
+        $employeeId = $this->createEmployeeFixture();
+
+        $leaveRequestId = $this->createLeaveRequestFixture($employeeId, 'CL', '2026-01-01', '2026-01-13');
+
+        $this->assertApiException(
+            fn () => $this->withHeaders($headers)->withBodyFormat('json')->post("api/v1/hr-payroll/leave-requests/{$leaveRequestId}/decide", [
+                'decision'        => 'Approved',
+                'override_reason' => 'Approved by HR head as a documented policy exception.',
+            ]),
+            AuthorizationException::class,
+            'OVERRIDE_NOT_PERMITTED',
+            403,
+        );
     }
 }

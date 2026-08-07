@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\HrPayroll\Services;
 
+use App\Core\Exceptions\AuthorizationException;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Core\Exceptions\ValidationException;
 use App\Core\Http\RequestContext;
@@ -21,10 +22,18 @@ use App\Modules\HrPayroll\Models\LeaveRequestModel;
  * docs/design/hr-payroll/Phase-3-Service-Controller-Design.md
  * BR-HR-004 (ADR-008 §7) — decided annual allocations, no persisted
  * balance entity; balance computed on the fly, same shape as
- * Attendance's percentage calculation.
+ * Attendance's percentage calculation. Override authority enforcement
+ * (ADR-015) — see PERMISSION_OVERRIDE.
  */
 class LeaveRequestService
 {
+    /**
+     * BR-HR-004 override authority (ADR-008 §7, enforcement wired ADR-015):
+     * only a caller whose JWT permission_set carries this string may
+     * supply override_reason to push a leave balance below zero.
+     */
+    public const PERMISSION_OVERRIDE = 'hr_payroll.leave.override';
+
     private const ALLOCATION_CONFIG_KEYS = [
         LeaveRequest::TYPE_CL => 'hr_payroll.leave_allocation.cl',
         LeaveRequest::TYPE_SL => 'hr_payroll.leave_allocation.sl',
@@ -89,12 +98,22 @@ class LeaveRequestService
 
         if ($request->decision === LeaveRequest::STATUS_APPROVED) {
             $projectedBalance = $this->projectedBalanceAfter($before);
+            $hasOverrideReason = $request->overrideReason !== null && trim($request->overrideReason) !== '';
 
-            if ($projectedBalance < 0 && ($request->overrideReason === null || trim($request->overrideReason) === '')) {
-                throw new BusinessRuleException(
-                    'INSUFFICIENT_LEAVE_BALANCE',
-                    'Approving this request would take the leave balance below zero (BR-HR-004).',
-                );
+            if ($projectedBalance < 0) {
+                if (! $hasOverrideReason) {
+                    throw new BusinessRuleException(
+                        'INSUFFICIENT_LEAVE_BALANCE',
+                        'Approving this request would take the leave balance below zero (BR-HR-004).',
+                    );
+                }
+
+                if (! in_array(self::PERMISSION_OVERRIDE, RequestContext::permissionSet(), true)) {
+                    throw new AuthorizationException(
+                        'OVERRIDE_NOT_PERMITTED',
+                        'Only a caller with HR override authority may approve a leave request that takes the balance below zero (BR-HR-004).',
+                    );
+                }
             }
         }
 

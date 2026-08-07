@@ -812,6 +812,41 @@ Stage 6f Communication+Reports).
   `PAID` one). Rebased onto Stage 9's 163-test baseline, bringing the
   total to 168 (163 + 5 new).
 
+## Stage 11 — BR-HR-004 override authority: first RBAC enforcement — DONE (2026-08-07)
+
+Reference: `docs/ADR/ADR-015-hr-payroll-rbac-enforcement.md`. Closes the
+one item ADR-011 §5 flagged as genuinely enforceable-not-just-configurable
+in its fourteen-item survey: BR-HR-004's override authority was decided
+("HR role, logged," ADR-008 §7) but never checked — any authenticated
+caller could supply `override_reason` to push a leave balance negative.
+This is the first place in the codebase that actually reads
+`RequestContext::permissionSet()` to gate an action, not just attribute
+one (`RequestContext::userId()` was already used everywhere for audit
+attribution, but no permission check existed anywhere before this).
+
+- New `LeaveRequestService::PERMISSION_OVERRIDE`
+  (`'hr_payroll.leave.override'`) — a permission string, not a
+  hardcoded role name, matching `Role.permission_set`'s existing
+  JSON-array-of-strings design (no seeded/default role names exist
+  anywhere in this codebase — every role is admin-created data).
+  `decide()` now throws `AuthorizationException`
+  (`OVERRIDE_NOT_PERMITTED`, 403) when a negative-balance approval is
+  attempted with `override_reason` but the caller's JWT-decoded
+  `permission_set` lacks the string — distinct from the existing 422
+  `INSUFFICIENT_LEAVE_BALANCE` (no override attempted at all).
+- Deliberately narrow: no broader RBAC sweep across other Controllers —
+  every other endpoint still relies on authentication alone, matching
+  this project's repeated scope discipline against speculative
+  additions (ADR-009 §13, ADR-010 precedent). This ADR enforces exactly
+  the one decision that was already made and documented, not a general
+  authorization pass.
+- Verification: existing override-success test updated to explicitly
+  grant the new permission (default test role's
+  `['read','create','update','delete']` set doesn't include it); one
+  new test asserts the 403 for a caller without it. 169 passing tests
+  total (1 new test; the existing override test also changed shape but
+  wasn't new).
+
 ## Ongoing, every stage
 
 - Git: feature branches (Company Development Standard §6), PR review before
@@ -830,12 +865,13 @@ Stage 6f Communication+Reports).
 
 ## Immediate next action
 
-Stages 0 through 10 are done (2026-08-07) — every module in Appendix-G's
+Stages 0 through 11 are done (2026-08-07) — every module in Appendix-G's
 Data Dictionary is real, working, tested code, plus a real
 `Configuration` entity, a real `Document`/PDF-generation capability,
-Timetable Substitution (BR-TT-004/FR-16), and the Fees/Transport/
-Examination cross-module seams closed (168 passing tests). Remaining
-work is follow-up/deepening, not new-module design:
+Timetable Substitution (BR-TT-004/FR-16), the Fees/Transport/
+Examination cross-module seams, and BR-HR-004's RBAC enforcement closed
+(169 passing tests). Remaining work is follow-up/deepening, not
+new-module design:
 
 - A real SMS/Email/Push gateway integration once a vendor is chosen
   (ADR-010 §1/§2/§5) — unblocks BR-COM-002/003 and live delivery for the
@@ -847,10 +883,15 @@ work is follow-up/deepening, not new-module design:
 - FR-09 ID Card/Certificate generation (SIS) — needs a real branding
   template and student-photo capability, explicitly deferred by
   ADR-012 §4.
-- The fourteen Appendix-C §3.5 configurable items ADR-011 §5 explicitly
-  did not migrate — each needs its underlying feature built first (a
-  real entity, workflow, or integration), not just a `Configuration` row
-  with nothing to plug into yet.
+- The remaining thirteen Appendix-C §3.5 configurable items ADR-011 §5
+  explicitly did not migrate (BR-TT-004's own entry now resolved for
+  real by ADR-013, not by this list — see ADR-011's corrected note) —
+  each needs its underlying feature built first (a real entity,
+  workflow, or integration: GPS ingestion, driver/vehicle/trip entities,
+  GST line-items, RTE waived-fee-head list, PF/ESI/PT slabs, seat-hold
+  policy, etc.), not just a `Configuration` row with nothing to plug
+  into yet. None of these are small — every one is a real feature build,
+  not a config tweak.
 
 None of these block anything else — check with the project owner on
 priority before starting any of them.
