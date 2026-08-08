@@ -100,6 +100,8 @@ $routes->group('api/v1/sis', ['namespace' => 'App\Modules\Sis\Controllers'], sta
     $routes->patch('students/(:num)', 'StudentController::update/$1');
     $routes->post('students/(:num)/section-transfer', 'StudentController::sectionTransfer/$1');
     $routes->post('students/(:num)/status', 'StudentController::changeStatus/$1');
+    $routes->post('students/(:num)/photo', 'StudentController::uploadPhoto/$1');
+    $routes->get('students/(:num)/id-card', 'StudentController::generateIdCard/$1');
     $routes->get('students/(:num)', 'StudentController::show/$1');
     $routes->get('students', 'StudentController::index');
 

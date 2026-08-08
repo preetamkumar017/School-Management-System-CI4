@@ -1150,6 +1150,47 @@ design, not a hardcoded single-vendor integration.
   tests total (12 new — the existing `ReportsSummaryTest` already
   covered `getSummary()`).
 
+## Stage 19 — SIS ID card generation (FR-09) — DONE (2026-08-08)
+
+- `docs/ADR/ADR-023-sis-id-card-generation.md`. Closes ADR-012 §4's
+  deferred FR-09 gap — the user was explicitly asked the two scoping
+  questions ADR-012 §4 left open (branding, photo upload) and chose the
+  low-commitment default both times: a generic placeholder branding
+  template, and a real photo-upload capability.
+- Generic placeholder branding: a literal "School Name" text field and
+  an empty bordered "Logo" box — never an invented school identity,
+  visibly a placeholder, swappable once a real template is supplied.
+- Real student-photo upload:
+  `App\Modules\Administration\Services\DocumentService::store()` is
+  generalized from a hardcoded `.pdf`-only method to accept any file
+  extension (`$fileExtension = 'pdf'` default keeps all three
+  pre-existing PDF call sites unchanged), so it can also store JPEG/PNG
+  photo uploads. Additive nullable `students.photo_document_id` (FK to
+  `documents.document_id`, `SET NULL` on delete — same shape as
+  `routes.driver_id`/`routes.vehicle_id`).
+  `StudentService::uploadPhoto()` validates the extension
+  (`jpg`/`jpeg`/`png` only), stores the image via `DocumentService`, and
+  repoints `Student.photo_document_id`. `POST /sis/students/{id}/photo`
+  takes JSON `{image_base64, extension}` — this codebase's entire API
+  surface is JSON-only, so no multipart upload path was introduced.
+- `StudentService::generateIdCardPdf()` renders student name, admission
+  number, class/section (resolved via Academic's `SectionService`/
+  `ClassService`, the same resolution `InvoiceService::generateInvoice`
+  already uses), the current active academic session, and the photo —
+  the real uploaded image embedded as a `data:` URI when
+  `photo_document_id` is set, else a bordered "Photo" placeholder box —
+  through the existing dompdf `PdfRenderer`, stored via `DocumentService`
+  (`document_type = 'IdCard'`). `GET /sis/students/{id}/id-card`.
+- Certificate generation (the other half of FR-09's name) remains
+  deferred — no concrete content/fields were ever specified for it in
+  Appendix-C/E, only the name.
+- Five new tests: `tests/Feature/Sis/{StudentPhotoTest,
+  StudentIdCardTest}.php` — photo upload success/extension-rejection/
+  invalid-base64-rejection, ID-card PDF generation with and without an
+  uploaded photo (magic-byte assertion plus a byte-size-growth proxy for
+  "the real photo was embedded"). All pre-existing tests verified still
+  passing, unmodified. 227 passing tests total (5 new).
+
 ## Ongoing, every stage
 
 - Git: feature branches (Company Development Standard §6), PR review before
@@ -1168,7 +1209,7 @@ design, not a hardcoded single-vendor integration.
 
 ## Immediate next action
 
-Stages 0 through 18 are done (2026-08-08) — every module in Appendix-G's
+Stages 0 through 19 are done (2026-08-08) — every module in Appendix-G's
 Data Dictionary is real, working, tested code, plus a real
 `Configuration` entity, a real `Document`/PDF-generation capability,
 Timetable Substitution (BR-TT-004/FR-16), the Fees/Transport/
@@ -1176,10 +1217,15 @@ Examination cross-module seams, the Admission seat-hold/waitlist and
 Library reservation-queue entities, two RBAC enforcements (BR-HR-004,
 BR-FEE-002), Transport's Driver/Trip validity (BR-TRN-006), Fees'
 GST line-item itemization (BR-FEE-007), a real MSG91-backed SMS/
-Email notification gateway, and a genuine Reports dashboard (fee
+Email notification gateway, a genuine Reports dashboard (fee
 collection, attendance, admissions funnel, academic performance, with
-PDF/Excel export) closed (222 passing tests). Remaining work is
-follow-up/deepening, not new-module design:
+PDF/Excel export), and SIS ID card generation (FR-09, generic
+placeholder branding plus a real student-photo upload capability)
+closed (227 passing tests). That closes the last item on the original
+follow-up list — remaining work is either explicitly out of scope for a
+concrete, stated reason (no vendor/hardware chosen), or a genuine new
+feature build, not a follow-up/deepening item on an already-shipped
+module:
 
 - **Stage 15 (2026-08-07, ADR-019)**: BR-TRN-006 (Driver/Vehicle
   Assignment Validity) — real `Driver`/`Trip` entities, an additive
@@ -1229,9 +1275,13 @@ follow-up/deepening, not new-module design:
   mirroring `PdfRenderer`'s shape. FR-40/41/42's role-scoped widgets,
   custom report builder, and trend analytics remain out of scope
   (ADR-022 Consequences).
-- FR-09 ID Card/Certificate generation (SIS) — needs a real branding
-  template and student-photo capability, explicitly deferred by
-  ADR-012 §4.
+- **Stage 19 (2026-08-08, ADR-023)**: FR-09 ID Card generation (SIS) —
+  a generic, visibly-placeholder branding template (literal "School
+  Name" text, an empty bordered logo box, user-authorized) plus a real
+  student-photo upload capability (`Student.photo_document_id`,
+  `DocumentService::store()` generalized to store JPEG/PNG images, not
+  just PDFs). Certificate generation (FR-09's other half) remains
+  deferred — no concrete content was ever specified for it.
 - The remaining nine Appendix-C §3.5 configurable items ADR-011 §5
   explicitly did not migrate (BR-TT-004's own entry resolved for real by
   ADR-013, BR-ADM-007/BR-ADM-008's entry resolved for real by ADR-016,

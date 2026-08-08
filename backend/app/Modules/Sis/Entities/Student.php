@@ -19,6 +19,7 @@ use App\Core\BaseEntity;
  * @property string      $category
  * @property string|null $medical_info
  * @property string      $status
+ * @property int|null    $photo_document_id
  */
 class Student extends BaseEntity
 {
@@ -37,9 +38,10 @@ class Student extends BaseEntity
     public function __construct(?array $data = null)
     {
         $this->casts = array_merge($this->casts, [
-            'student_id'     => 'integer',
-            'section_id'     => '?integer',
-            'application_id' => 'integer',
+            'student_id'         => 'integer',
+            'section_id'         => '?integer',
+            'application_id'     => 'integer',
+            'photo_document_id'  => '?integer',
         ]);
 
         parent::__construct($data);

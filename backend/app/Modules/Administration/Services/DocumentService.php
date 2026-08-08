@@ -27,11 +27,17 @@ class DocumentService
     }
 
     /**
-     * Writes $pdfBytes under writable/uploads/documents/{ownerType}/ and
+     * Writes $fileBytes under writable/uploads/documents/{ownerType}/ and
      * records the relative file_path (ADR-012 §2 — local disk, portable
      * across environments).
+     *
+     * ADR-023 §2: generalized from a PDF-only method to accept any file
+     * extension, so it can store an ID-card PDF and a student's photo
+     * upload (JPEG/PNG) alike. $fileExtension defaults to 'pdf' so the
+     * three pre-existing call sites (InvoiceService, PayrollRunService,
+     * ReportCardService) are byte-for-byte unchanged.
      */
-    public function store(string $ownerType, int $ownerRefId, string $documentType, string $pdfBytes, int $uploadedBy): DocumentResponse
+    public function store(string $ownerType, int $ownerRefId, string $documentType, string $fileBytes, int $uploadedBy, string $fileExtension = 'pdf'): DocumentResponse
     {
         $relativeDir = self::STORAGE_SUBDIR . '/' . $ownerType;
         $absoluteDir = WRITEPATH . 'uploads/' . $relativeDir;
@@ -40,10 +46,10 @@ class DocumentService
             mkdir($absoluteDir, 0755, true);
         }
 
-        $fileName     = $ownerRefId . '-' . bin2hex(random_bytes(8)) . '.pdf';
+        $fileName     = $ownerRefId . '-' . bin2hex(random_bytes(8)) . '.' . $fileExtension;
         $relativePath = $relativeDir . '/' . $fileName;
 
-        file_put_contents($absoluteDir . '/' . $fileName, $pdfBytes);
+        file_put_contents($absoluteDir . '/' . $fileName, $fileBytes);
 
         $id = $this->documentModel->insert([
             'owner_type'    => $ownerType,

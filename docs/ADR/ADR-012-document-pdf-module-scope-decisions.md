@@ -95,6 +95,12 @@ student-photo capability exists anywhere in this codebase. Not
 implemented; a future pass scoping a real template/photo-upload
 capability is the prerequisite, not something to invent here.
 
+**Resolved:** `docs/ADR/ADR-023-sis-id-card-generation.md` — the user
+was explicitly asked and chose a generic placeholder branding template
+plus a real photo-upload capability reusing `Document`/`DocumentService`;
+ID Card generation is implemented there (Certificate generation remains
+deferred, no concrete content ever specified for it).
+
 ### 5. Download is a plain authenticated stream, no ownership/role gate
 
 Matches this codebase's consistent, already-documented posture
@@ -125,6 +131,7 @@ codebase.
   target.
 - A future ID-card/certificate pass must account for FR-09 (§4) once a
   real branding template and photo-upload capability are scoped.
+  **Resolved** by ADR-023 (ID Card only; Certificate remains deferred).
 - A future Reports pass revisiting ADR-010 §8's Excel/PDF export gap can
   now reuse this same `dompdf` dependency and `DocumentService` pattern,
   rather than re-deciding the rendering approach from scratch.

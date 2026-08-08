@@ -27,6 +27,7 @@ class StudentModel extends BaseModel
         'category',
         'medical_info',
         'status',
+        'photo_document_id',
         'created_by',
         'updated_by',
     ];

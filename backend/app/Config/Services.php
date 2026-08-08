@@ -296,6 +296,8 @@ class Services extends BaseService
             new StudentGuardianLinkModel(),
             new StudentMapper(),
             static::auditService(),
+            static::documentService(),
+            static::pdfRenderer(),
         );
     }
 

@@ -21,6 +21,7 @@ final class StudentResponse
     public readonly string $category;
     public readonly string $status;
     public readonly ?string $medicalInfo;
+    public readonly ?int $photoDocumentId;
 
     public function __construct(Student $student)
     {
@@ -34,6 +35,7 @@ final class StudentResponse
         $this->category        = $student->category;
         $this->status          = $student->status;
         $this->medicalInfo     = $student->medical_info;
+        $this->photoDocumentId = $student->photo_document_id;
     }
 
     /**
@@ -52,6 +54,7 @@ final class StudentResponse
             'category'         => $this->category,
             'status'           => $this->status,
             'medical_info'     => $this->medicalInfo,
+            'photo_document_id' => $this->photoDocumentId,
         ];
     }
 }
