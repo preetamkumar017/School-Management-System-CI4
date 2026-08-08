@@ -11,6 +11,7 @@ import FeesPage from "./pages/fees/FeesPage";
 import AttendancePage from "./pages/attendance/AttendancePage";
 import ExaminationPage from "./pages/examination/ExaminationPage";
 import TimetablePage from "./pages/timetable/TimetablePage";
+import HrPayrollPage from "./pages/hr/HrPayrollPage";
 
 export default function App() {
   return (
@@ -32,6 +33,7 @@ export default function App() {
                     <Route path="/attendance" element={<AttendancePage />} />
                     <Route path="/examination" element={<ExaminationPage />} />
                     <Route path="/timetable" element={<TimetablePage />} />
+                    <Route path="/hr-payroll" element={<HrPayrollPage />} />
                   </Routes>
                 </DashboardLayout>
               </ProtectedRoute>
