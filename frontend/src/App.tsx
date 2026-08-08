@@ -14,6 +14,8 @@ import TimetablePage from "./pages/timetable/TimetablePage";
 import HrPayrollPage from "./pages/hr/HrPayrollPage";
 import LibraryPage from "./pages/library/LibraryPage";
 import TransportPage from "./pages/transport/TransportPage";
+import CommunicationPage from "./pages/communication/CommunicationPage";
+import ReportsPage from "./pages/reports/ReportsPage";
 
 export default function App() {
   return (
@@ -38,6 +40,8 @@ export default function App() {
                     <Route path="/hr-payroll" element={<HrPayrollPage />} />
                     <Route path="/library" element={<LibraryPage />} />
                     <Route path="/transport" element={<TransportPage />} />
+                    <Route path="/communication" element={<CommunicationPage />} />
+                    <Route path="/reports" element={<ReportsPage />} />
                   </Routes>
                 </DashboardLayout>
               </ProtectedRoute>
