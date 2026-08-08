@@ -118,7 +118,10 @@ class PayrollRunController extends BaseController
         path: '/hr-payroll/payroll-runs',
         tags: ['Payroll Runs'],
         security: [['bearerAuth' => []]],
-        parameters: [new OA\Parameter(name: 'employee_id', in: 'query', required: true, schema: new OA\Schema(type: 'integer'))],
+        parameters: [
+            new OA\Parameter(name: 'employee_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'pay_period', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+        ],
         responses: [
             new OA\Response(
                 response: 200,
@@ -130,12 +133,15 @@ class PayrollRunController extends BaseController
     public function index()
     {
         $employeeId = (int) ($this->request->getGet('employee_id') ?? 0);
+        $payPeriod  = (string) ($this->request->getGet('pay_period') ?? '');
 
-        if ($employeeId <= 0) {
-            throw new ValidationException(['employee_id' => 'employee_id query parameter is required.']);
+        if ($employeeId > 0) {
+            $responses = Services::payrollRunService()->listByEmployee($employeeId);
+        } elseif ($payPeriod !== '') {
+            $responses = Services::payrollRunService()->listByPeriod($payPeriod);
+        } else {
+            $responses = Services::payrollRunService()->listAll();
         }
-
-        $responses = Services::payrollRunService()->listByEmployee($employeeId);
 
         return $this->respondSuccess(array_map(static fn ($response) => $response->toArray(), $responses));
     }

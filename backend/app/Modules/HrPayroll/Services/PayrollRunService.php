@@ -229,6 +229,32 @@ class PayrollRunService
         );
     }
 
+    /**
+     * @return list<PayrollRunResponse>
+     */
+    public function listByPeriod(string $payPeriod): array
+    {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
+        return array_map(
+            static fn (PayrollRun $payrollRun): PayrollRunResponse => new PayrollRunResponse($payrollRun),
+            $this->payrollRunModel->findByPeriod($payPeriod),
+        );
+    }
+
+    /**
+     * @return list<PayrollRunResponse>
+     */
+    public function listAll(): array
+    {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
+        return array_map(
+            static fn (PayrollRun $payrollRun): PayrollRunResponse => new PayrollRunResponse($payrollRun),
+            $this->payrollRunModel->findAll(),
+        );
+    }
+
     private function requirePayrollRun(int $id): PayrollRun
     {
         $payrollRun = $this->payrollRunModel->find($id);

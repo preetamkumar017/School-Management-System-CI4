@@ -40,7 +40,8 @@ const EMPTY_FORM: FormState = {
 
 export default function PayrollRunsPage() {
   const { employees, isLoading: isLoadingEmployees } = useEmployees();
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
+  const [selectedPeriod, setSelectedPeriod] = useState<string>("2026-08");
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("All");
   const [runs, setRuns] = useState<PayrollRun[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,36 +52,38 @@ export default function PayrollRunsPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const currentEmployee = employees.find((e) => String(e.employee_id) === selectedEmployeeId);
-
-  function reload(forEmployeeId: number) {
+  function reload() {
     setIsLoading(true);
     setError(null);
+    const params: Record<string, string | number> = {};
+    if (selectedEmployeeId && selectedEmployeeId !== "All") {
+      params.employee_id = Number(selectedEmployeeId);
+    } else if (selectedPeriod && selectedPeriod !== "All") {
+      params.pay_period = selectedPeriod;
+    }
+
     api
-      .get<{ data: PayrollRun[] }>("/hr-payroll/payroll-runs", { params: { employee_id: forEmployeeId } })
+      .get<{ data: PayrollRun[] }>("/hr-payroll/payroll-runs", { params })
       .then((response) => setRuns(response.data.data))
       .catch((err) => setError(apiErrorMessage(err)))
       .finally(() => setIsLoading(false));
   }
 
   useEffect(() => {
-    if (employees.length > 0 && !selectedEmployeeId) {
-      const firstId = String(employees[0].employee_id);
-      setSelectedEmployeeId(firstId);
-      reload(employees[0].employee_id);
-    }
-  }, [employees]);
+    reload();
+  }, [selectedPeriod, selectedEmployeeId]);
 
-  function handleSelectEmployee(idStr: string) {
-    setSelectedEmployeeId(idStr);
-    if (idStr) reload(Number(idStr));
+  function getEmployeeDetails(empId: number) {
+    return employees.find((e) => e.employee_id === empId);
   }
 
   function openCreate() {
+    const emp = selectedEmployeeId !== "All" ? getEmployeeDetails(Number(selectedEmployeeId)) : employees[0];
     setForm({
       ...EMPTY_FORM,
-      employee_id: selectedEmployeeId,
-      gross_pay: currentEmployee ? String(Object.values(currentEmployee.salary_structure_json).reduce((a, b) => a + Number(b), 0)) : "",
+      employee_id: emp ? String(emp.employee_id) : "",
+      pay_period: selectedPeriod !== "All" ? selectedPeriod : "2026-08",
+      gross_pay: emp ? String(Object.values(emp.salary_structure_json).reduce((a, b) => a + Number(b), 0)) : "",
     });
     setFormError(null);
     setIsCreating(true);
@@ -100,6 +103,8 @@ export default function PayrollRunsPage() {
     if (form.pt) deductions.PT = Number(form.pt);
     if (form.tds) deductions.TDS = Number(form.tds);
 
+    const targetEmp = getEmployeeDetails(empId);
+
     try {
       await api.post("/hr-payroll/payroll-runs", {
         employee_id: empId,
@@ -107,10 +112,10 @@ export default function PayrollRunsPage() {
         gross_pay: Number(form.gross_pay),
         lwp_days: Number(form.lwp_days || 0),
         deductions_json: deductions,
-        earnings_json: currentEmployee ? currentEmployee.salary_structure_json : undefined,
+        earnings_json: targetEmp ? targetEmp.salary_structure_json : undefined,
       });
       setIsCreating(false);
-      reload(empId);
+      reload();
     } catch (err) {
       setFormError(apiErrorMessage(err));
     } finally {
@@ -122,7 +127,7 @@ export default function PayrollRunsPage() {
     setMessage(null);
     try {
       await api.post(`/hr-payroll/payroll-runs/${run.payroll_run_id}/${action}`);
-      if (selectedEmployeeId) reload(Number(selectedEmployeeId));
+      reload();
     } catch (err) {
       setMessage(apiErrorMessage(err));
     }
@@ -143,116 +148,227 @@ export default function PayrollRunsPage() {
     }
   }
 
+  // Export Bank Payout Statement CSV for Accounts Department
+  function handleExportBankStatement() {
+    if (runs.length === 0) return;
+
+    const headers = [
+      "Employee Code",
+      "Employee Name",
+      "Staff Type",
+      "Bank Name",
+      "Bank Account Number",
+      "IFSC Code",
+      "Pay Period",
+      "LWP Days",
+      "Gross Pay",
+      "Total Deductions",
+      "Net Payable Amount",
+      "Status",
+    ];
+
+    const rows = runs.map((run) => {
+      const emp = getEmployeeDetails(run.employee_id);
+      const totalDeductions = Object.values(run.deductions_json || {}).reduce((a, b) => a + Number(b), 0);
+      return [
+        `"${emp?.employee_code || run.employee_id}"`,
+        `"${emp?.full_name || 'Staff'}"`,
+        `"${emp?.staff_type || 'Teaching'}"`,
+        `"${emp?.bank_name || 'State Bank of India'}"`,
+        `"${emp?.bank_account_number || 'N/A'}"`,
+        `"${emp?.bank_ifsc_code || 'N/A'}"`,
+        `"${run.pay_period}"`,
+        run.lwp_days ?? 0,
+        run.gross_pay,
+        totalDeductions,
+        run.net_pay,
+        `"${run.status}"`,
+      ].join(",");
+    });
+
+    const csvContent = [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `Bank_Salary_Payout_Statement_${selectedPeriod}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  const totalMonthlyPayout = runs.reduce((sum, r) => sum + r.net_pay, 0);
+
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">Payroll Runs</h2>
-          <p className="text-xs text-slate-500">Monthly salary processing and payslip generation</p>
+          <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+            Monthly Payroll Register & Bank Payouts
+          </h2>
+          <p className="text-xs text-slate-500">
+            Process monthly payroll for 1000+ staff members and export Bank Payout Statement for Accounts
+          </p>
         </div>
-        <button type="button" onClick={openCreate} className={primaryButtonClass}>
-          New Payroll Run
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={handleExportBankStatement}
+            disabled={runs.length === 0}
+            className="rounded-lg border border-emerald-600 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 dark:border-emerald-500 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900 disabled:opacity-50"
+          >
+            📊 Export Bank Payout Statement (CSV)
+          </button>
+          <button type="button" onClick={openCreate} className={primaryButtonClass}>
+            + New Payroll Run
+          </button>
+        </div>
       </div>
 
-      {/* Employee Selector Dropdown */}
-      <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/50">
-        <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Select Employee:</label>
-        <select
-          value={selectedEmployeeId}
-          onChange={(e) => handleSelectEmployee(e.target.value)}
-          className={`${inputClass} max-w-md font-medium text-slate-900 dark:text-slate-100`}
-        >
-          {employees.map((emp) => (
-            <option key={emp.employee_id} value={emp.employee_id}>
-              {emp.employee_code} — {emp.full_name} ({emp.staff_type || "Staff"})
-            </option>
-          ))}
-        </select>
-        {currentEmployee && (
-          <span className="text-xs font-semibold text-blue-600 dark:text-blue-400">
-            Qual: {currentEmployee.qualification || "N/A"}
+      {/* Filter Bar: Pay Period & Staff Selector */}
+      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/50">
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1 block">
+            Filter by Month / Pay Period:
+          </label>
+          <select
+            value={selectedPeriod}
+            onChange={(e) => {
+              setSelectedPeriod(e.target.value);
+              setSelectedEmployeeId("All");
+            }}
+            className={`${inputClass} font-medium`}
+          >
+            <option value="2026-08">August 2026 (2026-08)</option>
+            <option value="2026-07">July 2026 (2026-07)</option>
+            <option value="All">All Months (Entire History)</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1 block">
+            Filter by Staff Member:
+          </label>
+          <select
+            value={selectedEmployeeId}
+            onChange={(e) => setSelectedEmployeeId(e.target.value)}
+            className={`${inputClass} font-medium`}
+          >
+            <option value="All">All Staff Members ({employees.length} Employees)</option>
+            {employees.map((emp) => (
+              <option key={emp.employee_id} value={emp.employee_id}>
+                {emp.employee_code} — {emp.full_name} ({emp.staff_type || "Staff"})
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {/* Summary Stat Banner for Accounts */}
+      <div className="mb-4 flex items-center justify-between rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
+        <div>
+          <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">Total Net Bank Payout:</span>
+          <span className="ml-3 text-xl font-bold text-slate-900 dark:text-slate-100">
+            ₹{totalMonthlyPayout.toLocaleString("en-IN")}
           </span>
-        )}
+        </div>
+        <div className="text-xs text-slate-500">
+          Showing <span className="font-semibold text-slate-900 dark:text-slate-100">{runs.length}</span> payroll records
+        </div>
       </div>
 
       {message && <p className="mb-3 text-sm text-red-600 dark:text-red-400">{message}</p>}
       {isLoadingEmployees && <p className="text-sm text-slate-500">Loading staff directory…</p>}
-      {isLoading && <p className="text-sm text-slate-500 dark:text-slate-400">Loading payroll history…</p>}
+      {isLoading && <p className="text-sm text-slate-500 dark:text-slate-400">Loading payroll register…</p>}
       {error && (
         <p role="alert" className="text-sm text-red-600 dark:text-red-400">
           {error}
         </p>
       )}
 
-      {selectedEmployeeId && !isLoading && !error && (
+      {!isLoading && !error && (
         <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
           <table className="w-full text-left text-sm">
             <thead className="border-b border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
               <tr>
-                <th className="px-4 py-2 font-medium">Pay Period</th>
-                <th className="px-4 py-2 font-medium">LWP Days</th>
-                <th className="px-4 py-2 font-medium">Gross Pay</th>
-                <th className="px-4 py-2 font-medium">Net Pay</th>
+                <th className="px-4 py-2 font-medium">Employee</th>
+                <th className="px-4 py-2 font-medium">Bank Account & IFSC</th>
+                <th className="px-4 py-2 font-medium">Period</th>
+                <th className="px-4 py-2 font-medium">Gross</th>
+                <th className="px-4 py-2 font-medium">Net Payable</th>
                 <th className="px-4 py-2 font-medium">Status</th>
                 <th className="px-4 py-2 text-right">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {runs.map((run) => (
-                <tr key={run.payroll_run_id} className="border-b border-slate-100 last:border-0 dark:border-slate-900">
-                  <td className="px-4 py-2 font-semibold text-slate-900 dark:text-slate-100">{run.pay_period}</td>
-                  <td className="px-4 py-2 text-slate-500">{run.lwp_days ?? 0} days</td>
-                  <td className="px-4 py-2 text-slate-500 dark:text-slate-400">₹{run.gross_pay.toLocaleString()}</td>
-                  <td className="px-4 py-2 font-semibold text-slate-900 dark:text-slate-100">₹{run.net_pay.toLocaleString()}</td>
-                  <td className="px-4 py-2">
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                        run.status === "Processed"
-                          ? "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-400"
-                          : run.status === "Approved"
-                          ? "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-400"
-                          : "bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-400"
-                      }`}
-                    >
-                      {run.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2 text-right">
-                    {run.status === "Draft" && (
-                      <button
-                        type="button"
-                        onClick={() => handleAction(run, "approve")}
-                        className="mr-2 rounded border border-blue-300 px-2 py-1 text-xs text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300"
+              {runs.map((run) => {
+                const emp = getEmployeeDetails(run.employee_id);
+                return (
+                  <tr key={run.payroll_run_id} className="border-b border-slate-100 last:border-0 dark:border-slate-900">
+                    <td className="px-4 py-2 font-medium text-slate-900 dark:text-slate-100">
+                      <div>{emp?.full_name || `Employee #${run.employee_id}`}</div>
+                      <div className="text-xs text-slate-500">
+                        {emp?.employee_code} • {emp?.staff_type || "Staff"}
+                      </div>
+                    </td>
+                    <td className="px-4 py-2 text-slate-500 dark:text-slate-400">
+                      <div>{emp?.bank_name || "State Bank of India"}</div>
+                      <div className="text-xs font-mono text-slate-400">
+                        Acc: {emp?.bank_account_number || "N/A"} • IFSC: {emp?.bank_ifsc_code || "N/A"}
+                      </div>
+                    </td>
+                    <td className="px-4 py-2 font-semibold text-slate-900 dark:text-slate-100">{run.pay_period}</td>
+                    <td className="px-4 py-2 text-slate-500 dark:text-slate-400">₹{run.gross_pay.toLocaleString()}</td>
+                    <td className="px-4 py-2 font-bold text-slate-900 dark:text-slate-100">₹{run.net_pay.toLocaleString()}</td>
+                    <td className="px-4 py-2">
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                          run.status === "Processed"
+                            ? "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-400"
+                            : run.status === "Approved"
+                            ? "bg-blue-100 text-blue-800 dark:bg-blue-950 dark:text-blue-400"
+                            : "bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-400"
+                        }`}
                       >
-                        Approve
-                      </button>
-                    )}
-                    {run.status === "Approved" && (
-                      <button
-                        type="button"
-                        onClick={() => handleAction(run, "process")}
-                        className="mr-2 rounded border border-green-300 px-2 py-1 text-xs text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-300"
-                      >
-                        Process Payroll
-                      </button>
-                    )}
-                    {run.status === "Processed" && (
-                      <button
-                        type="button"
-                        onClick={() => handleGeneratePayslip(run)}
-                        className="rounded border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300"
-                      >
-                        📄 Download Payslip PDF
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                        {run.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      {run.status === "Draft" && (
+                        <button
+                          type="button"
+                          onClick={() => handleAction(run, "approve")}
+                          className="mr-2 rounded border border-blue-300 px-2 py-1 text-xs text-blue-700 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-300"
+                        >
+                          Approve
+                        </button>
+                      )}
+                      {run.status === "Approved" && (
+                        <button
+                          type="button"
+                          onClick={() => handleAction(run, "process")}
+                          className="mr-2 rounded border border-green-300 px-2 py-1 text-xs text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-300"
+                        >
+                          Process Payroll
+                        </button>
+                      )}
+                      {run.status === "Processed" && (
+                        <button
+                          type="button"
+                          onClick={() => handleGeneratePayslip(run)}
+                          className="rounded border border-slate-300 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300"
+                        >
+                          📄 Payslip PDF
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
               {runs.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-6 text-center text-slate-400">
-                    No payroll runs for this employee.
+                  <td colSpan={7} className="px-4 py-6 text-center text-slate-400">
+                    No payroll runs found for the selected month/staff filter.
                   </td>
                 </tr>
               )}
@@ -274,7 +390,7 @@ export default function PayrollRunsPage() {
               >
                 {employees.map((emp) => (
                   <option key={emp.employee_id} value={emp.employee_id}>
-                    {emp.employee_code} — {emp.full_name}
+                    {emp.employee_code} — {emp.full_name} ({emp.staff_type || "Staff"})
                   </option>
                 ))}
               </select>

@@ -65,4 +65,12 @@ class PayrollRunModel extends BaseModel
     {
         return $this->where('employee_id', $employeeId)->findAll();
     }
+
+    /**
+     * @return list<PayrollRun>
+     */
+    public function findByPeriod(string $payPeriod): array
+    {
+        return $this->where('pay_period', $payPeriod)->findAll();
+    }
 }
