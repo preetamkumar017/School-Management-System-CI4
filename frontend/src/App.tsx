@@ -10,6 +10,7 @@ import AdmissionPage from "./pages/admission/AdmissionPage";
 import FeesPage from "./pages/fees/FeesPage";
 import AttendancePage from "./pages/attendance/AttendancePage";
 import ExaminationPage from "./pages/examination/ExaminationPage";
+import TimetablePage from "./pages/timetable/TimetablePage";
 
 export default function App() {
   return (
@@ -30,6 +31,7 @@ export default function App() {
                     <Route path="/fees" element={<FeesPage />} />
                     <Route path="/attendance" element={<AttendancePage />} />
                     <Route path="/examination" element={<ExaminationPage />} />
+                    <Route path="/timetable" element={<TimetablePage />} />
                   </Routes>
                 </DashboardLayout>
               </ProtectedRoute>
