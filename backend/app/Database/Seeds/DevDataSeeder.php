@@ -15,7 +15,7 @@ class DevDataSeeder extends Seeder
         // 1. Seed Roles
         $adminRoleId = $db->table('roles')->where('role_name', 'IT Admin')->get()->getRow('role_id');
         if ($adminRoleId === null) {
-            $adminRoleId = $db->table('roles')->insert([
+            $adminRoleId = (int) $db->table('roles')->insert([
                 'role_name'      => 'IT Admin',
                 'description'    => 'Full IT Administrator',
                 'is_system_role' => true,
@@ -38,6 +38,7 @@ class DevDataSeeder extends Seeder
                 'updated_at'     => date('Y-m-d H:i:s'),
             ], true);
         } else {
+            $adminRoleId = (int) $adminRoleId;
             $db->table('roles')->where('role_id', $adminRoleId)->update([
                 'permission_set' => json_encode([
                     'academic.manage',
@@ -57,9 +58,26 @@ class DevDataSeeder extends Seeder
             ]);
         }
 
+        $hrRoleId = $db->table('roles')->where('role_name', 'HR Team')->get()->getRow('role_id');
+        if ($hrRoleId === null) {
+            $hrRoleId = (int) $db->table('roles')->insert([
+                'role_name'      => 'HR Team',
+                'description'    => 'HR & Payroll Manager',
+                'is_system_role' => false,
+                'permission_set' => json_encode(['hr_payroll.manage']),
+                'created_at'     => date('Y-m-d H:i:s'),
+                'updated_at'     => date('Y-m-d H:i:s'),
+            ], true);
+        } else {
+            $hrRoleId = (int) $hrRoleId;
+            $db->table('roles')->where('role_id', $hrRoleId)->update([
+                'permission_set' => json_encode(['hr_payroll.manage']),
+            ]);
+        }
+
         $employeeRoleId = $db->table('roles')->where('role_name', 'Employee')->get()->getRow('role_id');
         if ($employeeRoleId === null) {
-            $employeeRoleId = $db->table('roles')->insert([
+            $employeeRoleId = (int) $db->table('roles')->insert([
                 'role_name'      => 'Employee',
                 'description'    => 'General Staff / Employee',
                 'is_system_role' => false,
@@ -67,14 +85,16 @@ class DevDataSeeder extends Seeder
                 'created_at'     => date('Y-m-d H:i:s'),
                 'updated_at'     => date('Y-m-d H:i:s'),
             ], true);
+        } else {
+            $employeeRoleId = (int) $employeeRoleId;
         }
 
         // 2. Seed Departments
         $depts = [
-            'Academics'          => null,
-            'Administration'     => null,
-            'Accounts'           => null,
-            'IT & Support'       => null,
+            'Academics'           => null,
+            'Administration'      => null,
+            'Accounts'            => null,
+            'IT & Support'        => null,
             'Sports & Facilities' => null,
         ];
         foreach (array_keys($depts) as $name) {
@@ -89,6 +109,7 @@ class DevDataSeeder extends Seeder
         // 3. Seed Designations
         $desigs = [
             'Principal'           => null,
+            'HR Manager'          => null,
             'PGT Physics Teacher' => null,
             'TGT Science Teacher' => null,
             'PRT English Teacher' => null,
@@ -192,6 +213,23 @@ class DevDataSeeder extends Seeder
                 'joining'       => '2025-09-01',
                 'salary'        => ['basic' => 30000, 'hra' => 12000],
             ],
+            [
+                'code'          => 'EMP-1006',
+                'name'          => 'Kavita Nair',
+                'dept_id'       => $depts['Administration'],
+                'desig_id'      => $desigs['HR Manager'],
+                'type'          => 'Administrative',
+                'qualification' => 'MBA in HR Management',
+                'aadhaar'       => '567890123412',
+                'pan'           => 'KVTNR5678M',
+                'pf'            => '100900800705',
+                'esi'           => '31001234567890006',
+                'bank'          => 'HDFC Bank',
+                'account'       => '501009876543',
+                'ifsc'          => 'HDFC0000123',
+                'joining'       => '2023-05-01',
+                'salary'        => ['basic' => 55000, 'hra' => 22000, 'da' => 11000],
+            ],
         ];
 
         $empIds = [];
@@ -254,6 +292,28 @@ class DevDataSeeder extends Seeder
                 'role_id'       => $adminRoleId,
                 'owner_type'    => 'EMPLOYEE',
                 'owner_ref_id'  => $empIds['EMP-1001'],
+                'status'        => 'ACTIVE',
+            ]);
+        }
+
+        $hrUser = $db->table('users')->where('username', 'hr.manager')->get()->getRow();
+        if ($hrUser === null) {
+            $db->table('users')->insert([
+                'username'      => 'hr.manager',
+                'password_hash' => password_hash('Hr@1234', PASSWORD_BCRYPT),
+                'role_id'       => $hrRoleId,
+                'owner_type'    => 'EMPLOYEE',
+                'owner_ref_id'  => $empIds['EMP-1006'],
+                'status'        => 'ACTIVE',
+                'created_at'    => date('Y-m-d H:i:s'),
+                'updated_at'    => date('Y-m-d H:i:s'),
+            ]);
+        } else {
+            $db->table('users')->where('username', 'hr.manager')->update([
+                'password_hash' => password_hash('Hr@1234', PASSWORD_BCRYPT),
+                'role_id'       => $hrRoleId,
+                'owner_type'    => 'EMPLOYEE',
+                'owner_ref_id'  => $empIds['EMP-1006'],
                 'status'        => 'ACTIVE',
             ]);
         }
