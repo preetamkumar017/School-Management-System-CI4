@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Administration\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\ValidationException;
 use App\Core\Http\RequestContext;
 use App\Modules\Administration\Entities\AuditLog;
@@ -15,11 +16,18 @@ use CodeIgniter\I18n\Time;
  *
  * The single write path every other module's Service layer calls —
  * never AuditLogModel::insert() directly from outside Administration.
+ * RBAC (ADR-024 §3): `record()` is an internal write path called from
+ * every module's Service layer, not a user-facing action, so it is not
+ * gated here — the caller's own permission check (if any) already ran.
+ * The two read methods below back `AuditLogController`, which is
+ * Tier-1-only per ADR-024's Administration row.
  */
 class AuditService
 {
-    public function __construct(private readonly AuditLogModel $auditLogModel)
-    {
+    public function __construct(
+        private readonly AuditLogModel $auditLogModel,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
+    ) {
     }
 
     /**
@@ -59,6 +67,8 @@ class AuditService
      */
     public function getHistoryFor(string $entityName, int $recordId): array
     {
+        $this->moduleAuthorizer->assertManage(UserService::PERMISSION_MANAGE);
+
         return $this->auditLogModel->findByEntity($entityName, $recordId);
     }
 
@@ -67,6 +77,8 @@ class AuditService
      */
     public function getActivityFor(int $userId, ?string $fromDate = null, ?string $toDate = null): array
     {
+        $this->moduleAuthorizer->assertManage(UserService::PERMISSION_MANAGE);
+
         return $this->auditLogModel->findByPerformedBy($userId, $fromDate, $toDate);
     }
 }

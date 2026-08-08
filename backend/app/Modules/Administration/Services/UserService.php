@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Administration\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Modules\Administration\DTOs\CreateUserRequest;
 use App\Modules\Administration\DTOs\UpdateUserRequest;
@@ -14,18 +15,25 @@ use App\Modules\Administration\Models\UserModel;
 
 /**
  * docs/design/administration/Phase-4-Service-Design.md
+ * RBAC (ADR-024 §3): Administration is Tier-1-only, including reads —
+ * every method here requires `administration.manage`.
  */
 class UserService
 {
+    public const PERMISSION_MANAGE = 'administration.manage';
+
     public function __construct(
         private readonly UserModel $userModel,
         private readonly AuditService $auditService,
         private readonly AuthService $authService,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
     public function createUser(CreateUserRequest $request): User
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         if ($this->userModel->existsByUsername($request->username)) {
             throw new BusinessRuleException('USERNAME_ALREADY_TAKEN', 'This username is already taken.');
         }
@@ -54,6 +62,8 @@ class UserService
 
     public function updateUser(int $id, UpdateUserRequest $request): User
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->userModel->find($id);
 
         if ($before === null) {
@@ -84,6 +94,24 @@ class UserService
 
     public function changeStatus(int $id, UserStatusChangeRequest $request): User
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
+        return $this->changeStatusInternal($id, $request);
+    }
+
+    /**
+     * Ungated variant of `changeStatus()` for internal, system-triggered
+     * status changes that aren't a direct administrative action by the
+     * caller — e.g. `EmployeeService::updateEmployee()`'s BR-HR-002
+     * exit-date deactivation, which runs under the caller's own
+     * `hr_payroll.manage` permission, not `administration.manage`. Never
+     * call this from a Controller or any other module-external, directly
+     * user-triggered path — that must go through `changeStatus()` so the
+     * `administration.manage` gate applies (ADR-024 §3, this phase's
+     * Addendum).
+     */
+    public function changeStatusInternal(int $id, UserStatusChangeRequest $request): User
+    {
         $before = $this->userModel->find($id);
 
         if ($before === null) {
@@ -111,6 +139,8 @@ class UserService
 
     public function getUser(int $id): User
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $user = $this->userModel->find($id);
 
         if ($user === null) {
@@ -125,6 +155,8 @@ class UserService
      */
     public function listUsers(?string $status = null): array
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $query = $this->userModel;
 
         if ($status !== null) {
@@ -132,6 +164,31 @@ class UserService
         }
 
         return $query->findAll();
+    }
+
+    /**
+     * Ungated existence check for other modules' internal Service-to-Service
+     * calls (e.g. `CircularService::createCircular()`'s author_id check,
+     * `NotificationLogService::validateRecipient()`'s User-recipient case)
+     * — those callers are validating a foreign key, not performing a
+     * user-facing Administration read, so `getUser()`'s RBAC gate doesn't
+     * apply here (mirrors `EmployeeService::assertEmployeeExists()`).
+     */
+    public function assertUserExists(int $id): void
+    {
+        if ($this->userModel->find($id) === null) {
+            throw new BusinessRuleException('USER_NOT_FOUND', 'User not found.');
+        }
+    }
+
+    /**
+     * Ungated count for Reports' `getSummary()` dashboard composition —
+     * an aggregate count, not a per-record read, so `administration.manage`
+     * isn't required (mirrors `EmployeeService::countEmployees()`).
+     */
+    public function countUsers(): int
+    {
+        return $this->userModel->countAllResults();
     }
 
     /**

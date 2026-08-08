@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Tests\Feature\HrPayroll;
 
+use App\Core\Exceptions\AuthorizationException;
 use App\Core\Exceptions\BusinessRuleException;
+use App\Modules\Administration\Models\UserModel;
 use Tests\Support\HrPayroll\HrPayrollTestCase;
 
 /**
@@ -12,6 +14,25 @@ use Tests\Support\HrPayroll\HrPayrollTestCase;
  */
 final class PayrollRunTest extends HrPayrollTestCase
 {
+    /**
+     * @return array{0: int, 1: string} [employeeId, username]
+     */
+    private function createSelfServiceEmployeeCaller(?int $employeeId = null): array
+    {
+        $employeeId = $employeeId ?? $this->createEmployeeFixture();
+        $roleId     = $this->createRole(['read']);
+        $userId     = (new UserModel())->insert([
+            'username'      => 'self_' . uniqid('', true),
+            'password_hash' => password_hash(self::TEST_PASSWORD, PASSWORD_BCRYPT),
+            'role_id'       => $roleId,
+            'owner_type'    => 'EMPLOYEE',
+            'owner_ref_id'  => $employeeId,
+            'status'        => 'ACTIVE',
+        ], true);
+
+        return [$employeeId, (new UserModel())->find($userId)->username];
+    }
+
     /**
      * BR-HR-001 (ADR-008 §4): a payroll run is blocked unless Attendance
      * has pushed a closure record for the employee/period.
@@ -102,6 +123,76 @@ final class PayrollRunTest extends HrPayrollTestCase
             BusinessRuleException::class,
             'PAYROLL_RUN_INVALID_STATUS_TRANSITION',
             422,
+        );
+    }
+
+    /**
+     * ADR-024 §3: PayrollRunService's self-service reads
+     * (listByEmployee()/getPayrollRun()) allow Tier 2 — an employee may
+     * view their own payslip/payroll history.
+     */
+    public function testGetAndListPayrollRunSucceedForSelf(): void
+    {
+        [$employeeId, $username] = $this->createSelfServiceEmployeeCaller();
+        $payrollRunId = $this->createPayrollRunFixture($employeeId, '2026-07');
+
+        $tokens  = $this->loginAs($username);
+        $headers = $this->authHeaders($tokens['access_token']);
+
+        $this->withHeaders($headers)->get("api/v1/hr-payroll/payroll-runs/{$payrollRunId}")->assertStatus(200);
+        $this->withHeaders($headers)->get("api/v1/hr-payroll/payroll-runs?employee_id={$employeeId}")->assertStatus(200);
+    }
+
+    /**
+     * A caller with neither hr_payroll.manage nor ownership of the
+     * target employee cannot view that employee's payroll run(s).
+     */
+    public function testGetAndListPayrollRunRejectedForNeitherManageNorSelf(): void
+    {
+        $targetEmployeeId    = $this->createEmployeeFixture();
+        $payrollRunId        = $this->createPayrollRunFixture($targetEmployeeId, '2026-07');
+        [, $callerUsername]  = $this->createSelfServiceEmployeeCaller();
+
+        $tokens  = $this->loginAs($callerUsername);
+        $headers = $this->authHeaders($tokens['access_token']);
+
+        $this->assertApiException(
+            fn () => $this->withHeaders($headers)->get("api/v1/hr-payroll/payroll-runs/{$payrollRunId}"),
+            AuthorizationException::class,
+            'NOT_AUTHORIZED',
+            403,
+        );
+
+        $this->assertApiException(
+            fn () => $this->withHeaders($headers)->get("api/v1/hr-payroll/payroll-runs?employee_id={$targetEmployeeId}"),
+            AuthorizationException::class,
+            'NOT_AUTHORIZED',
+            403,
+        );
+    }
+
+    /**
+     * createPayrollRun() is hr_payroll.manage-only — never self-service,
+     * even for the employee the run is for.
+     */
+    public function testCreatePayrollRunRejectedForCallerWithoutManagePermission(): void
+    {
+        [$employeeId, $username] = $this->createSelfServiceEmployeeCaller();
+        $this->createAttendanceClosureFixture($employeeId, '2026-07');
+
+        $tokens  = $this->loginAs($username);
+        $headers = $this->authHeaders($tokens['access_token']);
+
+        $this->assertApiException(
+            fn () => $this->withHeaders($headers)->withBodyFormat('json')->post('api/v1/hr-payroll/payroll-runs', [
+                'employee_id'     => $employeeId,
+                'pay_period'      => '2026-07',
+                'gross_pay'       => 50000,
+                'deductions_json' => ['PF' => 1800],
+            ]),
+            AuthorizationException::class,
+            'NOT_AUTHORIZED',
+            403,
         );
     }
 }

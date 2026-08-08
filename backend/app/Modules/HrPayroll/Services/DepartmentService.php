@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\HrPayroll\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Modules\Administration\Entities\AuditLog;
 use App\Modules\Administration\Services\AuditService;
@@ -15,17 +16,22 @@ use App\Modules\HrPayroll\Models\DepartmentModel;
 
 /**
  * docs/design/hr-payroll/Phase-3-Service-Controller-Design.md
+ * RBAC (ADR-024 §3): master data — writes require `hr_payroll.manage`,
+ * reads stay open (unchanged).
  */
 class DepartmentService
 {
     public function __construct(
         private readonly DepartmentModel $departmentModel,
         private readonly AuditService $auditService,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
     public function createDepartment(CreateDepartmentRequest $request): DepartmentResponse
     {
+        $this->moduleAuthorizer->assertManage(EmployeeService::PERMISSION_MANAGE);
+
         if ($this->departmentModel->existsByName($request->departmentName)) {
             throw new BusinessRuleException('DEPARTMENT_ALREADY_EXISTS', 'A department with this name already exists.');
         }
@@ -41,6 +47,8 @@ class DepartmentService
 
     public function updateDepartment(int $id, UpdateDepartmentRequest $request): DepartmentResponse
     {
+        $this->moduleAuthorizer->assertManage(EmployeeService::PERMISSION_MANAGE);
+
         $before = $this->requireDepartment($id);
 
         if ($this->departmentModel->existsByNameExceptId($request->departmentName, $id)) {
@@ -69,6 +77,15 @@ class DepartmentService
             static fn (Department $department): DepartmentResponse => new DepartmentResponse($department),
             $this->departmentModel->findAll(),
         );
+    }
+
+    /**
+     * Ungated count for Reports' `getSummary()` dashboard composition —
+     * mirrors `EmployeeService::countEmployees()`.
+     */
+    public function countDepartments(): int
+    {
+        return $this->departmentModel->countAllResults();
     }
 
     private function requireDepartment(int $id): Department

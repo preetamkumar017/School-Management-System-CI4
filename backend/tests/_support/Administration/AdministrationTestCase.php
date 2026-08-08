@@ -32,8 +32,42 @@ abstract class AdministrationTestCase extends CIUnitTestCase
 
     protected const TEST_PASSWORD = 'Test@1234';
 
-    protected function createRole(array $permissionSet = ['read', 'create', 'update', 'delete']): int
+    /**
+     * ADR-024 §3: every module's Service layer now enforces a
+     * `<module>.manage` permission (Tier 1) at its mutation/read entry
+     * points. Prior to ADR-024, `createRole()`'s default
+     * (`['read','create','update','delete']`) was effectively
+     * full-access — nothing ever read `permission_set` outside
+     * ADR-015/018's two narrow checks — so every test written against
+     * `createUser()`'s default role implicitly assumed full access. This
+     * keeps that assumption true post-ADR-024 by granting every
+     * `<module>.manage` string by default; tests that specifically need
+     * to prove a *rejection* (no manage permission, no ownership) create
+     * their own narrower role instead, same as
+     * `LeaveRequestService::PERMISSION_OVERRIDE`'s existing precedent.
+     *
+     * @var list<string>
+     */
+    protected const ALL_MODULE_MANAGE_PERMISSIONS = [
+        'academic.manage',
+        'admission.manage',
+        'sis.manage',
+        'examination.manage',
+        'timetable.manage',
+        'attendance.manage',
+        'fees.manage',
+        'hr_payroll.manage',
+        'library.manage',
+        'transport.manage',
+        'communication.manage',
+        'administration.manage',
+        'reports.manage',
+    ];
+
+    protected function createRole(?array $permissionSet = null): int
     {
+        $permissionSet ??= array_merge(['read', 'create', 'update', 'delete'], self::ALL_MODULE_MANAGE_PERMISSIONS);
+
         return (new RoleModel())->insert([
             'role_name'      => 'Role ' . uniqid('', true),
             'is_system_role' => false,

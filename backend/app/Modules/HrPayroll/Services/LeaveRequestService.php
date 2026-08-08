@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\HrPayroll\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\AuthorizationException;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Core\Exceptions\ValidationException;
@@ -34,6 +35,13 @@ class LeaveRequestService
      */
     public const PERMISSION_OVERRIDE = 'hr_payroll.leave.override';
 
+    /**
+     * RBAC (ADR-024 §3): `hr_payroll.manage` (Tier 1) OR the caller IS the
+     * `employee_id` in question (Tier 2) — see per-method notes below for
+     * which methods allow Tier 2 at all.
+     */
+    public const PERMISSION_MANAGE = 'hr_payroll.manage';
+
     private const ALLOCATION_CONFIG_KEYS = [
         LeaveRequest::TYPE_CL => 'hr_payroll.leave_allocation.cl',
         LeaveRequest::TYPE_SL => 'hr_payroll.leave_allocation.sl',
@@ -45,11 +53,18 @@ class LeaveRequestService
         private readonly EmployeeModel $employeeModel,
         private readonly AuditService $auditService,
         private readonly ConfigurationService $configurationService,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
+    /**
+     * RBAC (ADR-024 §3): Tier 2 — `hr_payroll.manage` OR the caller IS the
+     * `employee_id` this request is for (self-service leave application).
+     */
     public function createLeaveRequest(CreateLeaveRequestRequest $request): LeaveRequestResponse
     {
+        $this->moduleAuthorizer->assertManageOrOwner(self::PERMISSION_MANAGE, 'EMPLOYEE', $request->employeeId);
+
         if ($this->employeeModel->find($request->employeeId) === null) {
             throw new BusinessRuleException('EMPLOYEE_NOT_FOUND', 'Employee not found.');
         }
@@ -81,8 +96,16 @@ class LeaveRequestService
      * negative, unless override_reason is supplied — override authority
      * decided as HR role, logged (ADR-008 §7).
      */
+    /**
+     * RBAC (ADR-024 §3): `hr_payroll.manage`-only — approving/rejecting
+     * leave is never self-service, regardless of the separate
+     * `PERMISSION_OVERRIDE` check below (ADR-015), which stays as-is on
+     * top of this.
+     */
     public function decide(int $id, DecideLeaveRequestRequest $request): LeaveRequestResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requireLeaveRequest($id);
 
         if ($before->status !== LeaveRequest::STATUS_PENDING) {
@@ -143,6 +166,8 @@ class LeaveRequestService
      */
     public function listByEmployee(int $employeeId): array
     {
+        $this->moduleAuthorizer->assertManageOrOwner(self::PERMISSION_MANAGE, 'EMPLOYEE', $employeeId);
+
         return array_map(
             static fn (LeaveRequest $leaveRequest): LeaveRequestResponse => new LeaveRequestResponse($leaveRequest),
             $this->leaveRequestModel->findByEmployeeId($employeeId),
@@ -173,6 +198,8 @@ class LeaveRequestService
      */
     public function getBalances(int $employeeId, int $year): array
     {
+        $this->moduleAuthorizer->assertManageOrOwner(self::PERMISSION_MANAGE, 'EMPLOYEE', $employeeId);
+
         if ($this->employeeModel->find($employeeId) === null) {
             throw new BusinessRuleException('EMPLOYEE_NOT_FOUND', 'Employee not found.');
         }

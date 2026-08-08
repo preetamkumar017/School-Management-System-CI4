@@ -6,6 +6,7 @@ namespace Tests\Feature\Administration;
 
 use App\Core\Exceptions\AuthorizationException;
 use App\Core\Exceptions\BusinessRuleException;
+use App\Modules\Administration\Services\UserService;
 use Tests\Support\Administration\AdministrationTestCase;
 
 /**
@@ -78,6 +79,58 @@ final class UserTest extends AdministrationTestCase
             AuthorizationException::class,
             'REFRESH_TOKEN_INVALID',
             401,
+        );
+    }
+
+    /**
+     * ADR-024 §3: the exact exploit demonstrated 2026-08-08 — an
+     * Employee-role caller (only generic `read`) listed every User
+     * account. `listUsers()` is now Tier-1-only (`administration.manage`),
+     * closing it.
+     */
+    public function testListUsersRejectedForCallerWithoutManagePermission(): void
+    {
+        $user    = $this->createUser($this->createRole(['read']));
+        $tokens  = $this->loginAs($user['username']);
+        $headers = $this->authHeaders($tokens['access_token']);
+
+        $this->assertApiException(
+            fn () => $this->withHeaders($headers)->get('api/v1/administration/users'),
+            AuthorizationException::class,
+            'NOT_AUTHORIZED',
+            403,
+        );
+    }
+
+    /**
+     * A caller carrying `administration.manage` may list Users — Tier 1
+     * success path.
+     */
+    public function testListUsersSucceedsForCallerWithManagePermission(): void
+    {
+        $user    = $this->createUser($this->createRole([UserService::PERMISSION_MANAGE]));
+        $tokens  = $this->loginAs($user['username']);
+        $headers = $this->authHeaders($tokens['access_token']);
+
+        $this->withHeaders($headers)->get('api/v1/administration/users')->assertStatus(200);
+    }
+
+    /**
+     * `show()` (single-record read) is also Tier-1-only for
+     * Administration — no self-service shape exists for User/Role.
+     */
+    public function testShowUserRejectedForCallerWithoutManagePermission(): void
+    {
+        $target  = $this->createUser();
+        $user    = $this->createUser($this->createRole(['read']));
+        $tokens  = $this->loginAs($user['username']);
+        $headers = $this->authHeaders($tokens['access_token']);
+
+        $this->assertApiException(
+            fn () => $this->withHeaders($headers)->get("api/v1/administration/users/{$target['id']}"),
+            AuthorizationException::class,
+            'NOT_AUTHORIZED',
+            403,
         );
     }
 }

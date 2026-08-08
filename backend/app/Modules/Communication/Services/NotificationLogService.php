@@ -247,8 +247,8 @@ class NotificationLogService
     {
         match ($recipientType) {
             NotificationLog::RECIPIENT_GUARDIAN => AppServices::guardianService()->getGuardian($recipientRefId),
-            NotificationLog::RECIPIENT_EMPLOYEE => AppServices::employeeService()->getEmployee($recipientRefId),
-            NotificationLog::RECIPIENT_USER     => AppServices::userService()->getUser($recipientRefId),
+            NotificationLog::RECIPIENT_EMPLOYEE => AppServices::employeeService()->assertEmployeeExists($recipientRefId),
+            NotificationLog::RECIPIENT_USER     => AppServices::userService()->assertUserExists($recipientRefId),
             NotificationLog::RECIPIENT_STUDENT  => AppServices::studentService()->getStudent($recipientRefId),
             default                             => throw new BusinessRuleException('INVALID_RECIPIENT_TYPE', 'recipient_type must be one of Guardian, Employee, User, Student.'),
         };

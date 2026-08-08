@@ -27,7 +27,7 @@ class CircularService
 
     public function createCircular(CreateCircularRequest $request): CircularResponse
     {
-        AppServices::userService()->getUser($request->authorId);
+        AppServices::userService()->assertUserExists($request->authorId);
 
         $id = $this->circularModel->insert([
             'author_id'       => $request->authorId,

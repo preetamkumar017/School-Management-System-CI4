@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\HrPayroll\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Modules\Administration\Entities\AuditLog;
 use App\Modules\Administration\Services\AuditService;
@@ -15,17 +16,22 @@ use App\Modules\HrPayroll\Models\DesignationModel;
 
 /**
  * docs/design/hr-payroll/Phase-3-Service-Controller-Design.md
+ * RBAC (ADR-024 §3): master data — writes require `hr_payroll.manage`,
+ * reads stay open (unchanged).
  */
 class DesignationService
 {
     public function __construct(
         private readonly DesignationModel $designationModel,
         private readonly AuditService $auditService,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
     public function createDesignation(CreateDesignationRequest $request): DesignationResponse
     {
+        $this->moduleAuthorizer->assertManage(EmployeeService::PERMISSION_MANAGE);
+
         if ($this->designationModel->existsByName($request->designationName)) {
             throw new BusinessRuleException('DESIGNATION_ALREADY_EXISTS', 'A designation with this name already exists.');
         }
@@ -41,6 +47,8 @@ class DesignationService
 
     public function updateDesignation(int $id, UpdateDesignationRequest $request): DesignationResponse
     {
+        $this->moduleAuthorizer->assertManage(EmployeeService::PERMISSION_MANAGE);
+
         $before = $this->requireDesignation($id);
 
         if ($this->designationModel->existsByNameExceptId($request->designationName, $id)) {
@@ -69,6 +77,15 @@ class DesignationService
             static fn (Designation $designation): DesignationResponse => new DesignationResponse($designation),
             $this->designationModel->findAll(),
         );
+    }
+
+    /**
+     * Ungated count for Reports' `getSummary()` dashboard composition —
+     * mirrors `EmployeeService::countEmployees()`.
+     */
+    public function countDesignations(): int
+    {
+        return $this->designationModel->countAllResults();
     }
 
     private function requireDesignation(int $id): Designation

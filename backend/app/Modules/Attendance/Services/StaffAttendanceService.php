@@ -32,7 +32,7 @@ class StaffAttendanceService
 
     public function recordAttendance(CreateStaffAttendanceRecordRequest $request): StaffAttendanceRecordResponse
     {
-        AppServices::employeeService()->getEmployee($request->employeeId);
+        AppServices::employeeService()->assertEmployeeExists($request->employeeId);
 
         if ($this->staffAttendanceRecordModel->existsByEmployeeDate($request->employeeId, $request->attendanceDate)) {
             throw new BusinessRuleException(
@@ -97,7 +97,7 @@ class StaffAttendanceService
      */
     public function closePeriod(int $employeeId, string $payPeriod): void
     {
-        AppServices::employeeService()->getEmployee($employeeId);
+        AppServices::employeeService()->assertEmployeeExists($employeeId);
 
         [$fromDate, $toDate] = $this->periodBounds($payPeriod);
 

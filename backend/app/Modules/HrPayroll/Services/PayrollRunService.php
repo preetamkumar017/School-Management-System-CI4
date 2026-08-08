@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\HrPayroll\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Core\Http\RequestContext;
 use App\Core\Pdf\PdfRenderer;
@@ -20,9 +21,13 @@ use App\Modules\HrPayroll\Models\PayrollRunModel;
 
 /**
  * docs/design/hr-payroll/Phase-3-Service-Controller-Design.md
+ * RBAC (ADR-024 §3): creation/approval/processing is `hr_payroll.manage`
+ * only (never self-service); the self-service reads below allow Tier 2.
  */
 class PayrollRunService
 {
+    public const PERMISSION_MANAGE = 'hr_payroll.manage';
+
     public function __construct(
         private readonly PayrollRunModel $payrollRunModel,
         private readonly EmployeeModel $employeeModel,
@@ -30,6 +35,7 @@ class PayrollRunService
         private readonly AuditService $auditService,
         private readonly DocumentService $documentService,
         private readonly PdfRenderer $pdfRenderer,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
@@ -40,6 +46,8 @@ class PayrollRunService
      */
     public function createPayrollRun(CreatePayrollRunRequest $request): PayrollRunResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         if ($this->employeeModel->find($request->employeeId) === null) {
             throw new BusinessRuleException('EMPLOYEE_NOT_FOUND', 'Employee not found.');
         }
@@ -84,6 +92,8 @@ class PayrollRunService
 
     public function approve(int $id): PayrollRunResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requirePayrollRun($id);
 
         if ($before->status !== PayrollRun::STATUS_DRAFT) {
@@ -107,6 +117,8 @@ class PayrollRunService
      */
     public function process(int $id): PayrollRunResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requirePayrollRun($id);
 
         if ($before->status !== PayrollRun::STATUS_APPROVED) {
@@ -126,7 +138,11 @@ class PayrollRunService
 
     public function getPayrollRun(int $id): PayrollRunResponse
     {
-        return new PayrollRunResponse($this->requirePayrollRun($id));
+        $payrollRun = $this->requirePayrollRun($id);
+
+        $this->moduleAuthorizer->assertManageOrOwner(self::PERMISSION_MANAGE, 'EMPLOYEE', (int) $payrollRun->employee_id);
+
+        return new PayrollRunResponse($payrollRun);
     }
 
     /**
@@ -137,6 +153,8 @@ class PayrollRunService
     public function generatePayslipPdf(int $id): DocumentResponse
     {
         $payrollRun = $this->requirePayrollRun($id);
+
+        $this->moduleAuthorizer->assertManageOrOwner(self::PERMISSION_MANAGE, 'EMPLOYEE', (int) $payrollRun->employee_id);
 
         if ($payrollRun->status !== PayrollRun::STATUS_PROCESSED) {
             throw new BusinessRuleException(
@@ -179,6 +197,8 @@ class PayrollRunService
      */
     public function listByEmployee(int $employeeId): array
     {
+        $this->moduleAuthorizer->assertManageOrOwner(self::PERMISSION_MANAGE, 'EMPLOYEE', $employeeId);
+
         return array_map(
             static fn (PayrollRun $payrollRun): PayrollRunResponse => new PayrollRunResponse($payrollRun),
             $this->payrollRunModel->findByEmployeeId($employeeId),

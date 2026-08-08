@@ -47,12 +47,12 @@ class ReportsService
 
         return new SummaryResponse(
             Time::now()->toDateTimeString(),
-            count(AppServices::userService()->listUsers()),
+            AppServices::userService()->countUsers(),
             count(AppServices::classService()->listClasses()),
             count(AppServices::academicSessionService()->listSessions()),
-            count(AppServices::departmentService()->listDepartments()),
-            count(AppServices::designationService()->listDesignations()),
-            count(AppServices::employeeService()->listEmployees()),
+            AppServices::departmentService()->countDepartments(),
+            AppServices::designationService()->countDesignations(),
+            AppServices::employeeService()->countEmployees(),
             count($books),
             count(array_filter($books, static fn ($book): bool => $book->isAvailable)),
             count(AppServices::vehicleService()->listVehicles()),

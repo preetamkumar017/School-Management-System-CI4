@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Administration;
 
+use App\Core\Exceptions\AuthorizationException;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Modules\Administration\Models\RoleModel;
+use App\Modules\Administration\Services\UserService;
 use Tests\Support\Administration\AdministrationTestCase;
 
 /**
@@ -104,5 +106,32 @@ final class RoleTest extends AdministrationTestCase
             'ROLE_IS_SYSTEM_PROTECTED',
             422,
         );
+    }
+
+    /**
+     * ADR-024 §3: Role listing is Tier-1-only (`administration.manage`) —
+     * same Administration posture as User listing.
+     */
+    public function testListRolesRejectedForCallerWithoutManagePermission(): void
+    {
+        $user    = $this->createUser($this->createRole(['read']));
+        $tokens  = $this->loginAs($user['username']);
+        $headers = $this->authHeaders($tokens['access_token']);
+
+        $this->assertApiException(
+            fn () => $this->withHeaders($headers)->get('api/v1/administration/roles'),
+            AuthorizationException::class,
+            'NOT_AUTHORIZED',
+            403,
+        );
+    }
+
+    public function testListRolesSucceedsForCallerWithManagePermission(): void
+    {
+        $user    = $this->createUser($this->createRole([UserService::PERMISSION_MANAGE]));
+        $tokens  = $this->loginAs($user['username']);
+        $headers = $this->authHeaders($tokens['access_token']);
+
+        $this->withHeaders($headers)->get('api/v1/administration/roles')->assertStatus(200);
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\HrPayroll\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Modules\Administration\DTOs\UserStatusChangeRequest;
 use App\Modules\Administration\Entities\AuditLog;
@@ -24,20 +25,31 @@ use Config\Services as AppServices;
 
 /**
  * docs/design/hr-payroll/Phase-3-Service-Controller-Design.md
+ * RBAC (ADR-024 §3 + this phase's Addendum): `createEmployee()`/
+ * `updateEmployee()`/`listEmployees()` are `hr_payroll.manage`-only —
+ * see the ADR-024 Addendum for why `updateEmployee()` deliberately has
+ * no Tier-2 self-service path (every field on `UpdateEmployeeRequest` is
+ * HR-administrative). `getEmployee()` (single-record read) allows
+ * Tier 2 — reading your own profile is safe self-service.
  */
 class EmployeeService
 {
+    public const PERMISSION_MANAGE = 'hr_payroll.manage';
+
     public function __construct(
         private readonly EmployeeModel $employeeModel,
         private readonly DepartmentModel $departmentModel,
         private readonly DesignationModel $designationModel,
         private readonly AttendanceClosureModel $attendanceClosureModel,
         private readonly AuditService $auditService,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
     public function createEmployee(CreateEmployeeRequest $request): EmployeeResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         if ($this->departmentModel->find($request->departmentId) === null) {
             throw new BusinessRuleException('DEPARTMENT_NOT_FOUND', 'Department not found.');
         }
@@ -74,6 +86,8 @@ class EmployeeService
      */
     public function updateEmployee(int $id, UpdateEmployeeRequest $request): EmployeeResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requireEmployee($id);
 
         if ($this->departmentModel->find($request->departmentId) === null) {
@@ -122,7 +136,22 @@ class EmployeeService
 
     public function getEmployee(int $id): EmployeeResponse
     {
+        $this->moduleAuthorizer->assertManageOrOwner(self::PERMISSION_MANAGE, 'EMPLOYEE', $id);
+
         return new EmployeeResponse($this->requireEmployee($id));
+    }
+
+    /**
+     * Ungated existence check for other modules' internal Service-to-Service
+     * calls (e.g. `StaffAttendanceService`) — those callers are validating
+     * a foreign key, not performing a user-facing HR & Payroll read, so
+     * `getEmployee()`'s RBAC gate doesn't apply here (ADR-024 §3, this
+     * phase's Addendum — no regression on cross-module calls not made
+     * under an `hr_payroll.manage`/self-owning caller).
+     */
+    public function assertEmployeeExists(int $id): void
+    {
+        $this->requireEmployee($id);
     }
 
     /**
@@ -130,10 +159,22 @@ class EmployeeService
      */
     public function listEmployees(): array
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         return array_map(
             static fn (Employee $employee): EmployeeResponse => new EmployeeResponse($employee),
             $this->employeeModel->findAll(),
         );
+    }
+
+    /**
+     * Ungated count for Reports' `getSummary()` dashboard composition —
+     * an aggregate count, not a per-record read, so `hr_payroll.manage`
+     * isn't required (same reasoning as `assertEmployeeExists()` above).
+     */
+    public function countEmployees(): int
+    {
+        return $this->employeeModel->countAllResults();
     }
 
     /**
@@ -168,7 +209,7 @@ class EmployeeService
             return;
         }
 
-        AppServices::userService()->changeStatus($user->user_id, new UserStatusChangeRequest(User::STATUS_DEACTIVATED));
+        AppServices::userService()->changeStatusInternal($user->user_id, new UserStatusChangeRequest(User::STATUS_DEACTIVATED));
     }
 
     private function requireEmployee(int $id): Employee

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Config;
 
 use App\Core\Auth\JwtManager;
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Excel\ExcelRenderer;
 use App\Core\Pdf\PdfRenderer;
 use App\Modules\Academic\Models\AcademicSessionModel;
@@ -133,7 +134,19 @@ class Services extends BaseService
             return static::getSharedInstance('auditService');
         }
 
-        return new AuditService(new AuditLogModel());
+        return new AuditService(new AuditLogModel(), static::moduleAuthorizer());
+    }
+
+    /**
+     * docs/ADR/ADR-024-systemwide-rbac-enforcement.md §3.
+     */
+    public static function moduleAuthorizer(bool $getShared = true): ModuleAuthorizer
+    {
+        if ($getShared) {
+            return static::getSharedInstance('moduleAuthorizer');
+        }
+
+        return new ModuleAuthorizer(new UserModel());
     }
 
     public static function configurationService(bool $getShared = true): ConfigurationService
@@ -196,7 +209,7 @@ class Services extends BaseService
             return static::getSharedInstance('userService');
         }
 
-        return new UserService(new UserModel(), static::auditService(), static::authService());
+        return new UserService(new UserModel(), static::auditService(), static::authService(), static::moduleAuthorizer());
     }
 
     public static function roleService(bool $getShared = true): RoleService
@@ -205,7 +218,7 @@ class Services extends BaseService
             return static::getSharedInstance('roleService');
         }
 
-        return new RoleService(new RoleModel(), static::auditService());
+        return new RoleService(new RoleModel(), static::auditService(), static::moduleAuthorizer());
     }
 
     public static function academicSessionService(bool $getShared = true): AcademicSessionService
@@ -473,7 +486,7 @@ class Services extends BaseService
             return static::getSharedInstance('departmentService');
         }
 
-        return new DepartmentService(new DepartmentModel(), static::auditService());
+        return new DepartmentService(new DepartmentModel(), static::auditService(), static::moduleAuthorizer());
     }
 
     public static function designationService(bool $getShared = true): DesignationService
@@ -482,7 +495,7 @@ class Services extends BaseService
             return static::getSharedInstance('designationService');
         }
 
-        return new DesignationService(new DesignationModel(), static::auditService());
+        return new DesignationService(new DesignationModel(), static::auditService(), static::moduleAuthorizer());
     }
 
     public static function employeeService(bool $getShared = true): EmployeeService
@@ -497,6 +510,7 @@ class Services extends BaseService
             new DesignationModel(),
             new AttendanceClosureModel(),
             static::auditService(),
+            static::moduleAuthorizer(),
         );
     }
 
@@ -506,7 +520,7 @@ class Services extends BaseService
             return static::getSharedInstance('payrollRunService');
         }
 
-        return new PayrollRunService(new PayrollRunModel(), new EmployeeModel(), new AttendanceClosureModel(), static::auditService(), static::documentService(), static::pdfRenderer());
+        return new PayrollRunService(new PayrollRunModel(), new EmployeeModel(), new AttendanceClosureModel(), static::auditService(), static::documentService(), static::pdfRenderer(), static::moduleAuthorizer());
     }
 
     public static function leaveRequestService(bool $getShared = true): LeaveRequestService
@@ -515,7 +529,7 @@ class Services extends BaseService
             return static::getSharedInstance('leaveRequestService');
         }
 
-        return new LeaveRequestService(new LeaveRequestModel(), new EmployeeModel(), static::auditService(), static::configurationService());
+        return new LeaveRequestService(new LeaveRequestModel(), new EmployeeModel(), static::auditService(), static::configurationService(), static::moduleAuthorizer());
     }
 
     public static function bookService(bool $getShared = true): BookService

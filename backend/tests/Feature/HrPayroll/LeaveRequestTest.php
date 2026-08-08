@@ -6,6 +6,7 @@ namespace Tests\Feature\HrPayroll;
 
 use App\Core\Exceptions\AuthorizationException;
 use App\Core\Exceptions\BusinessRuleException;
+use App\Modules\Administration\Models\UserModel;
 use App\Modules\HrPayroll\Services\LeaveRequestService;
 use Tests\Support\HrPayroll\HrPayrollTestCase;
 
@@ -14,6 +15,27 @@ use Tests\Support\HrPayroll\HrPayrollTestCase;
  */
 final class LeaveRequestTest extends HrPayrollTestCase
 {
+    /**
+     * @return array{0: int, 1: string} [employeeId, username] — a
+     * restricted, generic-permission-only caller whose linked User is
+     * the owner of the given employee, for Tier-2 self-service tests.
+     */
+    private function createSelfServiceEmployeeCaller(?int $employeeId = null): array
+    {
+        $employeeId = $employeeId ?? $this->createEmployeeFixture();
+        $roleId     = $this->createRole(['read']);
+        $userId     = (new UserModel())->insert([
+            'username'      => 'self_' . uniqid('', true),
+            'password_hash' => password_hash(self::TEST_PASSWORD, PASSWORD_BCRYPT),
+            'role_id'       => $roleId,
+            'owner_type'    => 'EMPLOYEE',
+            'owner_ref_id'  => $employeeId,
+            'status'        => 'ACTIVE',
+        ], true);
+
+        return [$employeeId, (new UserModel())->find($userId)->username];
+    }
+
     public function testCreateAndApproveWithinBalance(): void
     {
         $user       = $this->createUser();
@@ -67,7 +89,10 @@ final class LeaveRequestTest extends HrPayrollTestCase
      */
     public function testApprovalSucceedsOverBalanceWithOverrideReasonAndPermission(): void
     {
-        $roleId     = $this->createRole([LeaveRequestService::PERMISSION_OVERRIDE]);
+        // decide() is hr_payroll.manage-only (ADR-024 §3) on top of the
+        // separate PERMISSION_OVERRIDE check (ADR-015) this test exists
+        // to cover — both are required here.
+        $roleId     = $this->createRole([LeaveRequestService::PERMISSION_OVERRIDE, LeaveRequestService::PERMISSION_MANAGE]);
         $user       = $this->createUser($roleId);
         $tokens     = $this->loginAs($user['username']);
         $headers    = $this->authHeaders($tokens['access_token']);
@@ -134,5 +159,128 @@ final class LeaveRequestTest extends HrPayrollTestCase
         $this->assertSame(9, $data['balances']['CL']['remaining']);
         $this->assertSame(10, $data['balances']['SL']['remaining']);
         $this->assertSame(15, $data['balances']['EL']['remaining']);
+    }
+
+    /**
+     * ADR-024 §3: createLeaveRequest() Tier 2 — the caller IS the
+     * employee_id in the request may apply for their own leave, closing
+     * the "applied leave on someone else's behalf" exploit specifically
+     * (the caller has no hr_payroll.manage at all here).
+     */
+    public function testCreateLeaveRequestSucceedsForSelf(): void
+    {
+        [$employeeId, $username] = $this->createSelfServiceEmployeeCaller();
+        $tokens  = $this->loginAs($username);
+        $headers = $this->authHeaders($tokens['access_token']);
+
+        $response = $this->withHeaders($headers)->withBodyFormat('json')->post('api/v1/hr-payroll/leave-requests', [
+            'employee_id' => $employeeId,
+            'leave_type'  => 'CL',
+            'start_date'  => '2026-08-10',
+            'end_date'    => '2026-08-11',
+        ]);
+
+        $response->assertStatus(201);
+    }
+
+    /**
+     * Tier 1 — a caller with hr_payroll.manage may create a leave request
+     * on behalf of any employee.
+     */
+    public function testCreateLeaveRequestSucceedsForManageCallerOnBehalfOfAnotherEmployee(): void
+    {
+        $employeeId = $this->createEmployeeFixture();
+        $user       = $this->createUser($this->createRole([LeaveRequestService::PERMISSION_MANAGE]));
+        $tokens     = $this->loginAs($user['username']);
+        $headers    = $this->authHeaders($tokens['access_token']);
+
+        $response = $this->withHeaders($headers)->withBodyFormat('json')->post('api/v1/hr-payroll/leave-requests', [
+            'employee_id' => $employeeId,
+            'leave_type'  => 'CL',
+            'start_date'  => '2026-08-10',
+            'end_date'    => '2026-08-11',
+        ]);
+
+        $response->assertStatus(201);
+    }
+
+    /**
+     * The exact exploit demonstrated 2026-08-08: a caller with neither
+     * hr_payroll.manage nor ownership of the target employee cannot
+     * create a leave request on that employee's behalf.
+     */
+    public function testCreateLeaveRequestRejectedForNeitherManageNorSelf(): void
+    {
+        $targetEmployeeId       = $this->createEmployeeFixture();
+        [, $callerUsername]     = $this->createSelfServiceEmployeeCaller();
+        $tokens                 = $this->loginAs($callerUsername);
+        $headers                = $this->authHeaders($tokens['access_token']);
+
+        $this->assertApiException(
+            fn () => $this->withHeaders($headers)->withBodyFormat('json')->post('api/v1/hr-payroll/leave-requests', [
+                'employee_id' => $targetEmployeeId,
+                'leave_type'  => 'CL',
+                'start_date'  => '2026-08-10',
+                'end_date'    => '2026-08-11',
+            ]),
+            AuthorizationException::class,
+            'NOT_AUTHORIZED',
+            403,
+        );
+    }
+
+    /**
+     * listByEmployee()/getBalances() Tier 2: self-service leave
+     * history/balance viewing (what the "My HR" frontend page needs).
+     */
+    public function testListByEmployeeAndBalancesSucceedForSelf(): void
+    {
+        [$employeeId, $username] = $this->createSelfServiceEmployeeCaller();
+        $tokens  = $this->loginAs($username);
+        $headers = $this->authHeaders($tokens['access_token']);
+
+        $this->withHeaders($headers)->get("api/v1/hr-payroll/leave-requests?employee_id={$employeeId}")->assertStatus(200);
+        $this->withHeaders($headers)->get("api/v1/hr-payroll/leave-requests/balance?employee_id={$employeeId}")->assertStatus(200);
+    }
+
+    /**
+     * Tier 1: hr_payroll.manage can view any employee's leave
+     * history/balance.
+     */
+    public function testListByEmployeeAndBalancesSucceedForManageCaller(): void
+    {
+        $employeeId = $this->createEmployeeFixture();
+        $user       = $this->createUser($this->createRole([LeaveRequestService::PERMISSION_MANAGE]));
+        $tokens     = $this->loginAs($user['username']);
+        $headers    = $this->authHeaders($tokens['access_token']);
+
+        $this->withHeaders($headers)->get("api/v1/hr-payroll/leave-requests?employee_id={$employeeId}")->assertStatus(200);
+        $this->withHeaders($headers)->get("api/v1/hr-payroll/leave-requests/balance?employee_id={$employeeId}")->assertStatus(200);
+    }
+
+    /**
+     * A caller with neither hr_payroll.manage nor ownership of the
+     * target employee cannot view that employee's leave history/balance.
+     */
+    public function testListByEmployeeAndBalancesRejectedForNeitherManageNorSelf(): void
+    {
+        $targetEmployeeId   = $this->createEmployeeFixture();
+        [, $callerUsername] = $this->createSelfServiceEmployeeCaller();
+        $tokens              = $this->loginAs($callerUsername);
+        $headers              = $this->authHeaders($tokens['access_token']);
+
+        $this->assertApiException(
+            fn () => $this->withHeaders($headers)->get("api/v1/hr-payroll/leave-requests?employee_id={$targetEmployeeId}"),
+            AuthorizationException::class,
+            'NOT_AUTHORIZED',
+            403,
+        );
+
+        $this->assertApiException(
+            fn () => $this->withHeaders($headers)->get("api/v1/hr-payroll/leave-requests/balance?employee_id={$targetEmployeeId}"),
+            AuthorizationException::class,
+            'NOT_AUTHORIZED',
+            403,
+        );
     }
 }
