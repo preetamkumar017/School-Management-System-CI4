@@ -66,6 +66,11 @@ export default function LeaveRequestsPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Rejection modal state
+  const [rejectingRequest, setRejectingRequest] = useState<LeaveRequest | null>(null);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [isRejecting, setIsRejecting] = useState(false);
+
   const currentEmployee = employees.find((e) => String(e.employee_id) === selectedEmployeeId);
 
   function reload(forEmployeeId: number) {
@@ -127,13 +132,38 @@ export default function LeaveRequestsPage() {
     }
   }
 
-  async function handleDecide(request: LeaveRequest, decision: "Approved" | "Rejected") {
+  async function handleApprove(request: LeaveRequest) {
     setMessage(null);
     try {
-      await api.post(`/hr-payroll/leave-requests/${request.leave_request_id}/decide`, { decision });
+      await api.post(`/hr-payroll/leave-requests/${request.leave_request_id}/decide`, { decision: "Approved" });
       if (selectedEmployeeId) reload(Number(selectedEmployeeId));
     } catch (err) {
       setMessage(apiErrorMessage(err));
+    }
+  }
+
+  function openRejectModal(request: LeaveRequest) {
+    setRejectingRequest(request);
+    setRejectionReason("");
+  }
+
+  async function confirmRejection(event: FormEvent) {
+    event.preventDefault();
+    if (!rejectingRequest) return;
+
+    setMessage(null);
+    setIsRejecting(true);
+    try {
+      await api.post(`/hr-payroll/leave-requests/${rejectingRequest.leave_request_id}/decide`, {
+        decision: "Rejected",
+        override_reason: rejectionReason || null,
+      });
+      setRejectingRequest(null);
+      if (selectedEmployeeId) reload(Number(selectedEmployeeId));
+    } catch (err) {
+      setMessage(apiErrorMessage(err));
+    } finally {
+      setIsRejecting(false);
     }
   }
 
@@ -251,14 +281,14 @@ export default function LeaveRequestsPage() {
                         <div className="flex justify-end gap-1">
                           <button
                             type="button"
-                            onClick={() => handleDecide(r, "Approved")}
+                            onClick={() => handleApprove(r)}
                             className="rounded border border-green-300 px-2 py-1 text-xs text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-300"
                           >
                             Approve
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleDecide(r, "Rejected")}
+                            onClick={() => openRejectModal(r)}
                             className="rounded border border-red-300 px-2 py-1 text-xs text-red-700 hover:bg-red-50 dark:border-red-700 dark:text-red-300"
                           >
                             Reject
@@ -281,6 +311,7 @@ export default function LeaveRequestsPage() {
         </>
       )}
 
+      {/* New Leave Request Modal */}
       {isCreating && (
         <Modal title="New Leave Request" onClose={() => setIsCreating(false)} maxWidth="2xl">
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -375,6 +406,37 @@ export default function LeaveRequestsPage() {
               </button>
               <button type="submit" disabled={isSubmitting} className={primaryButtonClass}>
                 {isSubmitting ? "Submitting…" : "Submit Request"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Reject Leave Request Modal */}
+      {rejectingRequest && (
+        <Modal title="Reject Leave Request" onClose={() => setRejectingRequest(null)} maxWidth="lg">
+          <form onSubmit={confirmRejection} className="space-y-4">
+            <p className="text-sm text-slate-600 dark:text-slate-400">
+              Rejecting leave application for <strong className="text-slate-900 dark:text-slate-100">{currentEmployee?.full_name}</strong> ({rejectingRequest.start_date} to {rejectingRequest.end_date}).
+            </p>
+
+            <div>
+              <label className={labelClass}>Rejection Reason / Remark (Optional)</label>
+              <textarea
+                rows={3}
+                placeholder="e.g. CBSE Board Exam evaluation week — leave not permitted. (Leave blank to reject without reason)"
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                className={inputClass}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button type="button" onClick={() => setRejectingRequest(null)} className={secondaryButtonClass}>
+                Cancel
+              </button>
+              <button type="submit" disabled={isRejecting} className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50">
+                {isRejecting ? "Rejecting…" : "Confirm Rejection"}
               </button>
             </div>
           </form>
