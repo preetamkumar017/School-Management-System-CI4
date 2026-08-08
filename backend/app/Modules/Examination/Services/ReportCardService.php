@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Examination\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Core\Http\RequestContext;
 use App\Core\Pdf\PdfRenderer;
@@ -22,10 +23,16 @@ use Config\Services as AppServices;
 /**
  * docs/design/examination/Phase-4-Service-Design.md
  * No createReportCard — rows are produced only by ExamService::lockExam.
+ * RBAC (ADR-024 §3, Phase 2): `examination.manage` (Tier 1) gates
+ * `publishReportCards()`/`listReportCardsByExam()` (class-wide, staff
+ * only). `getReportCard()`/`generatePdf()` allow Tier 2 — a Student may
+ * read/download their own report card.
  */
 class ReportCardService
 {
     use ClosedSessionGuard;
+
+    public const PERMISSION_MANAGE = 'examination.manage';
 
     public function __construct(
         private readonly ReportCardModel $reportCardModel,
@@ -33,12 +40,17 @@ class ReportCardService
         private readonly AuditService $auditService,
         private readonly DocumentService $documentService,
         private readonly PdfRenderer $pdfRenderer,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
     public function getReportCard(int $id): ReportCardResponse
     {
-        return new ReportCardResponse($this->requireReportCard($id));
+        $reportCard = $this->requireReportCard($id);
+
+        $this->moduleAuthorizer->assertManageOrOwner(self::PERMISSION_MANAGE, 'STUDENT', $reportCard->student_id);
+
+        return new ReportCardResponse($reportCard);
     }
 
     /**
@@ -49,8 +61,11 @@ class ReportCardService
     public function generatePdf(int $id): DocumentResponse
     {
         $reportCard = $this->requireReportCard($id);
-        $exam       = $this->requireExam($reportCard->exam_id);
-        $student    = AppServices::studentService()->getStudent($reportCard->student_id);
+
+        $this->moduleAuthorizer->assertManageOrOwner(self::PERMISSION_MANAGE, 'STUDENT', $reportCard->student_id);
+
+        $exam    = $this->requireExam($reportCard->exam_id);
+        $student = AppServices::studentService()->getStudentForCrossModuleRead($reportCard->student_id);
 
         $rows = '';
 
@@ -84,6 +99,23 @@ class ReportCardService
      */
     public function listReportCardsByExam(int $examId): array
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
+        return $this->listReportCardsByExamForCrossModuleRead($examId);
+    }
+
+    /**
+     * Ungated cross-module aggregate read — Reports'
+     * `getAcademicPerformance()` composes this under its own
+     * `reports.manage` gate, not Examination's; a caller with only
+     * `reports.manage` (no `examination.manage`) must still be able to
+     * pull this aggregate (ADR-024 Phase 1 Addendum's "existence/count
+     * helper" precedent, extended to this cross-module list read).
+     *
+     * @return list<ReportCardResponse>
+     */
+    public function listReportCardsByExamForCrossModuleRead(int $examId): array
+    {
         return array_map(
             static fn (ReportCard $reportCard): ReportCardResponse => new ReportCardResponse($reportCard),
             $this->reportCardModel->findByExamId($examId),
@@ -103,6 +135,8 @@ class ReportCardService
      */
     public function publishReportCards(int $examId, ?string $overrideReason = null): array
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $exam = $this->requireExam($examId);
         $this->assertSessionMutable($exam->academic_session_id, $overrideReason);
 

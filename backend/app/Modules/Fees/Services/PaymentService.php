@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Fees\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\AuthorizationException;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Core\Http\RequestContext;
@@ -22,6 +23,13 @@ use CodeIgniter\I18n\Time;
  * docs/design/fees/Phase-3-Service-Controller-Design.md
  * BR-FEE-002 (Finance-Team-only refund/void) — enforcement wired ADR-018,
  * reusing the ADR-015 permission-string pattern. See PERMISSION_VOID_REFUND.
+ *
+ * RBAC (ADR-024 §3, Phase 2): `fees.manage` (Tier 1) gates
+ * `recordPayment()` (staff only). `getPayment()`/`listByInvoice()` allow
+ * Tier 2 — a Student may read their own payment history, resolved via the
+ * Invoice's `student_id`. Void/refund keeps ADR-018's
+ * `fees.payment.void_refund` check exactly as-is, not touched or
+ * duplicated with `fees.manage`.
  */
 class PaymentService
 {
@@ -31,15 +39,20 @@ class PaymentService
      */
     public const PERMISSION_VOID_REFUND = 'fees.payment.void_refund';
 
+    public const PERMISSION_MANAGE = 'fees.manage';
+
     public function __construct(
         private readonly PaymentModel $paymentModel,
         private readonly InvoiceModel $invoiceModel,
         private readonly AuditService $auditService,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
     public function recordPayment(RecordPaymentRequest $request): PaymentResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $invoice = $this->requireInvoice($request->invoiceId);
 
         if ($invoice->status === Invoice::STATUS_CANCELLED) {
@@ -94,7 +107,12 @@ class PaymentService
 
     public function getPayment(int $id): PaymentResponse
     {
-        return new PaymentResponse($this->requirePayment($id));
+        $payment = $this->requirePayment($id);
+        $invoice = $this->requireInvoice($payment->invoice_id);
+
+        $this->moduleAuthorizer->assertManageOrOwner(self::PERMISSION_MANAGE, 'STUDENT', $invoice->student_id);
+
+        return new PaymentResponse($payment);
     }
 
     /**
@@ -117,6 +135,10 @@ class PaymentService
      */
     public function listByInvoice(int $invoiceId): array
     {
+        $invoice = $this->requireInvoice($invoiceId);
+
+        $this->moduleAuthorizer->assertManageOrOwner(self::PERMISSION_MANAGE, 'STUDENT', $invoice->student_id);
+
         return array_map(
             static fn (Payment $payment): PaymentResponse => new PaymentResponse($payment),
             $this->paymentModel->findByInvoiceId($invoiceId),

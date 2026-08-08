@@ -31,6 +31,11 @@ class AddLibraryReservationResponseWindowConfigKey extends Migration
 
     public function down(): void
     {
-        $this->db->table('configurations')->where('setting_key', 'library.reservation_response_window_hours')->delete();
+        /** @var \CodeIgniter\Database\BaseConnection $db */
+        $db = $this->db;
+
+        if ($db->tableExists('configurations')) {
+            $db->table('configurations')->where('setting_key', 'library.reservation_response_window_hours')->delete();
+        }
     }
 }

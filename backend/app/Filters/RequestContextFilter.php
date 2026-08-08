@@ -18,6 +18,7 @@ class RequestContextFilter implements FilterInterface
 {
     public function before(RequestInterface $request, $arguments = null)
     {
+        RequestContext::reset();
         RequestContext::setRequestId(RequestContext::resolveRequestId($request));
 
         return null;

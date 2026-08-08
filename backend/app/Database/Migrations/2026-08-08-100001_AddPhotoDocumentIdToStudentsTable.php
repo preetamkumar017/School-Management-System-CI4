@@ -33,8 +33,13 @@ class AddPhotoDocumentIdToStudentsTable extends Migration
 
     public function down(): void
     {
-        $this->forge->dropForeignKey('students', 'fk_students_documents');
-        $this->forge->dropKey('students', 'idx_students_photo_document_id');
-        $this->forge->dropColumn('students', 'photo_document_id');
+        /** @var \CodeIgniter\Database\BaseConnection $db */
+        $db = $this->db;
+
+        if ($db->tableExists('students')) {
+            $this->forge->dropForeignKey('students', 'fk_students_documents');
+            $this->forge->dropKey('students', 'idx_students_photo_document_id');
+            $this->forge->dropColumn('students', 'photo_document_id');
+        }
     }
 }

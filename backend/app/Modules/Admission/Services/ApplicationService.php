@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Admission\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Modules\Administration\Entities\AuditLog;
 use App\Modules\Administration\Services\AuditService;
@@ -29,9 +30,15 @@ use Throwable;
  * docs/design/admission/Phase-6-Service-Design-Confirm-Enrollment.md
  * (FR-02 Confirm Enrollment — the SUBMITTED/VERIFIED/... -> ADMITTED
  * transition, added once SIS's StudentService exists, per ADR-004).
+ *
+ * RBAC (ADR-024 §3, Phase 2): `admission.manage` (Tier 1 only) gates every
+ * write — Application is read-only self-service-shaped (an applicant has
+ * no login in this system), so no Tier 2. Reads stay open.
  */
 class ApplicationService
 {
+    public const PERMISSION_MANAGE = 'admission.manage';
+
     /**
      * docs/ADR/ADR-016-admission-seat-hold-and-waitlist.md §2.
      */
@@ -42,11 +49,14 @@ class ApplicationService
         private readonly SeatAllocationModel $seatAllocationModel,
         private readonly AuditService $auditService,
         private readonly ConfigurationService $configurationService,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
     public function createApplication(CreateApplicationRequest $request): ApplicationResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         // Validates class_applied_id against Academic's ClassService —
         // throws CLASS_NOT_FOUND (BusinessRuleException) if it doesn't
         // exist, reused as-is rather than duplicated here.
@@ -102,6 +112,8 @@ class ApplicationService
 
     public function rejectApplication(int $id, ApplicationRejectRequest $request): ApplicationResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requireApplication($id);
 
         if (in_array($before->status, [Application::STATUS_ADMITTED, Application::STATUS_REJECTED], true)) {
@@ -144,6 +156,8 @@ class ApplicationService
      */
     public function releaseExpiredHolds(): ReleaseExpiredHoldsResult
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $now        = Time::now();
         $candidates = $this->applicationModel->findExpiredHolds($now->toDateTimeString());
 
@@ -285,6 +299,8 @@ class ApplicationService
      */
     public function confirmEnrollment(int $id): ConfirmEnrollmentResult
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requireApplication($id);
 
         if (! in_array($before->status, [Application::STATUS_SHORTLISTED, Application::STATUS_WAITLISTED], true)) {
@@ -436,6 +452,8 @@ class ApplicationService
      */
     private function transition(int $id, array $allowedFrom, string $to, array $extra = []): ApplicationResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requireApplication($id);
 
         if (! in_array($before->status, $allowedFrom, true)) {

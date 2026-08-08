@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Timetable\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Modules\Administration\Entities\AuditLog;
 use App\Modules\Administration\Services\AuditService;
@@ -18,18 +19,24 @@ use Config\Services as AppServices;
 
 /**
  * docs/design/timetable/Phase-3-Service-Controller-Design.md
+ * RBAC (ADR-024 §3, Phase 2): `timetable.manage` (Tier 1 only) gates writes.
  */
 class TimetableEntryService
 {
+    public const PERMISSION_MANAGE = 'timetable.manage';
+
     public function __construct(
         private readonly TimetableEntryModel $timetableEntryModel,
         private readonly AuditService $auditService,
         private readonly ConfigurationService $configurationService,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
     public function createEntry(CreateTimetableEntryRequest $request): TimetableEntryResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         AppServices::sectionService()->getSection($request->sectionId);
         AppServices::subjectService()->getSubject($request->subjectId);
         AppServices::employeeService()->getEmployee($request->employeeId);
@@ -56,6 +63,8 @@ class TimetableEntryService
 
     public function publishEntry(int $id): TimetableEntryResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requireEntry($id);
 
         if ($before->status !== TimetableEntry::STATUS_DRAFT) {
@@ -79,6 +88,8 @@ class TimetableEntryService
      */
     public function reviseEntry(int $id, CreateTimetableEntryRequest $request): TimetableEntryResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requireEntry($id);
 
         if ($before->status !== TimetableEntry::STATUS_PUBLISHED) {
@@ -110,7 +121,7 @@ class TimetableEntryService
 
         // BR-TT-005 revision notification — logging half only, no live
         // dispatch (ADR-006 §6, closed by ADR-010 §3).
-        AppServices::notificationLogService()->create(new CreateNotificationLogRequest(
+        AppServices::notificationLogService()->createInternal(new CreateNotificationLogRequest(
             NotificationLog::RECIPIENT_EMPLOYEE,
             $request->employeeId,
             NotificationLog::CHANNEL_EMAIL,

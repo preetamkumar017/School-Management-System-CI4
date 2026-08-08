@@ -70,6 +70,7 @@ final class ReservationConcurrencyTest extends CIUnitTestCase
         ], true);
 
         RequestContext::setUserId($this->userId);
+        RequestContext::setPermissionSet(['library.manage', 'hr_payroll.manage']);
 
         $departmentId  = (new DepartmentModel())->insert(['department_name' => 'Dept ' . uniqid('', true)], true);
         $designationId = (new DesignationModel())->insert(['designation_name' => 'Desig ' . uniqid('', true)], true);

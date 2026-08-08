@@ -32,6 +32,11 @@ class AddAdmissionSeatHoldPeriodConfigKey extends Migration
 
     public function down(): void
     {
-        $this->db->table('configurations')->where('setting_key', 'admission.seat_hold_period_hours')->delete();
+        /** @var \CodeIgniter\Database\BaseConnection $db */
+        $db = $this->db;
+
+        if ($db->tableExists('configurations')) {
+            $db->table('configurations')->where('setting_key', 'admission.seat_hold_period_hours')->delete();
+        }
     }
 }

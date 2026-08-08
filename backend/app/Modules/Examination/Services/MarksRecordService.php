@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Examination\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Core\Exceptions\ValidationException;
 use App\Modules\Administration\Entities\AuditLog;
@@ -20,10 +21,17 @@ use Config\Services as AppServices;
 
 /**
  * docs/design/examination/Phase-4-Service-Design.md
+ * RBAC (ADR-024 §3, Phase 2): `examination.manage` (Tier 1 only) gates
+ * entry/lock/reevaluate — never self-service. `getMarksRecord()` allows
+ * Tier 2 — a Student may read their own MarksRecord (SIS Student-self
+ * ownership chain; no Guardian login exists in this system, see SIS's
+ * StudentService docblock).
  */
 class MarksRecordService
 {
     use ClosedSessionGuard;
+
+    public const PERMISSION_MANAGE = 'examination.manage';
 
     public function __construct(
         private readonly MarksRecordModel $marksRecordModel,
@@ -31,11 +39,14 @@ class MarksRecordService
         private readonly ExamService $examService,
         private readonly AuditService $auditService,
         private readonly ConfigurationService $configurationService,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
     public function createMarksRecord(CreateMarksRecordRequest $request, ?string $overrideReason = null): MarksRecordResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $exam = $this->requireExam($request->examId);
         $this->assertSessionMutable($exam->academic_session_id, null);
 
@@ -49,7 +60,7 @@ class MarksRecordService
         // Cross-module existence checks — SIS's StudentService exposes no
         // dedicated "exists" method, so getStudent's own STUDENT_NOT_FOUND
         // is reused, same pattern as every other cross-module check.
-        AppServices::studentService()->getStudent($request->studentId);
+        AppServices::studentService()->assertStudentExists($request->studentId);
         AppServices::subjectService()->getSubject($request->subjectId);
 
         // BR-EXM-005 eligibility precondition — real check as of ADR-006
@@ -116,6 +127,8 @@ class MarksRecordService
 
     public function lockMarksRecord(int $id, ?string $overrideReason = null): MarksRecordResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requireMarksRecord($id);
         $exam   = $this->requireExam($before->exam_id);
         $this->assertSessionMutable($exam->academic_session_id, $overrideReason);
@@ -148,6 +161,8 @@ class MarksRecordService
      */
     public function reevaluate(int $id, MarksRecordReevaluateRequest $request): MarksRecordResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requireMarksRecord($id);
         $exam   = $this->requireExam($before->exam_id);
         $this->assertSessionMutable($exam->academic_session_id, $request->reason);
@@ -184,7 +199,11 @@ class MarksRecordService
 
     public function getMarksRecord(int $id): MarksRecordResponse
     {
-        return new MarksRecordResponse($this->requireMarksRecord($id));
+        $marksRecord = $this->requireMarksRecord($id);
+
+        $this->moduleAuthorizer->assertManageOrOwner(self::PERMISSION_MANAGE, 'STUDENT', $marksRecord->student_id);
+
+        return new MarksRecordResponse($marksRecord);
     }
 
     /**
@@ -192,6 +211,8 @@ class MarksRecordService
      */
     public function listMarksByExam(int $examId): array
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         return array_map(
             static fn (MarksRecord $marksRecord): MarksRecordResponse => new MarksRecordResponse($marksRecord),
             $this->marksRecordModel->findByExamId($examId),

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Communication\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Modules\Administration\Entities\AuditLog;
 use App\Modules\Administration\Services\AuditService;
@@ -26,9 +27,23 @@ use Throwable;
  * behind SmsGatewayInterface/EmailGatewayInterface (§a). create() only
  * ever queues; dispatch() is the separate, explicit-trigger step (§e) —
  * no scheduler, matching every "no cron infrastructure" precedent.
+ *
+ * RBAC (ADR-024 §3, Phase 2): `communication.manage` (Tier 1) gates the
+ * direct-create endpoint (`create()`) and dispatch/status-change writes.
+ * `getNotificationLog()`/`listByRecipient()` allow Tier 2 — the recipient
+ * may read their own NotificationLog, matching `recipient_type`/
+ * `recipient_ref_id` directly on the entity. `createInternal()` stays
+ * ungated — it's the system-generated log-write other modules' own
+ * already-gated write flows call (Attendance's absence alert,
+ * Timetable's revision/substitution notices, Library's reservation
+ * notices), not a user-facing Communication mutation of the calling
+ * caller's own choosing (ADR-024 Phase 1 Addendum's
+ * `UserService::changeStatusInternal()` precedent).
  */
 class NotificationLogService
 {
+    public const PERMISSION_MANAGE = 'communication.manage';
+
     public function __construct(
         private readonly NotificationLogModel $notificationLogModel,
         private readonly AuditService $auditService,
@@ -36,10 +51,18 @@ class NotificationLogService
         private readonly StudentGuardianLinkModel $studentGuardianLinkModel,
         private readonly SmsGatewayInterface $smsGateway,
         private readonly EmailGatewayInterface $emailGateway,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
     public function create(CreateNotificationLogRequest $request): NotificationLogResponse
+    {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
+        return $this->createInternal($request);
+    }
+
+    public function createInternal(CreateNotificationLogRequest $request): NotificationLogResponse
     {
         $this->validateRecipient($request->recipientType, $request->recipientRefId);
 
@@ -71,6 +94,8 @@ class NotificationLogService
      */
     public function dispatch(int $id): NotificationLogResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requireNotificationLog($id);
 
         if ($before->channel === NotificationLog::CHANNEL_PUSH) {
@@ -102,6 +127,8 @@ class NotificationLogService
 
     public function markDispatched(int $id): NotificationLogResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         return $this->changeStatus($id, NotificationLog::STATUS_DISPATCHED, [
             'dispatched_at' => Time::now()->toDateTimeString(),
         ]);
@@ -109,6 +136,8 @@ class NotificationLogService
 
     public function markDelivered(int $id): NotificationLogResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         return $this->changeStatus($id, NotificationLog::STATUS_DELIVERED);
     }
 
@@ -117,6 +146,8 @@ class NotificationLogService
      */
     public function markFailed(int $id, MarkNotificationFailedRequest $request): NotificationLogResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requireNotificationLog($id);
 
         return $this->fail($before, $request->failureReason);
@@ -124,7 +155,11 @@ class NotificationLogService
 
     public function getNotificationLog(int $id): NotificationLogResponse
     {
-        return new NotificationLogResponse($this->requireNotificationLog($id));
+        $notificationLog = $this->requireNotificationLog($id);
+
+        $this->moduleAuthorizer->assertManageOrOwner(self::PERMISSION_MANAGE, strtoupper($notificationLog->recipient_type), $notificationLog->recipient_ref_id);
+
+        return new NotificationLogResponse($notificationLog);
     }
 
     /**
@@ -132,6 +167,8 @@ class NotificationLogService
      */
     public function listByRecipient(string $recipientType, int $recipientRefId): array
     {
+        $this->moduleAuthorizer->assertManageOrOwner(self::PERMISSION_MANAGE, strtoupper($recipientType), $recipientRefId);
+
         return array_map(
             static fn (NotificationLog $notificationLog): NotificationLogResponse => new NotificationLogResponse($notificationLog),
             $this->notificationLogModel->findByRecipient($recipientType, $recipientRefId),
@@ -249,7 +286,7 @@ class NotificationLogService
             NotificationLog::RECIPIENT_GUARDIAN => AppServices::guardianService()->getGuardian($recipientRefId),
             NotificationLog::RECIPIENT_EMPLOYEE => AppServices::employeeService()->assertEmployeeExists($recipientRefId),
             NotificationLog::RECIPIENT_USER     => AppServices::userService()->assertUserExists($recipientRefId),
-            NotificationLog::RECIPIENT_STUDENT  => AppServices::studentService()->getStudent($recipientRefId),
+            NotificationLog::RECIPIENT_STUDENT  => AppServices::studentService()->assertStudentExists($recipientRefId),
             default                             => throw new BusinessRuleException('INVALID_RECIPIENT_TYPE', 'recipient_type must be one of Guardian, Employee, User, Student.'),
         };
     }

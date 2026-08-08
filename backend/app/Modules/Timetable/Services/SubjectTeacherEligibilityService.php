@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Timetable\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Modules\Administration\Entities\AuditLog;
 use App\Modules\Administration\Services\AuditService;
@@ -17,17 +18,24 @@ use Config\Services as AppServices;
  * Minimal admin-managed reference data — create + read only, no
  * update/delete endpoint, matching ADR-009 §13's precedent against
  * speculative CRUD beyond what a feature actually needs.
+ *
+ * RBAC (ADR-024 §3, Phase 2): `timetable.manage` (Tier 1 only) gates writes.
  */
 class SubjectTeacherEligibilityService
 {
+    public const PERMISSION_MANAGE = 'timetable.manage';
+
     public function __construct(
         private readonly SubjectTeacherEligibilityModel $subjectTeacherEligibilityModel,
         private readonly AuditService $auditService,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
     public function createEligibility(CreateSubjectTeacherEligibilityRequest $request): SubjectTeacherEligibilityResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         AppServices::employeeService()->getEmployee($request->employeeId);
         AppServices::subjectService()->getSubject($request->subjectId);
 

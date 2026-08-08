@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Fees\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Modules\Administration\Entities\AuditLog;
 use App\Modules\Administration\Services\AuditService;
@@ -16,19 +17,27 @@ use Config\Services as AppServices;
 
 /**
  * docs/design/fees/Phase-3-Service-Controller-Design.md
+ * RBAC (ADR-024 §3, Phase 2): `fees.manage` (Tier 1) gates `createWaiver()`
+ * (staff only). `getWaiver()`/`listByStudent()` allow Tier 2 read-only —
+ * a Student may read their own scholarship waivers.
  */
 class ScholarshipWaiverService
 {
+    public const PERMISSION_MANAGE = 'fees.manage';
+
     public function __construct(
         private readonly ScholarshipWaiverModel $scholarshipWaiverModel,
         private readonly FeeHeadModel $feeHeadModel,
         private readonly AuditService $auditService,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
     public function createWaiver(CreateScholarshipWaiverRequest $request): ScholarshipWaiverResponse
     {
-        AppServices::studentService()->getStudent($request->studentId);
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
+        AppServices::studentService()->assertStudentExists($request->studentId);
 
         if ($this->feeHeadModel->find($request->feeHeadId) === null) {
             throw new BusinessRuleException('FEE_HEAD_NOT_FOUND', 'Fee head not found.');
@@ -50,7 +59,11 @@ class ScholarshipWaiverService
 
     public function getWaiver(int $id): ScholarshipWaiverResponse
     {
-        return new ScholarshipWaiverResponse($this->requireWaiver($id));
+        $waiver = $this->requireWaiver($id);
+
+        $this->moduleAuthorizer->assertManageOrOwner(self::PERMISSION_MANAGE, 'STUDENT', $waiver->student_id);
+
+        return new ScholarshipWaiverResponse($waiver);
     }
 
     /**
@@ -58,6 +71,8 @@ class ScholarshipWaiverService
      */
     public function listByStudent(int $studentId): array
     {
+        $this->moduleAuthorizer->assertManageOrOwner(self::PERMISSION_MANAGE, 'STUDENT', $studentId);
+
         return array_map(
             static fn (ScholarshipWaiver $waiver): ScholarshipWaiverResponse => new ScholarshipWaiverResponse($waiver),
             $this->scholarshipWaiverModel->findByStudentId($studentId),

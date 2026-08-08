@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Attendance\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Core\Http\RequestContext;
 use App\Modules\Administration\Entities\AuditLog;
@@ -21,17 +22,26 @@ use Config\Services as AppServices;
  * only calls this Service makes into HR & Payroll (existence check here,
  * one-way closure push in closePeriod()); HR & Payroll never calls back
  * into Attendance.
+ *
+ * RBAC (ADR-024 §3, Phase 2): `attendance.manage` (Tier 1) gates
+ * recording/reconciling/closing (staff only). `listByEmployeeBetween()`
+ * allows Tier 2 — an Employee may read their own staff attendance.
  */
 class StaffAttendanceService
 {
+    public const PERMISSION_MANAGE = 'attendance.manage';
+
     public function __construct(
         private readonly StaffAttendanceRecordModel $staffAttendanceRecordModel,
         private readonly AuditService $auditService,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
     public function recordAttendance(CreateStaffAttendanceRecordRequest $request): StaffAttendanceRecordResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         AppServices::employeeService()->assertEmployeeExists($request->employeeId);
 
         if ($this->staffAttendanceRecordModel->existsByEmployeeDate($request->employeeId, $request->attendanceDate)) {
@@ -62,6 +72,8 @@ class StaffAttendanceService
      */
     public function reconcile(int $employeeId, string $fromDate, string $toDate): void
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $records = $this->staffAttendanceRecordModel->findByEmployeeBetween($employeeId, $fromDate, $toDate);
 
         if ($records === []) {
@@ -97,6 +109,8 @@ class StaffAttendanceService
      */
     public function closePeriod(int $employeeId, string $payPeriod): void
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         AppServices::employeeService()->assertEmployeeExists($employeeId);
 
         [$fromDate, $toDate] = $this->periodBounds($payPeriod);
@@ -136,6 +150,8 @@ class StaffAttendanceService
      */
     public function listByEmployeeBetween(int $employeeId, string $fromDate, string $toDate): array
     {
+        $this->moduleAuthorizer->assertManageOrOwner(self::PERMISSION_MANAGE, 'EMPLOYEE', $employeeId);
+
         return array_map(
             static fn (StaffAttendanceRecord $record): StaffAttendanceRecordResponse => new StaffAttendanceRecordResponse($record),
             $this->staffAttendanceRecordModel->findByEmployeeBetween($employeeId, $fromDate, $toDate),

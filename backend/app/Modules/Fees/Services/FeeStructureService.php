@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Fees\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Modules\Administration\Entities\AuditLog;
 use App\Modules\Administration\Services\AuditService;
@@ -17,18 +18,24 @@ use Config\Services as AppServices;
 
 /**
  * docs/design/fees/Phase-3-Service-Controller-Design.md
+ * RBAC (ADR-024 §3, Phase 2): `fees.manage` (Tier 1 only) gates writes.
  */
 class FeeStructureService
 {
+    public const PERMISSION_MANAGE = 'fees.manage';
+
     public function __construct(
         private readonly FeeStructureModel $feeStructureModel,
         private readonly FeeHeadModel $feeHeadModel,
         private readonly AuditService $auditService,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
     public function createFeeStructure(CreateFeeStructureRequest $request): FeeStructureResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         AppServices::classService()->getClass($request->classId);
         AppServices::academicSessionService()->getSession($request->academicSessionId);
 
@@ -67,6 +74,8 @@ class FeeStructureService
 
     public function updateFeeStructure(int $id, UpdateFeeStructureRequest $request): FeeStructureResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requireFeeStructure($id);
 
         $this->feeStructureModel->update($id, ['amount' => $request->amount]);

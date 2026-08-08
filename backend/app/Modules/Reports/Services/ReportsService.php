@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Reports\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Excel\ExcelRenderer;
 use App\Core\Pdf\PdfRenderer;
 use App\Modules\Reports\DTOs\AcademicPerformanceResponse;
@@ -20,9 +21,18 @@ use Config\Services as AppServices;
  * Pure composition over other modules' Services, never their Models
  * directly (Company Development Standard's cross-module rule) — no
  * entity, no Model of its own (ADR-010 §7, unreversed by ADR-022).
+ *
+ * RBAC (ADR-024 §3, Phase 2): `reports.manage` (Tier 1 only) gates every
+ * method here, including reads — see this phase's ADR-024 Addendum for
+ * why Reports' reads are gated even though most other modules' reads
+ * stay open: aggregate fee-collection/attendance/academic-performance
+ * data spans every student/employee in the school at once, a materially
+ * more sensitive exposure than a single Class/Book/Route list.
  */
 class ReportsService
 {
+    public const PERMISSION_MANAGE = 'reports.manage';
+
     /**
      * ADR-022 §"Academic performance" — no existing pass/fail concept is
      * modeled on GradingScheme/ReportCard; a GPA of 4.0 (equivalent to the
@@ -38,11 +48,14 @@ class ReportsService
     public function __construct(
         private readonly PdfRenderer $pdfRenderer,
         private readonly ExcelRenderer $excelRenderer,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
     public function getSummary(): SummaryResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $books = AppServices::bookService()->listBooks();
 
         return new SummaryResponse(
@@ -70,6 +83,8 @@ class ReportsService
      */
     public function getFeeCollectionSummary(int $academicSessionId): FeeCollectionSummaryResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         AppServices::academicSessionService()->getSession($academicSessionId);
 
         $collected   = AppServices::paymentService()->getCollectedSummaryForSession($academicSessionId);
@@ -96,6 +111,8 @@ class ReportsService
      */
     public function getAttendanceOverview(string $fromDate, string $toDate): AttendanceOverviewResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $data      = AppServices::attendanceService()->getAttendanceOverviewData($fromDate, $toDate);
         $threshold = $data['threshold'];
 
@@ -141,6 +158,8 @@ class ReportsService
      */
     public function getAdmissionsFunnel(int $academicSessionId): AdmissionsFunnelResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         AppServices::academicSessionService()->getSession($academicSessionId);
 
         $seatAllocations = AppServices::seatAllocationService()->listForAcademicSession($academicSessionId);
@@ -175,7 +194,9 @@ class ReportsService
      */
     public function getAcademicPerformance(int $examId): AcademicPerformanceResponse
     {
-        $reportCards = AppServices::reportCardService()->listReportCardsByExam($examId);
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
+        $reportCards = AppServices::reportCardService()->listReportCardsByExamForCrossModuleRead($examId);
 
         $count = count($reportCards);
 

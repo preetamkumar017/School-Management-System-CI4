@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Academic\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Modules\Academic\DTOs\ClassResponse;
 use App\Modules\Academic\DTOs\CreateClassRequest;
@@ -19,17 +20,26 @@ use App\Modules\Administration\Services\AuditService;
  * deactivated" (Phase 1); the only removal path is the standard
  * soft-delete, not modeled here since no approved document routes an API
  * call to it yet.
+ *
+ * RBAC (ADR-024 §3, Phase 2): `academic.manage` (Tier 1 only) gates every
+ * write — Academic's master/reference data has no per-caller owner. Reads
+ * stay open to any authenticated user, unchanged.
  */
 class ClassService
 {
+    public const PERMISSION_MANAGE = 'academic.manage';
+
     public function __construct(
         private readonly ClassModel $classModel,
         private readonly AuditService $auditService,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
     public function createClass(CreateClassRequest $request): ClassResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         if ($this->classModel->existsByClassName($request->className)) {
             throw new BusinessRuleException('CLASS_NAME_ALREADY_TAKEN', 'This class name is already taken.');
         }
@@ -55,6 +65,8 @@ class ClassService
 
     public function updateClass(int $id, UpdateClassRequest $request): ClassResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requireClass($id);
 
         if ($this->classModel->existsByClassNameExceptId($request->className, $id)) {

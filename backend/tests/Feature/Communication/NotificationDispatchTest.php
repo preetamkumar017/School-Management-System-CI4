@@ -42,6 +42,7 @@ final class NotificationDispatchTest extends CommunicationTestCase
             new StudentGuardianLinkModel(),
             $sms,
             $email,
+            Services::moduleAuthorizer(),
         );
 
         Services::injectMock('notificationLogService', $service);

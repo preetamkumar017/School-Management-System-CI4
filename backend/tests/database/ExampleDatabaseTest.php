@@ -1,17 +1,14 @@
 <?php
 
-use CodeIgniter\Test\CIUnitTestCase;
-use CodeIgniter\Test\DatabaseTestTrait;
+use Tests\Support\Administration\AdministrationTestCase;
 use Tests\Support\Database\Seeds\ExampleSeeder;
 use Tests\Support\Models\ExampleModel;
 
 /**
  * @internal
  */
-final class ExampleDatabaseTest extends CIUnitTestCase
+final class ExampleDatabaseTest extends AdministrationTestCase
 {
-    use DatabaseTestTrait;
-
     protected $seed = ExampleSeeder::class;
 
     public function testModelFindAll(): void

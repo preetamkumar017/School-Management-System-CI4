@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Transport\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Modules\Administration\Entities\AuditLog;
 use App\Modules\Administration\Services\AuditService;
@@ -15,17 +16,23 @@ use App\Modules\Transport\Models\VehicleModel;
 
 /**
  * docs/design/transport/Phase-3-Service-Controller-Design.md
+ * RBAC (ADR-024 §3, Phase 2): `transport.manage` (Tier 1 only) gates writes.
  */
 class VehicleService
 {
+    public const PERMISSION_MANAGE = 'transport.manage';
+
     public function __construct(
         private readonly VehicleModel $vehicleModel,
         private readonly AuditService $auditService,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
     public function createVehicle(CreateVehicleRequest $request): VehicleResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         if ($this->vehicleModel->existsByRegistrationNo($request->registrationNo)) {
             throw new BusinessRuleException('VEHICLE_REGISTRATION_ALREADY_EXISTS', 'A vehicle with this registration number already exists.');
         }
@@ -46,6 +53,8 @@ class VehicleService
 
     public function updateVehicle(int $id, UpdateVehicleRequest $request): VehicleResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requireVehicle($id);
 
         $this->vehicleModel->update($id, [

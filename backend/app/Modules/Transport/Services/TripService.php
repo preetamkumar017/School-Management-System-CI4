@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Transport\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Modules\Administration\Entities\AuditLog;
 use App\Modules\Administration\Services\AuditService;
@@ -21,15 +22,20 @@ use CodeIgniter\I18n\Time;
  * docs/design/transport/Phase-4-Driver-Trip-Design.md — ADR-019 §5.
  * BR-TRN-006: a trip cannot be logged as started unless both a valid
  * driver and a currently licensed vehicle are assigned to that route.
+ * RBAC (ADR-024 §3, Phase 2): `transport.manage` (Tier 1 only) gates
+ * `startTrip()` — no per-caller owner on Trip.
  */
 class TripService
 {
+    public const PERMISSION_MANAGE = 'transport.manage';
+
     public function __construct(
         private readonly TripModel $tripModel,
         private readonly RouteModel $routeModel,
         private readonly DriverModel $driverModel,
         private readonly VehicleModel $vehicleModel,
         private readonly AuditService $auditService,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
@@ -41,6 +47,8 @@ class TripService
      */
     public function startTrip(int $routeId): TripResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $route = $this->routeModel->find($routeId);
 
         if ($route === null) {

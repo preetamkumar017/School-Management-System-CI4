@@ -31,7 +31,12 @@ class AddHoldExpiresAtToApplicationsTable extends Migration
 
     public function down(): void
     {
-        $this->forge->dropKey('applications', 'idx_applications_hold_expires_at');
-        $this->forge->dropColumn('applications', 'hold_expires_at');
+        /** @var \CodeIgniter\Database\BaseConnection $db */
+        $db = $this->db;
+
+        if ($db->tableExists('applications')) {
+            $this->forge->dropKey('applications', 'idx_applications_hold_expires_at');
+            $this->forge->dropColumn('applications', 'hold_expires_at');
+        }
     }
 }

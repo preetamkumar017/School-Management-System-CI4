@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Communication\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Modules\Administration\Entities\AuditLog;
 use App\Modules\Administration\Services\AuditService;
@@ -16,17 +17,24 @@ use Config\Services as AppServices;
 
 /**
  * docs/design/communication/Phase-3-Service-Controller-Design.md
+ * RBAC (ADR-024 §3, Phase 2): `communication.manage` (Tier 1 only) gates
+ * create/retract — no per-caller owner on Circular. Reads unchanged.
  */
 class CircularService
 {
+    public const PERMISSION_MANAGE = 'communication.manage';
+
     public function __construct(
         private readonly CircularModel $circularModel,
         private readonly AuditService $auditService,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
     public function createCircular(CreateCircularRequest $request): CircularResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         AppServices::userService()->assertUserExists($request->authorId);
 
         $id = $this->circularModel->insert([
@@ -48,6 +56,8 @@ class CircularService
 
     public function retract(int $id): CircularResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requireCircular($id);
 
         if ($before->status === Circular::STATUS_RETRACTED) {

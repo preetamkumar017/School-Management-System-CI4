@@ -24,6 +24,11 @@ class AddMessageBodyToNotificationLogsTable extends Migration
 
     public function down(): void
     {
-        $this->forge->dropColumn('notification_logs', 'message_body');
+        /** @var \CodeIgniter\Database\BaseConnection $db */
+        $db = $this->db;
+
+        if ($db->tableExists('notification_logs')) {
+            $this->forge->dropColumn('notification_logs', 'message_body');
+        }
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Timetable\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Modules\Administration\Entities\AuditLog;
 use App\Modules\Administration\Services\AuditService;
@@ -23,19 +24,26 @@ use Config\Services as AppServices;
  * ADR-013). A Substitution applies "for that date only" — it never
  * touches TimetableEntry's row or version_no, which stays BR-TT-005's
  * revise() mechanism alone (ADR-013 §3).
+ *
+ * RBAC (ADR-024 §3, Phase 2): `timetable.manage` (Tier 1 only) gates writes.
  */
 class SubstitutionService
 {
+    public const PERMISSION_MANAGE = 'timetable.manage';
+
     public function __construct(
         private readonly SubstitutionModel $substitutionModel,
         private readonly TimetableEntryModel $timetableEntryModel,
         private readonly SubjectTeacherEligibilityModel $subjectTeacherEligibilityModel,
         private readonly AuditService $auditService,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
     public function createSubstitution(CreateSubstitutionRequest $request): SubstitutionResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $entry = $this->requireEntry($request->timetableEntryId);
 
         if ($entry->status !== TimetableEntry::STATUS_PUBLISHED) {
@@ -99,7 +107,7 @@ class SubstitutionService
         // other side of the transaction — the substitute when
         // ASSIGNED, the originally-absent teacher when UNSUPERVISED —
         // both real, already-validated employee_ids (ADR-013 §4).
-        AppServices::notificationLogService()->create(new CreateNotificationLogRequest(
+        AppServices::notificationLogService()->createInternal(new CreateNotificationLogRequest(
             NotificationLog::RECIPIENT_EMPLOYEE,
             $status === Substitution::STATUS_ASSIGNED ? $substituteEmployeeId : $entry->employee_id,
             NotificationLog::CHANNEL_EMAIL,

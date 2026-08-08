@@ -29,6 +29,11 @@ class AddLockedByClosedExamToGradingSchemesTable extends Migration
 
     public function down(): void
     {
-        $this->forge->dropColumn('grading_schemes', 'locked_by_closed_exam');
+        /** @var \CodeIgniter\Database\BaseConnection $db */
+        $db = $this->db;
+
+        if ($db->tableExists('grading_schemes')) {
+            $this->forge->dropColumn('grading_schemes', 'locked_by_closed_exam');
+        }
     }
 }

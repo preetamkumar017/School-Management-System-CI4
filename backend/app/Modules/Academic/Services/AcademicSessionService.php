@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Academic\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Modules\Academic\DTOs\AcademicSessionResponse;
 use App\Modules\Academic\DTOs\AcademicSessionStatusChangeRequest;
@@ -16,9 +17,12 @@ use App\Modules\Administration\Services\AuditService;
 
 /**
  * docs/design/academic/Phase-4-Service-Design.md
+ * RBAC (ADR-024 §3, Phase 2): `academic.manage` (Tier 1 only) gates writes.
  */
 class AcademicSessionService
 {
+    public const PERMISSION_MANAGE = 'academic.manage';
+
     /**
      * Forward-only lifecycle (BR-SIS-001, Phase 1): PLANNED -> ACTIVE ->
      * CLOSED -> ARCHIVED. No document defines a reversal path.
@@ -35,11 +39,14 @@ class AcademicSessionService
     public function __construct(
         private readonly AcademicSessionModel $academicSessionModel,
         private readonly AuditService $auditService,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
     public function createSession(CreateAcademicSessionRequest $request): AcademicSessionResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         if ($this->academicSessionModel->existsBySessionName($request->sessionName)) {
             throw new BusinessRuleException(
                 'ACADEMIC_SESSION_NAME_ALREADY_TAKEN',
@@ -65,6 +72,8 @@ class AcademicSessionService
 
     public function updateSession(int $id, UpdateAcademicSessionRequest $request): AcademicSessionResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requireSession($id);
 
         if ($this->academicSessionModel->existsBySessionNameExceptId($request->sessionName, $id)) {
@@ -97,6 +106,8 @@ class AcademicSessionService
 
     public function changeStatus(int $id, AcademicSessionStatusChangeRequest $request): AcademicSessionResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requireSession($id);
 
         $fromIndex = array_search($before->status, self::STATUS_ORDER, true);

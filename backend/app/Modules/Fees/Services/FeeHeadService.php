@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Fees\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Modules\Administration\Entities\AuditLog;
 use App\Modules\Administration\Services\AuditService;
@@ -15,17 +16,23 @@ use App\Modules\Fees\Models\FeeHeadModel;
 
 /**
  * docs/design/fees/Phase-3-Service-Controller-Design.md
+ * RBAC (ADR-024 §3, Phase 2): `fees.manage` (Tier 1 only) gates writes.
  */
 class FeeHeadService
 {
+    public const PERMISSION_MANAGE = 'fees.manage';
+
     public function __construct(
         private readonly FeeHeadModel $feeHeadModel,
         private readonly AuditService $auditService,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
     public function createFeeHead(CreateFeeHeadRequest $request): FeeHeadResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         if ($this->feeHeadModel->existsByName($request->feeHeadName)) {
             throw new BusinessRuleException('FEE_HEAD_NAME_ALREADY_TAKEN', 'This fee head name is already taken.');
         }
@@ -45,6 +52,8 @@ class FeeHeadService
 
     public function updateFeeHead(int $id, UpdateFeeHeadRequest $request): FeeHeadResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requireFeeHead($id);
 
         if ($this->feeHeadModel->existsByNameExceptId($request->feeHeadName, $id)) {

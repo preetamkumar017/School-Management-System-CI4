@@ -56,6 +56,13 @@ class SeedModuleManagePermissions extends Migration
 
     public function down(): void
     {
+        /** @var \CodeIgniter\Database\BaseConnection $db */
+        $db = $this->db;
+
+        if (! $db->tableExists('roles')) {
+            return;
+        }
+
         // Restores the pre-ADR-024 generic permission sets these three
         // roles carried (see 2026-08-05-195901_CreateRolesTable.php-era
         // seed data / docs/ADR/ADR-024-systemwide-rbac-enforcement.md §2's

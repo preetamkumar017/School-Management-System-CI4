@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Transport\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Modules\Administration\Entities\AuditLog;
 use App\Modules\Administration\Services\AuditService;
@@ -17,19 +18,25 @@ use App\Modules\Transport\Models\VehicleModel;
 
 /**
  * docs/design/transport/Phase-3-Service-Controller-Design.md
+ * RBAC (ADR-024 §3, Phase 2): `transport.manage` (Tier 1 only) gates writes.
  */
 class RouteService
 {
+    public const PERMISSION_MANAGE = 'transport.manage';
+
     public function __construct(
         private readonly RouteModel $routeModel,
         private readonly VehicleModel $vehicleModel,
         private readonly AuditService $auditService,
         private readonly DriverModel $driverModel,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
     public function createRoute(CreateRouteRequest $request): RouteResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         if ($this->routeModel->existsByName($request->routeName)) {
             throw new BusinessRuleException('ROUTE_NAME_ALREADY_EXISTS', 'A route with this name already exists.');
         }
@@ -54,6 +61,8 @@ class RouteService
 
     public function updateRoute(int $id, UpdateRouteRequest $request): RouteResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requireRoute($id);
 
         $this->assertCapacityWithinVehicle($request->capacity, $request->vehicleId);

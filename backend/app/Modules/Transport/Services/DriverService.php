@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Transport\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Modules\Administration\Entities\AuditLog;
 use App\Modules\Administration\Services\AuditService;
@@ -16,17 +17,23 @@ use App\Modules\Transport\Models\DriverModel;
 /**
  * docs/design/transport/Phase-4-Driver-Trip-Design.md — ADR-019 §1.
  * Transport-Coordinator-maintained, same CRUD shape as VehicleService.
+ * RBAC (ADR-024 §3, Phase 2): `transport.manage` (Tier 1 only) gates writes.
  */
 class DriverService
 {
+    public const PERMISSION_MANAGE = 'transport.manage';
+
     public function __construct(
         private readonly DriverModel $driverModel,
         private readonly AuditService $auditService,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
     public function createDriver(CreateDriverRequest $request): DriverResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         if ($this->driverModel->existsByLicenseNumber($request->licenseNumber)) {
             throw new BusinessRuleException('DRIVER_LICENSE_NUMBER_ALREADY_EXISTS', 'A driver with this license number already exists.');
         }
@@ -47,6 +54,8 @@ class DriverService
 
     public function updateDriver(int $id, UpdateDriverRequest $request): DriverResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requireDriver($id);
 
         $this->driverModel->update($id, [

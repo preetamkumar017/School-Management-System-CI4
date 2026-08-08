@@ -33,8 +33,13 @@ class AddDriverIdToRoutesTable extends Migration
 
     public function down(): void
     {
-        $this->forge->dropForeignKey('routes', 'fk_routes_drivers');
-        $this->forge->dropKey('routes', 'idx_routes_driver_id');
-        $this->forge->dropColumn('routes', 'driver_id');
+        /** @var \CodeIgniter\Database\BaseConnection $db */
+        $db = $this->db;
+
+        if ($db->tableExists('routes')) {
+            $this->forge->dropForeignKey('routes', 'fk_routes_drivers');
+            $this->forge->dropKey('routes', 'idx_routes_driver_id');
+            $this->forge->dropColumn('routes', 'driver_id');
+        }
     }
 }

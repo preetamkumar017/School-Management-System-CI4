@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Library\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Modules\Administration\Entities\AuditLog;
 use App\Modules\Administration\Services\AuditService;
@@ -15,17 +16,23 @@ use App\Modules\Library\Models\BookModel;
 
 /**
  * docs/design/library/Phase-3-Service-Controller-Design.md
+ * RBAC (ADR-024 §3, Phase 2): `library.manage` (Tier 1 only) gates writes.
  */
 class BookService
 {
+    public const PERMISSION_MANAGE = 'library.manage';
+
     public function __construct(
         private readonly BookModel $bookModel,
         private readonly AuditService $auditService,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
     public function createBook(CreateBookRequest $request): BookResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         if ($this->bookModel->existsByBarcode($request->barcode)) {
             throw new BusinessRuleException('BOOK_BARCODE_ALREADY_EXISTS', 'A book with this barcode already exists.');
         }
@@ -47,6 +54,8 @@ class BookService
 
     public function updateBook(int $id, UpdateBookRequest $request): BookResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requireBook($id);
 
         $this->bookModel->update($id, [

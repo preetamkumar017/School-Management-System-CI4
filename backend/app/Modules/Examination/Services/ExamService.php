@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Examination\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Modules\Administration\Entities\AuditLog;
 use App\Modules\Administration\Services\AuditService;
@@ -19,21 +20,28 @@ use Config\Services as AppServices;
 
 /**
  * docs/design/examination/Phase-4-Service-Design.md
+ * RBAC (ADR-024 §3, Phase 2): `examination.manage` (Tier 1 only) gates
+ * every write — Exam has no per-caller owner. Reads unchanged.
  */
 class ExamService
 {
     use ClosedSessionGuard;
+
+    public const PERMISSION_MANAGE = 'examination.manage';
 
     public function __construct(
         private readonly ExamModel $examModel,
         private readonly MarksRecordModel $marksRecordModel,
         private readonly ReportCardModel $reportCardModel,
         private readonly AuditService $auditService,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
     public function createExam(CreateExamRequest $request): ExamResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         AppServices::classService()->getClass($request->classId);
         $session = AppServices::academicSessionService()->getSession($request->academicSessionId);
         AppServices::gradingSchemeService()->getGradingScheme($request->gradingSchemeId);
@@ -74,6 +82,8 @@ class ExamService
 
     public function activateExam(int $id, ?string $overrideReason = null): ExamResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         return $this->transition($id, Exam::STATUS_CONFIGURED, Exam::STATUS_ACTIVE, $overrideReason);
     }
 
@@ -85,6 +95,8 @@ class ExamService
      */
     public function lockExam(int $id, ?string $overrideReason = null): ExamResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requireExam($id);
         $this->assertSessionMutable($before->academic_session_id, $overrideReason);
 

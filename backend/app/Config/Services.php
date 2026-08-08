@@ -227,7 +227,7 @@ class Services extends BaseService
             return static::getSharedInstance('academicSessionService');
         }
 
-        return new AcademicSessionService(new AcademicSessionModel(), static::auditService());
+        return new AcademicSessionService(new AcademicSessionModel(), static::auditService(), static::moduleAuthorizer());
     }
 
     public static function classService(bool $getShared = true): ClassService
@@ -236,7 +236,7 @@ class Services extends BaseService
             return static::getSharedInstance('classService');
         }
 
-        return new ClassService(new ClassModel(), static::auditService());
+        return new ClassService(new ClassModel(), static::auditService(), static::moduleAuthorizer());
     }
 
     public static function sectionService(bool $getShared = true): SectionService
@@ -245,7 +245,7 @@ class Services extends BaseService
             return static::getSharedInstance('sectionService');
         }
 
-        return new SectionService(new SectionModel(), new ClassModel(), static::auditService());
+        return new SectionService(new SectionModel(), new ClassModel(), static::auditService(), static::moduleAuthorizer());
     }
 
     public static function subjectService(bool $getShared = true): SubjectService
@@ -254,7 +254,7 @@ class Services extends BaseService
             return static::getSharedInstance('subjectService');
         }
 
-        return new SubjectService(new SubjectModel(), static::auditService());
+        return new SubjectService(new SubjectModel(), static::auditService(), static::moduleAuthorizer());
     }
 
     public static function gradingSchemeService(bool $getShared = true): GradingSchemeService
@@ -263,7 +263,7 @@ class Services extends BaseService
             return static::getSharedInstance('gradingSchemeService');
         }
 
-        return new GradingSchemeService(new GradingSchemeModel(), static::auditService());
+        return new GradingSchemeService(new GradingSchemeModel(), static::auditService(), static::moduleAuthorizer());
     }
 
     public static function classSubjectMapService(bool $getShared = true): ClassSubjectMapService
@@ -277,6 +277,7 @@ class Services extends BaseService
             new ClassModel(),
             new SubjectModel(),
             static::auditService(),
+            static::moduleAuthorizer(),
         );
     }
 
@@ -286,7 +287,7 @@ class Services extends BaseService
             return static::getSharedInstance('applicationService');
         }
 
-        return new ApplicationService(new ApplicationModel(), new SeatAllocationModel(), static::auditService(), static::configurationService());
+        return new ApplicationService(new ApplicationModel(), new SeatAllocationModel(), static::auditService(), static::configurationService(), static::moduleAuthorizer());
     }
 
     public static function seatAllocationService(bool $getShared = true): SeatAllocationService
@@ -295,7 +296,7 @@ class Services extends BaseService
             return static::getSharedInstance('seatAllocationService');
         }
 
-        return new SeatAllocationService(new SeatAllocationModel(), static::auditService());
+        return new SeatAllocationService(new SeatAllocationModel(), static::auditService(), static::moduleAuthorizer());
     }
 
     public static function studentService(bool $getShared = true): StudentService
@@ -311,6 +312,7 @@ class Services extends BaseService
             static::auditService(),
             static::documentService(),
             static::pdfRenderer(),
+            static::moduleAuthorizer(),
         );
     }
 
@@ -320,7 +322,7 @@ class Services extends BaseService
             return static::getSharedInstance('guardianService');
         }
 
-        return new GuardianService(new GuardianModel(), new GuardianMapper(), static::auditService());
+        return new GuardianService(new GuardianModel(), new GuardianMapper(), static::auditService(), static::moduleAuthorizer());
     }
 
     public static function studentGuardianLinkService(bool $getShared = true): StudentGuardianLinkService
@@ -335,6 +337,7 @@ class Services extends BaseService
             new GuardianModel(),
             new StudentGuardianLinkMapper(),
             static::auditService(),
+            static::moduleAuthorizer(),
         );
     }
 
@@ -349,6 +352,7 @@ class Services extends BaseService
             new MarksRecordModel(),
             new ReportCardModel(),
             static::auditService(),
+            static::moduleAuthorizer(),
         );
     }
 
@@ -364,6 +368,7 @@ class Services extends BaseService
             static::examService(),
             static::auditService(),
             static::configurationService(),
+            static::moduleAuthorizer(),
         );
     }
 
@@ -373,7 +378,7 @@ class Services extends BaseService
             return static::getSharedInstance('reportCardService');
         }
 
-        return new ReportCardService(new ReportCardModel(), new ExamModel(), static::auditService(), static::documentService(), static::pdfRenderer());
+        return new ReportCardService(new ReportCardModel(), new ExamModel(), static::auditService(), static::documentService(), static::pdfRenderer(), static::moduleAuthorizer());
     }
 
     public static function promotionService(bool $getShared = true): PromotionService
@@ -382,7 +387,7 @@ class Services extends BaseService
             return static::getSharedInstance('promotionService');
         }
 
-        return new PromotionService(new PromotionRecordModel(), static::auditService());
+        return new PromotionService(new PromotionRecordModel(), static::auditService(), static::moduleAuthorizer());
     }
 
     public static function timetableEntryService(bool $getShared = true): TimetableEntryService
@@ -391,7 +396,7 @@ class Services extends BaseService
             return static::getSharedInstance('timetableEntryService');
         }
 
-        return new TimetableEntryService(new TimetableEntryModel(), static::auditService(), static::configurationService());
+        return new TimetableEntryService(new TimetableEntryModel(), static::auditService(), static::configurationService(), static::moduleAuthorizer());
     }
 
     public static function subjectTeacherEligibilityService(bool $getShared = true): SubjectTeacherEligibilityService
@@ -400,7 +405,7 @@ class Services extends BaseService
             return static::getSharedInstance('subjectTeacherEligibilityService');
         }
 
-        return new SubjectTeacherEligibilityService(new SubjectTeacherEligibilityModel(), static::auditService());
+        return new SubjectTeacherEligibilityService(new SubjectTeacherEligibilityModel(), static::auditService(), static::moduleAuthorizer());
     }
 
     public static function substitutionService(bool $getShared = true): SubstitutionService
@@ -414,6 +419,7 @@ class Services extends BaseService
             new TimetableEntryModel(),
             new SubjectTeacherEligibilityModel(),
             static::auditService(),
+            static::moduleAuthorizer(),
         );
     }
 
@@ -423,7 +429,7 @@ class Services extends BaseService
             return static::getSharedInstance('attendanceService');
         }
 
-        return new AttendanceService(new AttendanceRecordModel(), static::auditService(), static::configurationService());
+        return new AttendanceService(new AttendanceRecordModel(), static::auditService(), static::configurationService(), static::moduleAuthorizer());
     }
 
     public static function staffAttendanceService(bool $getShared = true): StaffAttendanceService
@@ -432,7 +438,7 @@ class Services extends BaseService
             return static::getSharedInstance('staffAttendanceService');
         }
 
-        return new StaffAttendanceService(new StaffAttendanceRecordModel(), static::auditService());
+        return new StaffAttendanceService(new StaffAttendanceRecordModel(), static::auditService(), static::moduleAuthorizer());
     }
 
     public static function feeHeadService(bool $getShared = true): FeeHeadService
@@ -441,7 +447,7 @@ class Services extends BaseService
             return static::getSharedInstance('feeHeadService');
         }
 
-        return new FeeHeadService(new FeeHeadModel(), static::auditService());
+        return new FeeHeadService(new FeeHeadModel(), static::auditService(), static::moduleAuthorizer());
     }
 
     public static function feeStructureService(bool $getShared = true): FeeStructureService
@@ -450,7 +456,7 @@ class Services extends BaseService
             return static::getSharedInstance('feeStructureService');
         }
 
-        return new FeeStructureService(new FeeStructureModel(), new FeeHeadModel(), static::auditService());
+        return new FeeStructureService(new FeeStructureModel(), new FeeHeadModel(), static::auditService(), static::moduleAuthorizer());
     }
 
     public static function invoiceService(bool $getShared = true): InvoiceService
@@ -459,7 +465,7 @@ class Services extends BaseService
             return static::getSharedInstance('invoiceService');
         }
 
-        return new InvoiceService(new InvoiceModel(), new InvoiceLineItemModel(), new ScholarshipWaiverModel(), new FeeHeadModel(), static::auditService(), static::configurationService(), static::documentService(), static::pdfRenderer());
+        return new InvoiceService(new InvoiceModel(), new InvoiceLineItemModel(), new ScholarshipWaiverModel(), new FeeHeadModel(), static::auditService(), static::configurationService(), static::documentService(), static::pdfRenderer(), static::moduleAuthorizer());
     }
 
     public static function paymentService(bool $getShared = true): PaymentService
@@ -468,7 +474,7 @@ class Services extends BaseService
             return static::getSharedInstance('paymentService');
         }
 
-        return new PaymentService(new PaymentModel(), new InvoiceModel(), static::auditService());
+        return new PaymentService(new PaymentModel(), new InvoiceModel(), static::auditService(), static::moduleAuthorizer());
     }
 
     public static function scholarshipWaiverService(bool $getShared = true): ScholarshipWaiverService
@@ -477,7 +483,7 @@ class Services extends BaseService
             return static::getSharedInstance('scholarshipWaiverService');
         }
 
-        return new ScholarshipWaiverService(new ScholarshipWaiverModel(), new FeeHeadModel(), static::auditService());
+        return new ScholarshipWaiverService(new ScholarshipWaiverModel(), new FeeHeadModel(), static::auditService(), static::moduleAuthorizer());
     }
 
     public static function departmentService(bool $getShared = true): DepartmentService
@@ -538,7 +544,7 @@ class Services extends BaseService
             return static::getSharedInstance('bookService');
         }
 
-        return new BookService(new BookModel(), static::auditService());
+        return new BookService(new BookModel(), static::auditService(), static::moduleAuthorizer());
     }
 
     public static function bookIssueService(bool $getShared = true): BookIssueService
@@ -547,7 +553,7 @@ class Services extends BaseService
             return static::getSharedInstance('bookIssueService');
         }
 
-        return new BookIssueService(new BookIssueModel(), new BookModel(), static::auditService(), static::configurationService(), static::reservationService());
+        return new BookIssueService(new BookIssueModel(), new BookModel(), static::auditService(), static::configurationService(), static::reservationService(), static::moduleAuthorizer());
     }
 
     public static function reservationService(bool $getShared = true): ReservationService
@@ -556,7 +562,7 @@ class Services extends BaseService
             return static::getSharedInstance('reservationService');
         }
 
-        return new ReservationService(new ReservationModel(), new BookModel(), static::auditService(), static::configurationService(), static::notificationLogService());
+        return new ReservationService(new ReservationModel(), new BookModel(), static::auditService(), static::configurationService(), static::notificationLogService(), static::moduleAuthorizer());
     }
 
     public static function vehicleService(bool $getShared = true): VehicleService
@@ -565,7 +571,7 @@ class Services extends BaseService
             return static::getSharedInstance('vehicleService');
         }
 
-        return new VehicleService(new VehicleModel(), static::auditService());
+        return new VehicleService(new VehicleModel(), static::auditService(), static::moduleAuthorizer());
     }
 
     public static function routeService(bool $getShared = true): RouteService
@@ -574,7 +580,7 @@ class Services extends BaseService
             return static::getSharedInstance('routeService');
         }
 
-        return new RouteService(new RouteModel(), new VehicleModel(), static::auditService(), new DriverModel());
+        return new RouteService(new RouteModel(), new VehicleModel(), static::auditService(), new DriverModel(), static::moduleAuthorizer());
     }
 
     public static function transportAllocationService(bool $getShared = true): TransportAllocationService
@@ -583,7 +589,7 @@ class Services extends BaseService
             return static::getSharedInstance('transportAllocationService');
         }
 
-        return new TransportAllocationService(new TransportAllocationModel(), new RouteModel(), static::auditService());
+        return new TransportAllocationService(new TransportAllocationModel(), new RouteModel(), static::auditService(), static::moduleAuthorizer());
     }
 
     public static function driverService(bool $getShared = true): DriverService
@@ -592,7 +598,7 @@ class Services extends BaseService
             return static::getSharedInstance('driverService');
         }
 
-        return new DriverService(new DriverModel(), static::auditService());
+        return new DriverService(new DriverModel(), static::auditService(), static::moduleAuthorizer());
     }
 
     public static function tripService(bool $getShared = true): TripService
@@ -601,7 +607,7 @@ class Services extends BaseService
             return static::getSharedInstance('tripService');
         }
 
-        return new TripService(new TripModel(), new RouteModel(), new DriverModel(), new VehicleModel(), static::auditService());
+        return new TripService(new TripModel(), new RouteModel(), new DriverModel(), new VehicleModel(), static::auditService(), static::moduleAuthorizer());
     }
 
     public static function circularService(bool $getShared = true): CircularService
@@ -610,7 +616,7 @@ class Services extends BaseService
             return static::getSharedInstance('circularService');
         }
 
-        return new CircularService(new CircularModel(), static::auditService());
+        return new CircularService(new CircularModel(), static::auditService(), static::moduleAuthorizer());
     }
 
     public static function notificationLogService(bool $getShared = true): NotificationLogService
@@ -626,6 +632,7 @@ class Services extends BaseService
             new StudentGuardianLinkModel(),
             static::smsGateway(),
             static::emailGateway(),
+            static::moduleAuthorizer(),
         );
     }
 
@@ -659,6 +666,6 @@ class Services extends BaseService
             return static::getSharedInstance('reportsService');
         }
 
-        return new ReportsService(static::pdfRenderer(), static::excelRenderer());
+        return new ReportsService(static::pdfRenderer(), static::excelRenderer(), static::moduleAuthorizer());
     }
 }

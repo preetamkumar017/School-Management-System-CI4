@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Attendance\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Core\Exceptions\ValidationException;
 use App\Core\Http\RequestContext;
@@ -23,19 +24,28 @@ use Config\Services as AppServices;
 
 /**
  * docs/design/attendance/Phase-3-Service-Controller-Design.md
+ * RBAC (ADR-024 §3, Phase 2): `attendance.manage` (Tier 1) gates
+ * marking/locking/correcting and class-wide listing (staff only, never
+ * self-service). `getAttendanceRecord()`/`calculateAttendancePercentage()`
+ * allow Tier 2 — a Student may read their own attendance.
  */
 class AttendanceService
 {
+    public const PERMISSION_MANAGE = 'attendance.manage';
+
     public function __construct(
         private readonly AttendanceRecordModel $attendanceRecordModel,
         private readonly AuditService $auditService,
         private readonly ConfigurationService $configurationService,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
     public function markAttendance(CreateAttendanceRecordRequest $request): AttendanceRecordResponse
     {
-        AppServices::studentService()->getStudent($request->studentId);
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
+        AppServices::studentService()->assertStudentExists($request->studentId);
         $entry = AppServices::timetableEntryService()->getEntry($request->timetableEntryId);
 
         if ($entry->status !== 'PUBLISHED') {
@@ -97,7 +107,7 @@ class AttendanceService
 
         $guardianId = ($primary ?? $links[0])->guardianId;
 
-        AppServices::notificationLogService()->create(new CreateNotificationLogRequest(
+        AppServices::notificationLogService()->createInternal(new CreateNotificationLogRequest(
             NotificationLog::RECIPIENT_GUARDIAN,
             $guardianId,
             NotificationLog::CHANNEL_SMS,
@@ -108,6 +118,8 @@ class AttendanceService
 
     public function lockAttendance(int $id): AttendanceRecordResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requireRecord($id);
 
         if ($before->is_locked) {
@@ -130,6 +142,8 @@ class AttendanceService
      */
     public function correctAttendance(int $id, AttendanceCorrectionRequest $request): AttendanceRecordResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requireRecord($id);
 
         $editWindowDays = (int) $this->configurationService->getNumber('attendance.edit_window_days');
@@ -165,7 +179,11 @@ class AttendanceService
 
     public function getAttendanceRecord(int $id): AttendanceRecordResponse
     {
-        return new AttendanceRecordResponse($this->requireRecord($id));
+        $record = $this->requireRecord($id);
+
+        $this->moduleAuthorizer->assertManageOrOwner(self::PERMISSION_MANAGE, 'STUDENT', $record->student_id);
+
+        return new AttendanceRecordResponse($record);
     }
 
     /**
@@ -173,6 +191,8 @@ class AttendanceService
      */
     public function listByTimetableEntryAndDate(int $timetableEntryId, string $date): array
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         return array_map(
             static fn (AttendanceRecord $record): AttendanceRecordResponse => new AttendanceRecordResponse($record),
             $this->attendanceRecordModel->findByTimetableEntryAndDate($timetableEntryId, $date),
@@ -185,6 +205,26 @@ class AttendanceService
      * treated as absent.
      */
     public function calculateAttendancePercentage(int $studentId, string $fromDate, string $toDate): AttendancePercentageResponse
+    {
+        $this->moduleAuthorizer->assertManageOrOwner(self::PERMISSION_MANAGE, 'STUDENT', $studentId);
+
+        return $this->computeAttendancePercentage($studentId, $fromDate, $toDate);
+    }
+
+    /**
+     * BR-ATT-006 — called by Examination's MarksRecordService (ADR-006
+     * §11, closing the seam ADR-005 §2 left open). Ungated: this is a
+     * cross-module eligibility computation, not a user-facing Attendance
+     * read of the calling exam-entry caller's own choosing (ADR-024 Phase
+     * 1 Addendum's "existence/count helper" precedent, extended to this
+     * derived boolean).
+     */
+    public function isExamEligibilityAtRisk(int $studentId, string $fromDate, string $toDate): bool
+    {
+        return $this->computeAttendancePercentage($studentId, $fromDate, $toDate)->isExamEligibilityAtRisk;
+    }
+
+    private function computeAttendancePercentage(int $studentId, string $fromDate, string $toDate): AttendancePercentageResponse
     {
         $records = $this->attendanceRecordModel->findByStudentBetween($studentId, $fromDate, $toDate);
 
@@ -209,15 +249,6 @@ class AttendanceService
             $percentage,
             $percentage < $this->configurationService->getNumber('attendance.exam_eligibility_min_percentage'),
         );
-    }
-
-    /**
-     * BR-ATT-006 — called by Examination's MarksRecordService (ADR-006
-     * §11, closing the seam ADR-005 §2 left open).
-     */
-    public function isExamEligibilityAtRisk(int $studentId, string $fromDate, string $toDate): bool
-    {
-        return $this->calculateAttendancePercentage($studentId, $fromDate, $toDate)->isExamEligibilityAtRisk;
     }
 
     /**

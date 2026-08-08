@@ -82,6 +82,7 @@ final class GradingSchemeTest extends AcademicTestCase
         $service = new \App\Modules\Academic\Services\GradingSchemeService(
             $lockedModel,
             \Config\Services::auditService(),
+            \Config\Services::moduleAuthorizer(),
         );
 
         $this->assertApiException(

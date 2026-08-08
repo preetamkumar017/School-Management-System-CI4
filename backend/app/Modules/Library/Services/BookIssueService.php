@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Library\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Modules\Administration\Entities\AuditLog;
 use App\Modules\Administration\Services\AuditService;
@@ -25,20 +26,33 @@ use Config\Services as AppServices;
  * capability exists in Fees' current design). BR-LIB-006 reservation
  * priority (ADR-017) is enforced here too — issueBook() blocks a book
  * that's Notified to a different reservation holder.
+ *
+ * RBAC (ADR-024 §3, Phase 2): `library.manage` (Tier 1) gates every
+ * write — a physical book issue/return/loss/fine-settlement is a
+ * librarian-performed action at the circulation desk, not self-service,
+ * unlike Reservation's create/cancel. `getBookIssue()`/`listByBorrower()`
+ * allow Tier 2 — the borrower may read their own issue history, matching
+ * `borrower_type`/`borrower_ref_id` directly on the entity (ADR-024 §1's
+ * "simplest Tier 2 case" note).
  */
 class BookIssueService
 {
+    public const PERMISSION_MANAGE = 'library.manage';
+
     public function __construct(
         private readonly BookIssueModel $bookIssueModel,
         private readonly BookModel $bookModel,
         private readonly AuditService $auditService,
         private readonly ConfigurationService $configurationService,
         private readonly ReservationService $reservationService,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
     public function issueBook(IssueBookRequest $request): BookIssueResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $book = $this->bookModel->find($request->bookId);
 
         if ($book === null) {
@@ -124,6 +138,8 @@ class BookIssueService
      */
     public function returnBook(int $id): BookIssueResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requireBookIssue($id);
 
         if ($before->status !== BookIssue::STATUS_ISSUED) {
@@ -164,6 +180,8 @@ class BookIssueService
      */
     public function reportLost(int $id): BookIssueResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requireBookIssue($id);
 
         if ($before->status !== BookIssue::STATUS_ISSUED) {
@@ -188,6 +206,8 @@ class BookIssueService
 
     public function settleFine(int $id): BookIssueResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requireBookIssue($id);
 
         $this->bookIssueModel->update($id, ['fine_settled' => true]);
@@ -200,7 +220,11 @@ class BookIssueService
 
     public function getBookIssue(int $id): BookIssueResponse
     {
-        return new BookIssueResponse($this->requireBookIssue($id));
+        $bookIssue = $this->requireBookIssue($id);
+
+        $this->moduleAuthorizer->assertManageOrOwner(self::PERMISSION_MANAGE, strtoupper($bookIssue->borrower_type), $bookIssue->borrower_ref_id);
+
+        return new BookIssueResponse($bookIssue);
     }
 
     /**
@@ -208,6 +232,8 @@ class BookIssueService
      */
     public function listByBorrower(string $borrowerType, int $borrowerRefId): array
     {
+        $this->moduleAuthorizer->assertManageOrOwner(self::PERMISSION_MANAGE, strtoupper($borrowerType), $borrowerRefId);
+
         return array_map(
             static fn (BookIssue $bookIssue): BookIssueResponse => new BookIssueResponse($bookIssue),
             $this->bookIssueModel->findByBorrower($borrowerType, $borrowerRefId),
@@ -217,7 +243,7 @@ class BookIssueService
     private function validateBorrower(string $borrowerType, int $borrowerRefId): void
     {
         if ($borrowerType === BookIssue::BORROWER_STUDENT) {
-            AppServices::studentService()->getStudent($borrowerRefId);
+            AppServices::studentService()->assertStudentExists($borrowerRefId);
 
             return;
         }

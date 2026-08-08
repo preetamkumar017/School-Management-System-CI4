@@ -50,7 +50,7 @@ final class SeatHoldConcurrencyTest extends CIUnitTestCase
         $this->roleId = (new RoleModel())->insert([
             'role_name'      => 'Role ' . uniqid('', true),
             'is_system_role' => false,
-            'permission_set' => ['read', 'create', 'update', 'delete'],
+            'permission_set' => ['read', 'create', 'update', 'delete', 'admission.manage'],
         ], true);
 
         $this->userId = (new UserModel())->insert([
@@ -63,6 +63,13 @@ final class SeatHoldConcurrencyTest extends CIUnitTestCase
         ], true);
 
         RequestContext::setUserId($this->userId);
+        // ADR-024 §3 (Phase 2): ApplicationService's write methods now
+        // require `admission.manage` in the caller's permission set —
+        // this test calls the Service directly (no HTTP/JWT layer,
+        // deliberately — see the class docblock), so it must set
+        // RequestContext's permission set explicitly, the same way
+        // JwtAuthFilter would from a real token's claims.
+        RequestContext::setPermissionSet(['admission.manage']);
     }
 
     protected function tearDown(): void

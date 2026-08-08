@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Transport\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Core\Exceptions\ValidationException;
 use App\Modules\Administration\Entities\AuditLog;
@@ -19,13 +20,23 @@ use Config\Services as AppServices;
 
 /**
  * docs/design/transport/Phase-3-Service-Controller-Design.md
+ *
+ * RBAC (ADR-024 §3, Phase 2): `transport.manage` (Tier 1) gates
+ * allocate/deallocate/changeRoute/listByRoute (staff only).
+ * `getAllocation()` allows Tier 2 — a Student may read their own
+ * TransportAllocation (SIS Student-self ownership chain; no Guardian
+ * login exists in this system). `recalculateForRouteChange`'s caller in
+ * Fees stays ungated on Fees' side — see `InvoiceService`'s own docblock.
  */
 class TransportAllocationService
 {
+    public const PERMISSION_MANAGE = 'transport.manage';
+
     public function __construct(
         private readonly TransportAllocationModel $transportAllocationModel,
         private readonly RouteModel $routeModel,
         private readonly AuditService $auditService,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
@@ -37,7 +48,9 @@ class TransportAllocationService
      */
     public function allocate(AllocateTransportRequest $request): TransportAllocationResponse
     {
-        AppServices::studentService()->getStudent($request->studentId);
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
+        AppServices::studentService()->assertStudentExists($request->studentId);
 
         if (! preg_match('/^\d{10}$/', $request->emergencyContact)) {
             throw new ValidationException(['emergency_contact' => 'emergency_contact must be a 10-digit numeric value (BR-TRN-004).']);
@@ -97,6 +110,8 @@ class TransportAllocationService
 
     public function deallocate(int $id): TransportAllocationResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requireAllocation($id);
 
         if ($before->status !== TransportAllocation::STATUS_ACTIVE) {
@@ -116,7 +131,11 @@ class TransportAllocationService
 
     public function getAllocation(int $id): TransportAllocationResponse
     {
-        return new TransportAllocationResponse($this->requireAllocation($id));
+        $allocation = $this->requireAllocation($id);
+
+        $this->moduleAuthorizer->assertManageOrOwner(self::PERMISSION_MANAGE, 'STUDENT', $allocation->student_id);
+
+        return new TransportAllocationResponse($allocation);
     }
 
     /**
@@ -140,6 +159,8 @@ class TransportAllocationService
      */
     public function changeRoute(int $id, ChangeRouteRequest $request): TransportAllocationResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requireAllocation($id);
 
         if ($before->status !== TransportAllocation::STATUS_ACTIVE) {
@@ -196,6 +217,8 @@ class TransportAllocationService
      */
     public function listByRoute(int $routeId): array
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         return array_map(
             static fn (TransportAllocation $allocation): TransportAllocationResponse => new TransportAllocationResponse($allocation),
             $this->transportAllocationModel->findByRouteId($routeId),

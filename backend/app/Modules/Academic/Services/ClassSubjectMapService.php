@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Academic\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Modules\Academic\DTOs\ClassSubjectMapRequest;
 use App\Modules\Academic\DTOs\ClassSubjectMapResponse;
@@ -18,19 +19,25 @@ use App\Modules\Administration\Services\AuditService;
 
 /**
  * docs/design/academic/Phase-4-Service-Design.md
+ * RBAC (ADR-024 §3, Phase 2): `academic.manage` (Tier 1 only) gates writes.
  */
 class ClassSubjectMapService
 {
+    public const PERMISSION_MANAGE = 'academic.manage';
+
     public function __construct(
         private readonly ClassSubjectMapModel $classSubjectMapModel,
         private readonly ClassModel $classModel,
         private readonly SubjectModel $subjectModel,
         private readonly AuditService $auditService,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
     public function mapSubjectToClass(ClassSubjectMapRequest $request): ClassSubjectMapResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         if ($this->classModel->find($request->classId) === null) {
             throw new BusinessRuleException('CLASS_NOT_FOUND', 'Class not found.');
         }
@@ -63,6 +70,8 @@ class ClassSubjectMapService
 
     public function unmapSubjectFromClass(int $classId, int $subjectId): void
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         if (! $this->classSubjectMapModel->existsByClassIdAndSubjectId($classId, $subjectId)) {
             throw new BusinessRuleException(
                 'CLASS_SUBJECT_MAPPING_NOT_FOUND',

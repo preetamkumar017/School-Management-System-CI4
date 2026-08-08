@@ -30,6 +30,13 @@ class AddStudentToNotificationLogsRecipientType extends Migration
 
     public function down(): void
     {
+        /** @var \CodeIgniter\Database\BaseConnection $db */
+        $db = $this->db;
+
+        if (! $db->tableExists('notification_logs')) {
+            return;
+        }
+
         // Narrowing the ENUM back would truncate-fail on any row already
         // using 'Student' (a real possibility once ReservationService has
         // run) — delete those rows first so down() is a safe rollback in
@@ -37,7 +44,7 @@ class AddStudentToNotificationLogsRecipientType extends Migration
         // DatabaseTestTrait usage fully regresses/re-migrates around each
         // test, so rows a prior test committed can still be present when
         // this runs).
-        $this->db->table('notification_logs')->where('recipient_type', 'Student')->delete();
+        $db->table('notification_logs')->where('recipient_type', 'Student')->delete();
 
         $this->forge->modifyColumn('notification_logs', [
             'recipient_type' => [

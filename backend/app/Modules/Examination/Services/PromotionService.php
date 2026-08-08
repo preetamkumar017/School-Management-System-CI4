@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Examination\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Modules\Administration\Entities\AuditLog;
 use App\Modules\Administration\Services\AuditService;
@@ -19,19 +20,26 @@ use Config\Services as AppServices;
  * conditions are met. academic_closure_confirmed is system-computed
  * (ADR-005 §3); fee_closure_confirmed is now also system-computed by
  * querying Fees (ADR-014 §2) — no caller-supplied override.
+ * RBAC (ADR-024 §3, Phase 2): `examination.manage` (Tier 1 only) gates
+ * `promoteStudent()` — never self-service.
  */
 class PromotionService
 {
+    public const PERMISSION_MANAGE = 'examination.manage';
+
     public function __construct(
         private readonly PromotionRecordModel $promotionRecordModel,
         private readonly AuditService $auditService,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
     public function promoteStudent(CreatePromotionRecordRequest $request): PromotionRecordResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         // Cross-module existence checks.
-        AppServices::studentService()->getStudent($request->studentId);
+        AppServices::studentService()->assertStudentExists($request->studentId);
         $fromSession = AppServices::academicSessionService()->getSession($request->fromSessionId);
         AppServices::academicSessionService()->getSession($request->toSessionId);
         $fromClass = AppServices::classService()->getClass($request->fromClassId);

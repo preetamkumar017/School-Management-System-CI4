@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Academic\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Core\Exceptions\ValidationException;
 use App\Modules\Academic\DTOs\CreateGradingSchemeRequest;
@@ -16,17 +17,25 @@ use App\Modules\Administration\Services\AuditService;
 
 /**
  * docs/design/academic/Phase-4-Service-Design.md
+ * RBAC (ADR-024 §3, Phase 2): `academic.manage` (Tier 1 only) gates writes.
+ * `lockSchemeReferencedByClosedExam()` stays ungated — it's Examination's
+ * one-way internal call, not a user-facing Academic write.
  */
 class GradingSchemeService
 {
+    public const PERMISSION_MANAGE = 'academic.manage';
+
     public function __construct(
         private readonly GradingSchemeModel $gradingSchemeModel,
         private readonly AuditService $auditService,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
     public function createGradingScheme(CreateGradingSchemeRequest $request): GradingSchemeResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         if ($this->gradingSchemeModel->existsBySchemeName($request->schemeName)) {
             throw new BusinessRuleException(
                 'GRADING_SCHEME_NAME_ALREADY_TAKEN',
@@ -56,6 +65,8 @@ class GradingSchemeService
      */
     public function updateGradingScheme(int $id, UpdateGradingSchemeRequest $request): GradingSchemeResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requireGradingScheme($id);
 
         if ($this->gradingSchemeModel->isReferencedByClosedExam($id)) {

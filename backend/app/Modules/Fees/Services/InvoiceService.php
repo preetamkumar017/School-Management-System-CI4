@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Fees\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Core\Http\RequestContext;
 use App\Core\Pdf\PdfRenderer;
@@ -28,9 +29,20 @@ use Config\Services as AppServices;
  * docs/design/fees/Phase-3-Service-Controller-Design.md
  * docs/ADR/ADR-020-fees-gst-line-items.md (BR-FEE-007) — line-item
  * generation/regeneration.
+ *
+ * RBAC (ADR-024 §3, Phase 2): `fees.manage` (Tier 1) gates
+ * generation/late-fee/defaulter-flagging (staff only). `getInvoice()`/
+ * `getLineItems()`/`listByStudent()`/`generateInvoicePdf()` allow Tier 2 —
+ * a Student may read/download their own Invoice. Void/refund stays
+ * exactly as ADR-018 already wired it on `PaymentService`, not touched
+ * here. `recalculateForRouteChange()` stays ungated — it's Transport's
+ * one-way internal trigger (`TransportAllocationService::changeRoute()`),
+ * not a user-facing Fees write.
  */
 class InvoiceService
 {
+    public const PERMISSION_MANAGE = 'fees.manage';
+
     public function __construct(
         private readonly InvoiceModel $invoiceModel,
         private readonly InvoiceLineItemModel $invoiceLineItemModel,
@@ -40,6 +52,7 @@ class InvoiceService
         private readonly ConfigurationService $configurationService,
         private readonly DocumentService $documentService,
         private readonly PdfRenderer $pdfRenderer,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
@@ -59,7 +72,9 @@ class InvoiceService
      */
     public function generateInvoice(GenerateInvoiceRequest $request): InvoiceResponse
     {
-        $student = AppServices::studentService()->getStudent($request->studentId);
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
+        $student = AppServices::studentService()->getStudentForCrossModuleRead($request->studentId);
 
         if ($student->sectionId === null) {
             throw new BusinessRuleException(
@@ -108,7 +123,7 @@ class InvoiceService
      */
     public function recalculateForRouteChange(int $studentId, ?int $newRouteId): array
     {
-        $student = AppServices::studentService()->getStudent($studentId);
+        $student = AppServices::studentService()->getStudentForCrossModuleRead($studentId);
 
         if ($student->sectionId === null) {
             return [];
@@ -229,7 +244,9 @@ class InvoiceService
      */
     public function getLineItems(int $invoiceId): array
     {
-        $this->requireInvoice($invoiceId);
+        $invoice = $this->requireInvoice($invoiceId);
+
+        $this->moduleAuthorizer->assertManageOrOwner(self::PERMISSION_MANAGE, 'STUDENT', $invoice->student_id);
 
         return array_map(
             static fn (InvoiceLineItem $lineItem): InvoiceLineItemResponse => new InvoiceLineItemResponse($lineItem),
@@ -242,6 +259,8 @@ class InvoiceService
      */
     public function applyLateFee(int $id): InvoiceResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requireInvoice($id);
 
         if ($before->late_fee_applied) {
@@ -267,6 +286,8 @@ class InvoiceService
      */
     public function flagOverdueAsDefaulter(int $id): InvoiceResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requireInvoice($id);
 
         $isOverdue = strtotime((string) $before->due_date) < strtotime(Time::now()->toDateString());
@@ -289,7 +310,11 @@ class InvoiceService
 
     public function getInvoice(int $id): InvoiceResponse
     {
-        return new InvoiceResponse($this->requireInvoice($id));
+        $invoice = $this->requireInvoice($id);
+
+        $this->moduleAuthorizer->assertManageOrOwner(self::PERMISSION_MANAGE, 'STUDENT', $invoice->student_id);
+
+        return new InvoiceResponse($invoice);
     }
 
     /**
@@ -298,8 +323,11 @@ class InvoiceService
      */
     public function generateInvoicePdf(int $id): DocumentResponse
     {
-        $invoice   = $this->requireInvoice($id);
-        $student   = AppServices::studentService()->getStudent($invoice->student_id);
+        $invoice = $this->requireInvoice($id);
+
+        $this->moduleAuthorizer->assertManageOrOwner(self::PERMISSION_MANAGE, 'STUDENT', $invoice->student_id);
+
+        $student   = AppServices::studentService()->getStudentForCrossModuleRead($invoice->student_id);
         $lineItems = $this->invoiceLineItemModel->findByInvoiceId($id);
 
         $rows = '';
@@ -370,6 +398,8 @@ class InvoiceService
      */
     public function listByStudent(int $studentId): array
     {
+        $this->moduleAuthorizer->assertManageOrOwner(self::PERMISSION_MANAGE, 'STUDENT', $studentId);
+
         return array_map(
             static fn (Invoice $invoice): InvoiceResponse => new InvoiceResponse($invoice),
             $this->invoiceModel->findByStudentId($studentId),

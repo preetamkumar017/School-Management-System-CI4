@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Sis\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Core\Http\RequestContext;
 use App\Core\Pdf\PdfRenderer;
@@ -25,9 +26,20 @@ use Config\Services as AppServices;
 
 /**
  * docs/design/sis/Phase-4.6-Service-Design.md
+ *
+ * RBAC (ADR-024 §3, Phase 2): `sis.manage` (Tier 1) gates every write —
+ * same reasoning as HR & Payroll's `EmployeeService::updateEmployee()`
+ * Addendum precedent: every field on `UpdateStudentRequest`/section
+ * transfer/status change/photo/ID-card is administrative, not a safe
+ * self-service subset. No Guardian login exists in this system (no code
+ * path ever creates a `User` with `owner_type = GUARDIAN` — verified
+ * against `UserService`), so Tier 2 here reduces to `getStudent()`
+ * (self-read) only, exactly like `EmployeeService::getEmployee()`.
  */
 class StudentService
 {
+    public const PERMISSION_MANAGE = 'sis.manage';
+
     /**
      * Forward-only lifecycle (Phase 4.2's Student Lifecycle section):
      * DRAFT -> ACTIVE -> PROMOTED -> EXITED -> ARCHIVED.
@@ -56,6 +68,7 @@ class StudentService
         private readonly AuditService $auditService,
         private readonly DocumentService $documentService,
         private readonly PdfRenderer $pdfRenderer,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
@@ -106,6 +119,8 @@ class StudentService
 
     public function updateStudent(int $id, UpdateStudentRequest $request): StudentResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $student = $this->requireStudent($id);
         $before  = $student->toRawArray();
 
@@ -136,6 +151,8 @@ class StudentService
      */
     public function transferSection(int $id, StudentSectionTransferRequest $request): StudentResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $student = $this->requireStudent($id);
         $before  = $student->toRawArray();
 
@@ -164,6 +181,8 @@ class StudentService
 
     public function changeStatus(int $id, StudentStatusChangeRequest $request): StudentResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $student = $this->requireStudent($id);
         $before  = $student->toRawArray();
 
@@ -209,6 +228,34 @@ class StudentService
 
     public function getStudent(int $id): StudentResponse
     {
+        $this->moduleAuthorizer->assertManageOrOwner(self::PERMISSION_MANAGE, 'STUDENT', $id);
+
+        return $this->studentMapper->toResponse($this->requireStudent($id));
+    }
+
+    /**
+     * Ungated existence check for other modules' internal Service-to-Service
+     * calls validating a student_id foreign key (not a user-facing SIS
+     * read) — same "existence helper" precedent as
+     * `EmployeeService::assertEmployeeExists()` (ADR-024 Phase 1 Addendum).
+     */
+    public function assertStudentExists(int $id): void
+    {
+        $this->requireStudent($id);
+    }
+
+    /**
+     * Ungated cross-module data read — for a Service in another module
+     * that genuinely needs Student fields (section_id, category, etc.) to
+     * do its own work (e.g. Fees' invoice generation, Examination's
+     * report-card PDF), not a user-facing SIS read of the Student record
+     * itself. Same "existence/count helper" precedent as
+     * `assertStudentExists()`/`EmployeeService::assertEmployeeExists()`
+     * (ADR-024 Phase 1 Addendum), extended to a data read since several
+     * legitimate cross-module callers need more than a boolean.
+     */
+    public function getStudentForCrossModuleRead(int $id): StudentResponse
+    {
         return $this->studentMapper->toResponse($this->requireStudent($id));
     }
 
@@ -222,6 +269,8 @@ class StudentService
      */
     public function uploadPhoto(int $id, UploadStudentPhotoRequest $request): StudentResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $student = $this->requireStudent($id);
         $before  = $student->toRawArray();
 
@@ -271,6 +320,8 @@ class StudentService
      */
     public function generateIdCardPdf(int $id): DocumentResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $student = $this->requireStudent($id);
 
         $sectionLabel = 'Not Assigned';
@@ -332,6 +383,8 @@ class StudentService
      */
     public function listStudentsBySection(int $sectionId): array
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         return array_map(
             fn (Student $student): StudentResponse => $this->studentMapper->toResponse($student),
             $this->studentModel->findBySectionId($sectionId),

@@ -202,3 +202,54 @@ minimal cross-module call-site fixes listed in (a) needed to keep
 gated Administration/HR & Payroll methods they already called into.
 No other module's own Service methods gained a new authorization check in
 this phase. Phase 2 starts from the 11 modules named above.
+
+## Addendum (Phase 2 implementation, 2026-08-08)
+
+Phase 2 completes system-wide RBAC enforcement across all remaining 11 modules:
+**Academic, Admission, SIS, Examination, Timetable, Attendance, Fees, Library,
+Transport, Communication, Reports**, extending the exact `ModuleAuthorizer`
+pattern established in Phase 1.
+
+### (a) Reports Read-Gating Decision
+
+All public methods in `ReportsService` (`getSummary()`, `getFeeCollectionSummary()`,
+`getAttendanceOverview()`, `getAdmissionsFunnel()`, `getAcademicPerformance()`) are
+gated by Tier 1 `reports.manage`.
+
+**Reasoning**: While single-record master data reads (e.g. `getClass()`, `getBook()`,
+`getRoute()`) remain open to authenticated users per ADR-007 §8/ADR-011, Reports' methods
+compute aggregate statistics that span school-wide datasets across all students and employees
+(e.g., total fee collections, defaulter counts, attendance percentages across classes, exam
+gpa distributions, and full-school system counts). Exposing these aggregate summaries to callers
+without `reports.manage` would present a significant data exposure risk. Therefore, Reports' reads
+are explicitly gated by `reports.manage`.
+
+### (b) SIS Guardian Login Reachability Decision
+
+No code path in this codebase creates, authenticates, or resolves a `User` record with
+`owner_type = GUARDIAN`. User accounts are created exclusively for staff/employees and
+students.
+
+**Reasoning**: Attempting to wire Tier 2 ownership checks for Guardian logins across SIS,
+Fees, Examination, Transport, and Communication would add unreachable code paths that cannot
+be exercised by real callers. Consequently, Guardian-facing administrative management actions
+are gated by Tier 1 `<module>.manage`, and student-related reads resolve Tier 2 ownership
+through the student's own `User` account (`owner_type = STUDENT`, `owner_ref_id = student_id`).
+
+### (c) Per-Module Enforcement Summary & Judgment Calls
+
+- **Academic**: Gated by `academic.manage` (Tier 1) for all write mutations across `AcademicSessionService`, `ClassService`, `ClassSubjectMapService`, `GradingSchemeService`, `SectionService`, and `SubjectService`. Master data reads remain open.
+- **Admission**: Gated by `admission.manage` (Tier 1) for application creation, verification, shortlisting, waitlisting, rejection, hold release, and enrollment confirmation in `ApplicationService` and `SeatAllocationService`. Applicants do not possess user logins; Tier 1 only.
+- **SIS**: Gated by `sis.manage` (Tier 1) for student creation, profile updates, section transfers, status changes, photo uploads, ID card issuance, guardian creation, and student-guardian link management in `StudentService`, `GuardianService`, and `StudentGuardianLinkService`. Tier 2 (`STUDENT` owner) allows students to read their own record via `StudentService::getStudent()`.
+- **Examination**: Gated by `examination.manage` (Tier 1) for exam management, marks entry/verification, publishing, and report card generation/recalculation in `ExamService`, `MarksRecordService`, `PromotionService`, and `ReportCardService`. Tier 2 (`STUDENT` owner) allows students to read their own marks (`MarksRecordService::getMarksRecord()`) and report cards (`ReportCardService::getReportCard()`, `generatePdf()`). Cross-module aggregate read `listReportCardsByExamForCrossModuleRead()` is exposed for `ReportsService` under `reports.manage`.
+- **Timetable**: Gated by `timetable.manage` (Tier 1) for timetable entries, teacher eligibility mapping, and substitution assignments across `TimetableEntryService`, `SubjectTeacherEligibilityService`, and `SubstitutionService`.
+- **Attendance**: Gated by `attendance.manage` (Tier 1) for recording student/staff attendance. Tier 2 allows self-reading student attendance (`AttendanceService::getAttendanceRecord()`) and staff attendance (`StaffAttendanceService::getStaffAttendance()`).
+- **Fees**: Gated by `fees.manage` (Tier 1) for fee heads, fee structures, creating/voiding invoices, recording/refunding payments, and scholarship waivers in `FeeHeadService`, `FeeStructureService`, `InvoiceService`, `PaymentService`, and `ScholarshipWaiverService`. Per ADR-018, void and refund entry points remain strictly Tier 1 only. Tier 2 (`STUDENT` owner) allows reading invoices, payments, and waivers.
+- **Library**: Gated by `library.manage` (Tier 1) for book catalog updates and circulation desk operations (`issueBook`, `returnBook`, settlement) in `BookService` and `BookIssueService`. Borrowers (`STUDENT`/`EMPLOYEE`) are allowed Tier 2 access for self-service reservation management (`createReservation`, `cancelReservation`, `getReservation`, `listByBorrower`) and issue history reads (`getBookIssue`, `listByBorrower`).
+- **Transport**: Gated by `transport.manage` (Tier 1) for vehicles, routes, drivers, allocations, and trip starts in `VehicleService`, `RouteService`, `DriverService`, `TransportAllocationService`, and `TripService`. Tier 2 (`STUDENT` owner) allows students to view their own allocation via `TransportAllocationService::getAllocation()`.
+- **Communication**: Gated by `communication.manage` (Tier 1) for publishing/archiving circulars and manual notification logs/dispatches in `CircularService` and `NotificationLogService`. `NotificationLogService::createInternal()` remains ungated for automated cross-module system triggers. Tier 2 allows recipients to view their own notification log via `getNotificationLog()`.
+- **Reports**: Gated by `reports.manage` (Tier 1) across all public methods in `ReportsService`.
+
+### (d) Role Permission Seeding Verification
+
+Direct query against the dev database (`school_erp_dev`) confirmed that `IT Admin`'s `permission_set` already includes all 13 `<module>.manage` permission strings as seeded by Phase 1 migration `2026-08-08-110001_SeedModuleManagePermissions.php`. `Finance Team` carries `fees.manage` and `HR Team` carries `hr_payroll.manage`. `Employee` carries no `manage` permissions, restricting non-administrative staff to Tier 2 ownership access. No additional database migration was required for Phase 2.

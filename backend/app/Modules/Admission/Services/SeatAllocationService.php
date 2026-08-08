@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Admission\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Modules\Administration\Entities\AuditLog;
 use App\Modules\Administration\Services\AuditService;
@@ -20,17 +21,24 @@ use Config\Services as AppServices;
  * update lives on SeatAllocationModel directly (Phase 4's decision) and
  * is invoked by Stage 5's Confirm Enrollment orchestration, not exposed
  * as a public method here.
+ *
+ * RBAC (ADR-024 §3, Phase 2): `admission.manage` (Tier 1 only) gates writes.
  */
 class SeatAllocationService
 {
+    public const PERMISSION_MANAGE = 'admission.manage';
+
     public function __construct(
         private readonly SeatAllocationModel $seatAllocationModel,
         private readonly AuditService $auditService,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
     public function createSeatAllocation(CreateSeatAllocationRequest $request): SeatAllocationResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         AppServices::classService()->getClass($request->classId);
         AppServices::academicSessionService()->getSession($request->academicSessionId);
 
@@ -65,6 +73,8 @@ class SeatAllocationService
 
     public function updateCapacity(int $id, UpdateSeatAllocationCapacityRequest $request): SeatAllocationResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requireSeatAllocation($id);
 
         if ($request->totalCapacity < $before->seats_filled) {

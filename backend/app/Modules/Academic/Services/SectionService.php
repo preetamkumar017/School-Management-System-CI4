@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Academic\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Modules\Academic\DTOs\CreateSectionRequest;
 use App\Modules\Academic\DTOs\SectionResponse;
@@ -18,19 +19,29 @@ use App\Modules\Administration\Services\AuditService;
  * docs/design/academic/Phase-4-Service-Design.md
  * getSection is the method Admission/SIS call (via this Service, never
  * SectionModel directly) to validate a section_id and read its capacity
- * during their own orchestration (DG-SIS-001, resolved by ADR-004).
+ * during their own orchestration (DG-SIS-001, resolved by ADR-004) — that
+ * cross-module call is a foreign-key/capacity check, not a user-facing
+ * Academic read, so it stays ungated (ADR-024 Phase 1 Addendum's
+ * "existence/count helper" precedent).
+ *
+ * RBAC (ADR-024 §3, Phase 2): `academic.manage` (Tier 1 only) gates writes.
  */
 class SectionService
 {
+    public const PERMISSION_MANAGE = 'academic.manage';
+
     public function __construct(
         private readonly SectionModel $sectionModel,
         private readonly ClassModel $classModel,
         private readonly AuditService $auditService,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
     public function createSection(CreateSectionRequest $request): SectionResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         if ($this->classModel->find($request->classId) === null) {
             throw new BusinessRuleException('CLASS_NOT_FOUND', 'Class not found.');
         }
@@ -57,6 +68,8 @@ class SectionService
 
     public function updateSection(int $id, UpdateSectionRequest $request): SectionResponse
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $before = $this->requireSection($id);
 
         if ($this->sectionModel->existsByClassIdAndSectionNameExceptId($before->class_id, $request->sectionName, $id)) {

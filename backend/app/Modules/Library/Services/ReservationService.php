@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Modules\Library\Services;
 
+use App\Core\Authz\ModuleAuthorizer;
 use App\Core\Exceptions\BusinessRuleException;
 use App\Modules\Administration\Entities\AuditLog;
 use App\Modules\Administration\Services\AuditService;
@@ -24,20 +25,37 @@ use Config\Services as AppServices;
 /**
  * docs/ADR/ADR-017-library-reservation-queue.md — BR-LIB-006. Explicit
  * trigger only; no scheduler exists in this codebase.
+ *
+ * RBAC (ADR-024 §3, Phase 2): `library.manage` (Tier 1) OR Tier 2 —
+ * `createReservation()`/`cancelReservation()`/`getReservation()`/
+ * `listByBorrower()` allow the borrower to act on their own reservation
+ * directly via `borrower_type`/`borrower_ref_id` (ADR-024 §1's "simplest
+ * Tier 2 case" note). `listByBook()`/`processExpiredNotifications()` stay
+ * `library.manage`-only (librarian queue-management views, not
+ * single-borrower actions). `notifyNextInQueue()`/
+ * `lockNotifiedReservationForBook()`/`markFulfilled()` stay ungated —
+ * internal cross-method/cross-Service calls (from `BookIssueService`,
+ * already gated at its own entry point), not independent user-facing
+ * entry points.
  */
 class ReservationService
 {
+    public const PERMISSION_MANAGE = 'library.manage';
+
     public function __construct(
         private readonly ReservationModel $reservationModel,
         private readonly BookModel $bookModel,
         private readonly AuditService $auditService,
         private readonly ConfigurationService $configurationService,
         private readonly NotificationLogService $notificationLogService,
+        private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
     }
 
     public function createReservation(CreateReservationRequest $request): ReservationResponse
     {
+        $this->moduleAuthorizer->assertManageOrOwner(self::PERMISSION_MANAGE, strtoupper($request->borrowerType), $request->borrowerRefId);
+
         $book = $this->bookModel->find($request->bookId);
 
         if ($book === null) {
@@ -79,6 +97,8 @@ class ReservationService
     {
         $before = $this->requireReservation($id);
 
+        $this->moduleAuthorizer->assertManageOrOwner(self::PERMISSION_MANAGE, strtoupper($before->borrower_type), $before->borrower_ref_id);
+
         if (! in_array($before->status, [Reservation::STATUS_WAITING, Reservation::STATUS_NOTIFIED], true)) {
             throw new BusinessRuleException(
                 'RESERVATION_INVALID_STATUS_TRANSITION',
@@ -105,7 +125,11 @@ class ReservationService
 
     public function getReservation(int $id): ReservationResponse
     {
-        return new ReservationResponse($this->requireReservation($id));
+        $reservation = $this->requireReservation($id);
+
+        $this->moduleAuthorizer->assertManageOrOwner(self::PERMISSION_MANAGE, strtoupper($reservation->borrower_type), $reservation->borrower_ref_id);
+
+        return new ReservationResponse($reservation);
     }
 
     /**
@@ -113,6 +137,8 @@ class ReservationService
      */
     public function listByBook(int $bookId): array
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         return array_map(
             static fn (Reservation $reservation): ReservationResponse => new ReservationResponse($reservation),
             $this->reservationModel->findByBook($bookId),
@@ -124,6 +150,8 @@ class ReservationService
      */
     public function listByBorrower(string $borrowerType, int $borrowerRefId): array
     {
+        $this->moduleAuthorizer->assertManageOrOwner(self::PERMISSION_MANAGE, strtoupper($borrowerType), $borrowerRefId);
+
         return array_map(
             static fn (Reservation $reservation): ReservationResponse => new ReservationResponse($reservation),
             $this->reservationModel->findByBorrower($borrowerType, $borrowerRefId),
@@ -168,7 +196,7 @@ class ReservationService
 
         $book = $this->bookModel->find($bookId);
 
-        $this->notificationLogService->create(new CreateNotificationLogRequest(
+        $this->notificationLogService->createInternal(new CreateNotificationLogRequest(
             $after->borrower_type === Reservation::BORROWER_STUDENT ? NotificationLog::RECIPIENT_STUDENT : NotificationLog::RECIPIENT_EMPLOYEE,
             $after->borrower_ref_id,
             NotificationLog::CHANNEL_SMS,
@@ -186,6 +214,8 @@ class ReservationService
      */
     public function processExpiredNotifications(): ProcessExpiredNotificationsResult
     {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
         $now        = Time::now();
         $candidates = $this->reservationModel->findExpiredNotifications($now->toDateTimeString());
 
@@ -281,7 +311,7 @@ class ReservationService
     private function validateBorrower(string $borrowerType, int $borrowerRefId): void
     {
         if ($borrowerType === Reservation::BORROWER_STUDENT) {
-            AppServices::studentService()->getStudent($borrowerRefId);
+            AppServices::studentService()->assertStudentExists($borrowerRefId);
 
             return;
         }
