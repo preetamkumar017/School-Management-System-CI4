@@ -7,6 +7,7 @@ import DashboardPage from "./pages/DashboardPage";
 import AdministrationPage from "./pages/administration/AdministrationPage";
 import StudentsPage from "./pages/sis/StudentsPage";
 import AdmissionPage from "./pages/admission/AdmissionPage";
+import FeesPage from "./pages/fees/FeesPage";
 
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
                     <Route path="/administration" element={<AdministrationPage />} />
                     <Route path="/students" element={<StudentsPage />} />
                     <Route path="/admission" element={<AdmissionPage />} />
+                    <Route path="/fees" element={<FeesPage />} />
                   </Routes>
                 </DashboardLayout>
               </ProtectedRoute>
