@@ -21,10 +21,26 @@ interface FormState {
 
 const EMPTY_FORM: FormState = { leave_type: "CL", start_date: "", end_date: "" };
 
+interface LeaveBalances {
+  employee_id: number;
+  year: number;
+  balances: Record<
+    "CL" | "SL" | "EL",
+    { allocation: number; consumed: number; remaining: number }
+  >;
+}
+
+const LEAVE_TYPE_LABELS: Record<"CL" | "SL" | "EL", string> = {
+  CL: "Casual Leave",
+  SL: "Sick Leave",
+  EL: "Earned Leave",
+};
+
 export default function LeaveRequestsPage() {
   const [employeeIdInput, setEmployeeIdInput] = useState("");
   const [employeeId, setEmployeeId] = useState<number | null>(null);
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
+  const [balances, setBalances] = useState<LeaveBalances | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -37,9 +53,14 @@ export default function LeaveRequestsPage() {
   function reload(forEmployeeId: number) {
     setIsLoading(true);
     setError(null);
-    api
-      .get<{ data: LeaveRequest[] }>("/hr-payroll/leave-requests", { params: { employee_id: forEmployeeId } })
-      .then((response) => setRequests(response.data.data))
+    Promise.all([
+      api.get<{ data: LeaveRequest[] }>("/hr-payroll/leave-requests", { params: { employee_id: forEmployeeId } }),
+      api.get<{ data: LeaveBalances }>("/hr-payroll/leave-requests/balance", { params: { employee_id: forEmployeeId } }),
+    ])
+      .then(([requestsResponse, balanceResponse]) => {
+        setRequests(requestsResponse.data.data);
+        setBalances(balanceResponse.data.data);
+      })
       .catch((err) => setError(apiErrorMessage(err)))
       .finally(() => setIsLoading(false));
   }
@@ -130,6 +151,33 @@ export default function LeaveRequestsPage() {
         <p role="alert" className="text-sm text-red-600 dark:text-red-400">
           {error}
         </p>
+      )}
+
+      {employeeId !== null && balances && !isLoading && !error && (
+        <div className="mb-4 grid grid-cols-3 gap-3">
+          {(["CL", "SL", "EL"] as const).map((type) => {
+            const b = balances.balances[type];
+            const low = b.remaining <= 2;
+            return (
+              <div
+                key={type}
+                className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950"
+              >
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                  {LEAVE_TYPE_LABELS[type]} ({balances.year})
+                </p>
+                <p
+                  className={`mt-1 text-2xl font-semibold ${
+                    low ? "text-amber-600 dark:text-amber-400" : "text-slate-900 dark:text-slate-100"
+                  }`}
+                >
+                  {b.remaining} <span className="text-sm font-normal text-slate-400">/ {b.allocation} left</span>
+                </p>
+                <p className="text-xs text-slate-400">{b.consumed} used</p>
+              </div>
+            );
+          })}
+        </div>
       )}
 
       {employeeId !== null && !isLoading && !error && (

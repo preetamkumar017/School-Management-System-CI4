@@ -130,4 +130,34 @@ class LeaveRequestController extends BaseController
 
         return $this->respondSuccess(array_map(static fn ($response) => $response->toArray(), $responses));
     }
+
+    #[OA\Get(
+        path: '/hr-payroll/leave-requests/balance',
+        tags: ['Leave Requests'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'employee_id', in: 'query', required: true, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'year', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'BR-HR-004 read-only balance visibility — allocation/consumed/remaining per leave type for the given calendar year.',
+            ),
+        ],
+    )]
+    public function balance()
+    {
+        $employeeId = (int) ($this->request->getGet('employee_id') ?? 0);
+        $yearParam  = $this->request->getGet('year');
+        $year       = $yearParam !== null && $yearParam !== '' ? (int) $yearParam : (int) date('Y');
+
+        if ($employeeId <= 0) {
+            throw new ValidationException(['employee_id' => 'employee_id query parameter is required.']);
+        }
+
+        $balances = Services::leaveRequestService()->getBalances($employeeId, $year);
+
+        return $this->respondSuccess(['employee_id' => $employeeId, 'year' => $year, 'balances' => $balances]);
+    }
 }

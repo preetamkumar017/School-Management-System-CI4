@@ -107,4 +107,32 @@ final class LeaveRequestTest extends HrPayrollTestCase
             403,
         );
     }
+
+    /**
+     * BR-HR-004 balance visibility: a real approved CL request reduces
+     * the remaining balance by its exact day count, and other leave
+     * types stay untouched.
+     */
+    public function testBalanceReflectsApprovedConsumption(): void
+    {
+        $user       = $this->createUser();
+        $tokens     = $this->loginAs($user['username']);
+        $headers    = $this->authHeaders($tokens['access_token']);
+        $employeeId = $this->createEmployeeFixture();
+
+        $leaveRequestId = $this->createLeaveRequestFixture($employeeId, 'CL', '2026-03-01', '2026-03-03');
+        $this->withHeaders($headers)->withBodyFormat('json')->post("api/v1/hr-payroll/leave-requests/{$leaveRequestId}/decide", [
+            'decision' => 'Approved',
+        ])->assertStatus(200);
+
+        $balance = $this->withHeaders($headers)->get("api/v1/hr-payroll/leave-requests/balance?employee_id={$employeeId}&year=2026");
+        $balance->assertStatus(200);
+        $data = $this->decode($balance)['data'];
+
+        $this->assertSame(12, $data['balances']['CL']['allocation']);
+        $this->assertSame(3, $data['balances']['CL']['consumed']);
+        $this->assertSame(9, $data['balances']['CL']['remaining']);
+        $this->assertSame(10, $data['balances']['SL']['remaining']);
+        $this->assertSame(15, $data['balances']['EL']['remaining']);
+    }
 }

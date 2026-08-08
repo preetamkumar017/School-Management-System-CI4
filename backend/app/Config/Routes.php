@@ -227,6 +227,7 @@ $routes->group('api/v1/hr-payroll', ['namespace' => 'App\Modules\HrPayroll\Contr
 
     $routes->post('leave-requests', 'LeaveRequestController::create');
     $routes->post('leave-requests/(:num)/decide', 'LeaveRequestController::decide/$1');
+    $routes->get('leave-requests/balance', 'LeaveRequestController::balance');
     $routes->get('leave-requests/(:num)', 'LeaveRequestController::show/$1');
     $routes->get('leave-requests', 'LeaveRequestController::index');
 });

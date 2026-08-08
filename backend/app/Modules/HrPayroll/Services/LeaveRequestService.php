@@ -163,6 +163,36 @@ class LeaveRequestService
         );
     }
 
+    /**
+     * Read-only balance visibility for the given calendar year — reuses
+     * the exact allocation-minus-consumed computation `decide()` already
+     * enforces server-side, just without a pending request's own days
+     * subtracted. No new business rule; existing logic exposed as a read.
+     *
+     * @return array<string, array{allocation: int, consumed: int, remaining: int}>
+     */
+    public function getBalances(int $employeeId, int $year): array
+    {
+        if ($this->employeeModel->find($employeeId) === null) {
+            throw new BusinessRuleException('EMPLOYEE_NOT_FOUND', 'Employee not found.');
+        }
+
+        $balances = [];
+
+        foreach (self::ALLOCATION_CONFIG_KEYS as $leaveType => $configKey) {
+            $allocation = (int) $this->configurationService->getNumber($configKey);
+            $consumed   = $this->leaveRequestModel->sumApprovedDaysByEmployeeTypeYear($employeeId, $leaveType, $year);
+
+            $balances[$leaveType] = [
+                'allocation' => $allocation,
+                'consumed'   => $consumed,
+                'remaining'  => $allocation - $consumed,
+            ];
+        }
+
+        return $balances;
+    }
+
     private function projectedBalanceAfter(LeaveRequest $leaveRequest): int
     {
         $year       = (int) (new \DateTimeImmutable((string) $leaveRequest->start_date))->format('Y');
