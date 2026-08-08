@@ -72,7 +72,7 @@ export default function EmployeeEditModal({
   }
 
   return (
-    <Modal title={`Edit — ${employee.employee_code}`} onClose={onClose}>
+    <Modal title={`Edit Employee — ${employee.employee_code}`} onClose={onClose} maxWidth="3xl">
       <form onSubmit={handleSave} className="max-h-[75vh] space-y-4 overflow-y-auto pr-1">
         <div>
           <label className={labelClass}>Full name</label>

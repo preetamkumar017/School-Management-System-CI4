@@ -260,7 +260,7 @@ export default function EmployeesPage() {
       )}
 
       {isCreating && (
-        <Modal title="New Employee" onClose={() => setIsCreating(false)}>
+        <Modal title="New Employee Registration" onClose={() => setIsCreating(false)} maxWidth="3xl">
           <form onSubmit={handleSubmit} className="max-h-[75vh] space-y-4 overflow-y-auto pr-1">
             <div className="grid grid-cols-2 gap-3">
               <div>
