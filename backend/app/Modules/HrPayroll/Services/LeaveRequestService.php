@@ -43,9 +43,12 @@ class LeaveRequestService
     public const PERMISSION_MANAGE = 'hr_payroll.manage';
 
     private const ALLOCATION_CONFIG_KEYS = [
-        LeaveRequest::TYPE_CL => 'hr_payroll.leave_allocation.cl',
-        LeaveRequest::TYPE_SL => 'hr_payroll.leave_allocation.sl',
-        LeaveRequest::TYPE_EL => 'hr_payroll.leave_allocation.el',
+        LeaveRequest::TYPE_CL  => 'hr_payroll.leave_allocation.cl',
+        LeaveRequest::TYPE_SL  => 'hr_payroll.leave_allocation.sl',
+        LeaveRequest::TYPE_EL  => 'hr_payroll.leave_allocation.el',
+        LeaveRequest::TYPE_ML  => 'hr_payroll.leave_allocation.ml',
+        LeaveRequest::TYPE_LWP => 'hr_payroll.leave_allocation.lwp',
+        LeaveRequest::TYPE_DL  => 'hr_payroll.leave_allocation.dl',
     ];
 
     public function __construct(
@@ -77,11 +80,13 @@ class LeaveRequestService
         }
 
         $id = $this->leaveRequestModel->insert([
-            'employee_id' => $request->employeeId,
-            'leave_type'  => $request->leaveType,
-            'start_date'  => $request->startDate,
-            'end_date'    => $request->endDate,
-            'status'      => LeaveRequest::STATUS_PENDING,
+            'employee_id'          => $request->employeeId,
+            'leave_type'           => $request->leaveType,
+            'start_date'           => $request->startDate,
+            'end_date'             => $request->endDate,
+            'reason'               => $request->reason,
+            'duty_leave_reference' => $request->dutyLeaveReference,
+            'status'               => LeaveRequest::STATUS_PENDING,
         ], true);
 
         $leaveRequest = $this->leaveRequestModel->find($id);
@@ -95,12 +100,6 @@ class LeaveRequestService
      * BR-HR-004: approval blocked if the projected balance would go
      * negative, unless override_reason is supplied — override authority
      * decided as HR role, logged (ADR-008 §7).
-     */
-    /**
-     * RBAC (ADR-024 §3): `hr_payroll.manage`-only — approving/rejecting
-     * leave is never self-service, regardless of the separate
-     * `PERMISSION_OVERRIDE` check below (ADR-015), which stays as-is on
-     * top of this.
      */
     public function decide(int $id, DecideLeaveRequestRequest $request): LeaveRequestResponse
     {
@@ -120,7 +119,7 @@ class LeaveRequestService
         }
 
         if ($request->decision === LeaveRequest::STATUS_APPROVED) {
-            $projectedBalance = $this->projectedBalanceAfter($before);
+            $projectedBalance  = $this->projectedBalanceAfter($before);
             $hasOverrideReason = $request->overrideReason !== null && trim($request->overrideReason) !== '';
 
             if ($projectedBalance < 0) {
@@ -207,13 +206,18 @@ class LeaveRequestService
         $balances = [];
 
         foreach (self::ALLOCATION_CONFIG_KEYS as $leaveType => $configKey) {
-            $allocation = (int) $this->configurationService->getNumber($configKey);
-            $consumed   = $this->leaveRequestModel->sumApprovedDaysByEmployeeTypeYear($employeeId, $leaveType, $year);
+            $allocation = match ($leaveType) {
+                LeaveRequest::TYPE_ML  => 180,
+                LeaveRequest::TYPE_LWP => 999,
+                LeaveRequest::TYPE_DL  => 999,
+                default => (int) $this->configurationService->getNumber($configKey),
+            };
+            $consumed = $this->leaveRequestModel->sumApprovedDaysByEmployeeTypeYear($employeeId, $leaveType, $year);
 
             $balances[$leaveType] = [
                 'allocation' => $allocation,
                 'consumed'   => $consumed,
-                'remaining'  => $allocation - $consumed,
+                'remaining'  => max(0, $allocation - $consumed),
             ];
         }
 
@@ -222,9 +226,18 @@ class LeaveRequestService
 
     private function projectedBalanceAfter(LeaveRequest $leaveRequest): int
     {
-        $year       = (int) (new \DateTimeImmutable((string) $leaveRequest->start_date))->format('Y');
+        if ($leaveRequest->leave_type === LeaveRequest::TYPE_LWP || $leaveRequest->leave_type === LeaveRequest::TYPE_DL) {
+            return 0; // LWP and Duty Leave have no balance limit (always allowed)
+        }
+
+        $year          = (int) (new \DateTimeImmutable((string) $leaveRequest->start_date))->format('Y');
         $allocationKey = self::ALLOCATION_CONFIG_KEYS[$leaveRequest->leave_type] ?? null;
-        $allocation    = $allocationKey === null ? 0 : (int) $this->configurationService->getNumber($allocationKey);
+
+        $allocation = match ($leaveRequest->leave_type) {
+            LeaveRequest::TYPE_ML => 180,
+            default               => $allocationKey === null ? 0 : (int) $this->configurationService->getNumber($allocationKey),
+        };
+
         $consumed   = $this->leaveRequestModel->sumApprovedDaysByEmployeeTypeYear($leaveRequest->employee_id, $leaveRequest->leave_type, $year);
         $thisRequest = (new \DateTimeImmutable((string) $leaveRequest->start_date))
             ->diff(new \DateTimeImmutable((string) $leaveRequest->end_date))->days + 1;

@@ -63,13 +63,24 @@ class EmployeeService
         }
 
         $id = $this->employeeModel->insert([
-            'employee_code'          => $request->employeeCode,
-            'full_name'              => $request->fullName,
-            'department_id'          => $request->departmentId,
-            'designation_id'         => $request->designationId,
-            'joining_date'           => $request->joiningDate,
-            'salary_structure_json'  => $request->salaryStructureJson,
-            'status'                 => Employee::STATUS_ACTIVE,
+            'employee_code'         => $request->employeeCode,
+            'full_name'             => $request->fullName,
+            'department_id'         => $request->departmentId,
+            'designation_id'        => $request->designationId,
+            'staff_type'            => $request->staffType,
+            'qualification'         => $request->qualification,
+            'aadhaar_number'        => $request->aadhaarNumber,
+            'pan_number'            => $request->panNumber,
+            'pf_uan'                => $request->pfUan,
+            'esi_number'            => $request->esiNumber,
+            'bank_name'             => $request->bankName,
+            'bank_account_number'   => $request->bankAccountNumber,
+            'bank_ifsc_code'        => $request->bankIfscCode,
+            'joining_date'          => $request->joiningDate,
+            'probation_end_date'    => $request->probationEndDate,
+            'confirmation_date'     => $request->confirmationDate,
+            'salary_structure_json' => $request->salaryStructureJson,
+            'status'                => Employee::STATUS_ACTIVE,
         ], true);
 
         $employee = $this->employeeModel->find($id);
@@ -109,6 +120,40 @@ class EmployeeService
             'designation_id'        => $request->designationId,
             'salary_structure_json' => $request->salaryStructureJson,
         ];
+
+        if ($request->staffType !== null) {
+            $data['staff_type'] = $request->staffType;
+        }
+        if ($request->qualification !== null) {
+            $data['qualification'] = $request->qualification;
+        }
+        if ($request->aadhaarNumber !== null) {
+            $data['aadhaar_number'] = $request->aadhaarNumber;
+        }
+        if ($request->panNumber !== null) {
+            $data['pan_number'] = $request->panNumber;
+        }
+        if ($request->pfUan !== null) {
+            $data['pf_uan'] = $request->pfUan;
+        }
+        if ($request->esiNumber !== null) {
+            $data['esi_number'] = $request->esiNumber;
+        }
+        if ($request->bankName !== null) {
+            $data['bank_name'] = $request->bankName;
+        }
+        if ($request->bankAccountNumber !== null) {
+            $data['bank_account_number'] = $request->bankAccountNumber;
+        }
+        if ($request->bankIfscCode !== null) {
+            $data['bank_ifsc_code'] = $request->bankIfscCode;
+        }
+        if ($request->probationEndDate !== null) {
+            $data['probation_end_date'] = $request->probationEndDate;
+        }
+        if ($request->confirmationDate !== null) {
+            $data['confirmation_date'] = $request->confirmationDate;
+        }
 
         if ($request->exitDate !== null) {
             $data['exit_date'] = $request->exitDate;

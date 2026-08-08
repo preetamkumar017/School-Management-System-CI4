@@ -11,6 +11,8 @@ final class CreateLeaveRequestRequest
         public readonly string $leaveType,
         public readonly string $startDate,
         public readonly string $endDate,
+        public readonly ?string $reason = null,
+        public readonly ?string $dutyLeaveReference = null,
     ) {
     }
 }

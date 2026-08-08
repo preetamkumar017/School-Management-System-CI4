@@ -16,18 +16,22 @@ final class LeaveRequestResponse
     public readonly string $leaveType;
     public readonly string $startDate;
     public readonly string $endDate;
+    public readonly ?string $reason;
+    public readonly ?string $dutyLeaveReference;
     public readonly string $status;
     public readonly ?int $approverId;
 
     public function __construct(LeaveRequest $leaveRequest)
     {
-        $this->leaveRequestId = $leaveRequest->leave_request_id;
-        $this->employeeId     = $leaveRequest->employee_id;
-        $this->leaveType      = $leaveRequest->leave_type;
-        $this->startDate      = $leaveRequest->start_date;
-        $this->endDate        = $leaveRequest->end_date;
-        $this->status         = $leaveRequest->status;
-        $this->approverId     = $leaveRequest->approver_id;
+        $this->leaveRequestId     = $leaveRequest->leave_request_id;
+        $this->employeeId         = $leaveRequest->employee_id;
+        $this->leaveType          = $leaveRequest->leave_type;
+        $this->startDate          = $leaveRequest->start_date;
+        $this->endDate            = $leaveRequest->end_date;
+        $this->reason             = $leaveRequest->reason;
+        $this->dutyLeaveReference = $leaveRequest->duty_leave_reference;
+        $this->status             = $leaveRequest->status;
+        $this->approverId         = $leaveRequest->approver_id;
     }
 
     /**
@@ -36,13 +40,15 @@ final class LeaveRequestResponse
     public function toArray(): array
     {
         return [
-            'leave_request_id' => $this->leaveRequestId,
-            'employee_id'      => $this->employeeId,
-            'leave_type'       => $this->leaveType,
-            'start_date'       => $this->startDate,
-            'end_date'         => $this->endDate,
-            'status'           => $this->status,
-            'approver_id'      => $this->approverId,
+            'leave_request_id'     => $this->leaveRequestId,
+            'employee_id'          => $this->employeeId,
+            'leave_type'           => $this->leaveType,
+            'start_date'           => $this->startDate,
+            'end_date'             => $this->endDate,
+            'reason'               => $this->reason,
+            'duty_leave_reference' => $this->dutyLeaveReference,
+            'status'               => $this->status,
+            'approver_id'          => $this->approverId,
         ];
     }
 }

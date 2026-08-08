@@ -20,7 +20,9 @@ class PayrollRunModel extends BaseModel
     protected $allowedFields = [
         'employee_id',
         'pay_period',
+        'lwp_days',
         'gross_pay',
+        'earnings_json',
         'deductions_json',
         'net_pay',
         'status',
@@ -28,8 +30,17 @@ class PayrollRunModel extends BaseModel
         'updated_by',
     ];
 
-    protected $beforeInsert = ['stampCreatedBy', 'encodeDeductionsJson'];
-    protected $beforeUpdate = ['stampUpdatedBy', 'encodeDeductionsJson'];
+    protected $beforeInsert = ['stampCreatedBy', 'encodeEarningsJson', 'encodeDeductionsJson'];
+    protected $beforeUpdate = ['stampUpdatedBy', 'encodeEarningsJson', 'encodeDeductionsJson'];
+
+    protected function encodeEarningsJson(array $eventData): array
+    {
+        if (isset($eventData['data']['earnings_json']) && is_array($eventData['data']['earnings_json'])) {
+            $eventData['data']['earnings_json'] = json_encode($eventData['data']['earnings_json']);
+        }
+
+        return $eventData;
+    }
 
     protected function encodeDeductionsJson(array $eventData): array
     {

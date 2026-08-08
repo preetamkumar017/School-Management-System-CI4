@@ -19,7 +19,14 @@ use OpenApi\Attributes as OA;
 #[OA\Tag(name: 'Leave Requests')]
 class LeaveRequestController extends BaseController
 {
-    private const VALID_TYPES     = [LeaveRequest::TYPE_CL, LeaveRequest::TYPE_SL, LeaveRequest::TYPE_EL];
+    private const VALID_TYPES = [
+        LeaveRequest::TYPE_CL,
+        LeaveRequest::TYPE_SL,
+        LeaveRequest::TYPE_EL,
+        LeaveRequest::TYPE_ML,
+        LeaveRequest::TYPE_LWP,
+        LeaveRequest::TYPE_DL,
+    ];
     private const VALID_DECISIONS = [LeaveRequest::STATUS_APPROVED, LeaveRequest::STATUS_REJECTED];
 
     #[OA\Post(
@@ -36,10 +43,12 @@ class LeaveRequestController extends BaseController
     {
         $body = $this->request->getJSON(true) ?? [];
 
-        $employeeId = (int) ($body['employee_id'] ?? 0);
-        $leaveType  = (string) ($body['leave_type'] ?? '');
-        $startDate  = (string) ($body['start_date'] ?? '');
-        $endDate    = (string) ($body['end_date'] ?? '');
+        $employeeId         = (int) ($body['employee_id'] ?? 0);
+        $leaveType          = (string) ($body['leave_type'] ?? '');
+        $startDate          = (string) ($body['start_date'] ?? '');
+        $endDate            = (string) ($body['end_date'] ?? '');
+        $reason             = isset($body['reason']) && $body['reason'] !== '' ? (string) $body['reason'] : null;
+        $dutyLeaveReference = isset($body['duty_leave_reference']) && $body['duty_leave_reference'] !== '' ? (string) $body['duty_leave_reference'] : null;
 
         $fields = [];
 
@@ -48,7 +57,7 @@ class LeaveRequestController extends BaseController
         }
 
         if (! in_array($leaveType, self::VALID_TYPES, true)) {
-            $fields['leave_type'] = 'leave_type must be one of CL, SL, EL.';
+            $fields['leave_type'] = 'leave_type must be one of CL, SL, EL, ML, LWP, DL.';
         }
 
         if ($startDate === '' || $endDate === '' || $endDate < $startDate) {
@@ -60,7 +69,7 @@ class LeaveRequestController extends BaseController
         }
 
         $response = Services::leaveRequestService()->createLeaveRequest(
-            new CreateLeaveRequestRequest($employeeId, $leaveType, $startDate, $endDate),
+            new CreateLeaveRequestRequest($employeeId, $leaveType, $startDate, $endDate, $reason, $dutyLeaveReference),
         );
 
         return $this->respondCreated($response->toArray());

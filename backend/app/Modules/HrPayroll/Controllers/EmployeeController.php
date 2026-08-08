@@ -8,6 +8,7 @@ use App\Core\BaseController;
 use App\Core\Exceptions\ValidationException;
 use App\Modules\HrPayroll\DTOs\CreateEmployeeRequest;
 use App\Modules\HrPayroll\DTOs\UpdateEmployeeRequest;
+use App\Modules\HrPayroll\Entities\Employee;
 use Config\Services;
 use OpenApi\Attributes as OA;
 
@@ -18,6 +19,13 @@ use OpenApi\Attributes as OA;
 #[OA\Tag(name: 'Employees')]
 class EmployeeController extends BaseController
 {
+    private const VALID_STAFF_TYPES = [
+        Employee::STAFF_TYPE_TEACHING,
+        Employee::STAFF_TYPE_NON_TEACHING,
+        Employee::STAFF_TYPE_SUPPORT,
+        Employee::STAFF_TYPE_ADMINISTRATIVE,
+    ];
+
     #[OA\Post(
         path: '/hr-payroll/employees',
         tags: ['Employees'],
@@ -32,12 +40,23 @@ class EmployeeController extends BaseController
     {
         $body = $this->request->getJSON(true) ?? [];
 
-        $code          = (string) ($body['employee_code'] ?? '');
-        $fullName      = (string) ($body['full_name'] ?? '');
-        $departmentId  = (int) ($body['department_id'] ?? 0);
-        $designationId = (int) ($body['designation_id'] ?? 0);
-        $joiningDate   = (string) ($body['joining_date'] ?? '');
-        $salaryJson    = is_array($body['salary_structure_json'] ?? null) ? $body['salary_structure_json'] : [];
+        $code               = (string) ($body['employee_code'] ?? '');
+        $fullName           = (string) ($body['full_name'] ?? '');
+        $departmentId       = (int) ($body['department_id'] ?? 0);
+        $designationId      = (int) ($body['designation_id'] ?? 0);
+        $joiningDate        = (string) ($body['joining_date'] ?? '');
+        $salaryJson         = is_array($body['salary_structure_json'] ?? null) ? $body['salary_structure_json'] : [];
+        $staffType          = (string) ($body['staff_type'] ?? Employee::STAFF_TYPE_TEACHING);
+        $qualification      = isset($body['qualification']) && $body['qualification'] !== '' ? (string) $body['qualification'] : null;
+        $aadhaarNumber      = isset($body['aadhaar_number']) && $body['aadhaar_number'] !== '' ? (string) $body['aadhaar_number'] : null;
+        $panNumber          = isset($body['pan_number']) && $body['pan_number'] !== '' ? (string) $body['pan_number'] : null;
+        $pfUan              = isset($body['pf_uan']) && $body['pf_uan'] !== '' ? (string) $body['pf_uan'] : null;
+        $esiNumber          = isset($body['esi_number']) && $body['esi_number'] !== '' ? (string) $body['esi_number'] : null;
+        $bankName           = isset($body['bank_name']) && $body['bank_name'] !== '' ? (string) $body['bank_name'] : null;
+        $bankAccountNumber  = isset($body['bank_account_number']) && $body['bank_account_number'] !== '' ? (string) $body['bank_account_number'] : null;
+        $bankIfscCode       = isset($body['bank_ifsc_code']) && $body['bank_ifsc_code'] !== '' ? (string) $body['bank_ifsc_code'] : null;
+        $probationEndDate   = isset($body['probation_end_date']) && $body['probation_end_date'] !== '' ? (string) $body['probation_end_date'] : null;
+        $confirmationDate   = isset($body['confirmation_date']) && $body['confirmation_date'] !== '' ? (string) $body['confirmation_date'] : null;
 
         $fields = [];
 
@@ -61,12 +80,34 @@ class EmployeeController extends BaseController
             $fields['joining_date'] = 'joining_date is required.';
         }
 
+        if (! in_array($staffType, self::VALID_STAFF_TYPES, true)) {
+            $fields['staff_type'] = 'staff_type must be one of Teaching, NonTeaching, Support, Administrative.';
+        }
+
         if ($fields !== []) {
             throw new ValidationException($fields);
         }
 
         $response = Services::employeeService()->createEmployee(
-            new CreateEmployeeRequest($code, $fullName, $departmentId, $designationId, $joiningDate, $salaryJson),
+            new CreateEmployeeRequest(
+                $code,
+                $fullName,
+                $departmentId,
+                $designationId,
+                $joiningDate,
+                $salaryJson,
+                $staffType,
+                $qualification,
+                $aadhaarNumber,
+                $panNumber,
+                $pfUan,
+                $esiNumber,
+                $bankName,
+                $bankAccountNumber,
+                $bankIfscCode,
+                $probationEndDate,
+                $confirmationDate,
+            ),
         );
 
         return $this->respondCreated($response->toArray());
@@ -84,11 +125,22 @@ class EmployeeController extends BaseController
     {
         $body = $this->request->getJSON(true) ?? [];
 
-        $fullName      = (string) ($body['full_name'] ?? '');
-        $departmentId  = (int) ($body['department_id'] ?? 0);
-        $designationId = (int) ($body['designation_id'] ?? 0);
-        $salaryJson    = is_array($body['salary_structure_json'] ?? null) ? $body['salary_structure_json'] : [];
-        $exitDate      = isset($body['exit_date']) && $body['exit_date'] !== '' ? (string) $body['exit_date'] : null;
+        $fullName           = (string) ($body['full_name'] ?? '');
+        $departmentId       = (int) ($body['department_id'] ?? 0);
+        $designationId      = (int) ($body['designation_id'] ?? 0);
+        $salaryJson         = is_array($body['salary_structure_json'] ?? null) ? $body['salary_structure_json'] : [];
+        $exitDate           = isset($body['exit_date']) && $body['exit_date'] !== '' ? (string) $body['exit_date'] : null;
+        $staffType          = isset($body['staff_type']) && $body['staff_type'] !== '' ? (string) $body['staff_type'] : null;
+        $qualification      = isset($body['qualification']) && $body['qualification'] !== '' ? (string) $body['qualification'] : null;
+        $aadhaarNumber      = isset($body['aadhaar_number']) && $body['aadhaar_number'] !== '' ? (string) $body['aadhaar_number'] : null;
+        $panNumber          = isset($body['pan_number']) && $body['pan_number'] !== '' ? (string) $body['pan_number'] : null;
+        $pfUan              = isset($body['pf_uan']) && $body['pf_uan'] !== '' ? (string) $body['pf_uan'] : null;
+        $esiNumber          = isset($body['esi_number']) && $body['esi_number'] !== '' ? (string) $body['esi_number'] : null;
+        $bankName           = isset($body['bank_name']) && $body['bank_name'] !== '' ? (string) $body['bank_name'] : null;
+        $bankAccountNumber  = isset($body['bank_account_number']) && $body['bank_account_number'] !== '' ? (string) $body['bank_account_number'] : null;
+        $bankIfscCode       = isset($body['bank_ifsc_code']) && $body['bank_ifsc_code'] !== '' ? (string) $body['bank_ifsc_code'] : null;
+        $probationEndDate   = isset($body['probation_end_date']) && $body['probation_end_date'] !== '' ? (string) $body['probation_end_date'] : null;
+        $confirmationDate   = isset($body['confirmation_date']) && $body['confirmation_date'] !== '' ? (string) $body['confirmation_date'] : null;
 
         $fields = [];
 
@@ -104,13 +156,34 @@ class EmployeeController extends BaseController
             $fields['designation_id'] = 'designation_id is required.';
         }
 
+        if ($staffType !== null && ! in_array($staffType, self::VALID_STAFF_TYPES, true)) {
+            $fields['staff_type'] = 'staff_type must be one of Teaching, NonTeaching, Support, Administrative.';
+        }
+
         if ($fields !== []) {
             throw new ValidationException($fields);
         }
 
         $response = Services::employeeService()->updateEmployee(
             $id,
-            new UpdateEmployeeRequest($fullName, $departmentId, $designationId, $salaryJson, $exitDate),
+            new UpdateEmployeeRequest(
+                $fullName,
+                $departmentId,
+                $designationId,
+                $salaryJson,
+                $exitDate,
+                $staffType,
+                $qualification,
+                $aadhaarNumber,
+                $panNumber,
+                $pfUan,
+                $esiNumber,
+                $bankName,
+                $bankAccountNumber,
+                $bankIfscCode,
+                $probationEndDate,
+                $confirmationDate,
+            ),
         );
 
         return $this->respondSuccess($response->toArray());

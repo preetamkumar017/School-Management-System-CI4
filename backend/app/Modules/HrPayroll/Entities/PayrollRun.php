@@ -9,13 +9,15 @@ use App\Core\BaseEntity;
 /**
  * docs/design/hr-payroll/Phase-1-Domain-Model.md — ENT-HR-004.
  *
- * @property int|null            $payroll_run_id
- * @property int                 $employee_id
- * @property string              $pay_period
- * @property float                $gross_pay
- * @property array<string,mixed> $deductions_json
- * @property float                $net_pay
- * @property string              $status
+ * @property int|null                 $payroll_run_id
+ * @property int                      $employee_id
+ * @property string                   $pay_period
+ * @property int                      $lwp_days
+ * @property float                    $gross_pay
+ * @property array<string,mixed>|null $earnings_json
+ * @property array<string,mixed>      $deductions_json
+ * @property float                    $net_pay
+ * @property string                   $status
  */
 class PayrollRun extends BaseEntity
 {
@@ -31,7 +33,9 @@ class PayrollRun extends BaseEntity
         $this->casts = array_merge($this->casts, [
             'payroll_run_id'  => 'integer',
             'employee_id'     => 'integer',
+            'lwp_days'        => 'integer',
             'gross_pay'       => 'float',
+            'earnings_json'   => '?json-array',
             'deductions_json' => 'json-array',
             'net_pay'         => 'float',
         ]);

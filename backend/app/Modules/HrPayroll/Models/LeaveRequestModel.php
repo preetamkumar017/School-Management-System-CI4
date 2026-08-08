@@ -22,6 +22,8 @@ class LeaveRequestModel extends BaseModel
         'leave_type',
         'start_date',
         'end_date',
+        'reason',
+        'duty_leave_reference',
         'status',
         'approver_id',
         'created_by',

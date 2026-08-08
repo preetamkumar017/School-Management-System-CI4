@@ -35,6 +35,8 @@ class PayrollRunController extends BaseController
         $payPeriod      = (string) ($body['pay_period'] ?? '');
         $grossPay       = $body['gross_pay'] ?? null;
         $deductionsJson = is_array($body['deductions_json'] ?? null) ? $body['deductions_json'] : [];
+        $earningsJson   = is_array($body['earnings_json'] ?? null) ? $body['earnings_json'] : null;
+        $lwpDays        = (int) ($body['lwp_days'] ?? 0);
 
         $fields = [];
 
@@ -55,7 +57,7 @@ class PayrollRunController extends BaseController
         }
 
         $response = Services::payrollRunService()->createPayrollRun(
-            new CreatePayrollRunRequest($employeeId, $payPeriod, (float) $grossPay, $deductionsJson),
+            new CreatePayrollRunRequest($employeeId, $payPeriod, (float) $grossPay, $deductionsJson, $earningsJson, $lwpDays),
         );
 
         return $this->respondCreated($response->toArray());

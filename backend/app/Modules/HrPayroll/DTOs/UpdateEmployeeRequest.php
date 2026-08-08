@@ -14,7 +14,18 @@ final class UpdateEmployeeRequest
         public readonly int $departmentId,
         public readonly int $designationId,
         public readonly array $salaryStructureJson,
-        public readonly ?string $exitDate,
+        public readonly ?string $exitDate = null,
+        public readonly ?string $staffType = null,
+        public readonly ?string $qualification = null,
+        public readonly ?string $aadhaarNumber = null,
+        public readonly ?string $panNumber = null,
+        public readonly ?string $pfUan = null,
+        public readonly ?string $esiNumber = null,
+        public readonly ?string $bankName = null,
+        public readonly ?string $bankAccountNumber = null,
+        public readonly ?string $bankIfscCode = null,
+        public readonly ?string $probationEndDate = null,
+        public readonly ?string $confirmationDate = null,
     ) {
     }
 }

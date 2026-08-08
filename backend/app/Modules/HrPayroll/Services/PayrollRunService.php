@@ -66,6 +66,14 @@ class PayrollRunService
             );
         }
 
+        if ($request->earningsJson !== null) {
+            foreach ($request->earningsJson as $label => $amount) {
+                if (! is_numeric($amount) || (float) $amount < 0) {
+                    throw new BusinessRuleException('INVALID_EARNING_AMOUNT', "Earning \"{$label}\" must be a non-negative number.");
+                }
+            }
+        }
+
         foreach ($request->deductionsJson as $label => $amount) {
             if (! is_numeric($amount) || (float) $amount < 0) {
                 throw new BusinessRuleException('INVALID_DEDUCTION_AMOUNT', "Deduction \"{$label}\" must be a non-negative number.");
@@ -77,7 +85,9 @@ class PayrollRunService
         $id = $this->payrollRunModel->insert([
             'employee_id'     => $request->employeeId,
             'pay_period'      => $request->payPeriod,
+            'lwp_days'        => $request->lwpDays,
             'gross_pay'       => $request->grossPay,
+            'earnings_json'   => $request->earningsJson,
             'deductions_json' => $request->deductionsJson,
             'net_pay'         => $netPay,
             'status'          => PayrollRun::STATUS_DRAFT,
@@ -165,20 +175,34 @@ class PayrollRunService
 
         $employee = $this->employeeModel->find((int) $payrollRun->employee_id);
 
-        $rows = '';
+        $earningsRows = '';
+        if ($payrollRun->earnings_json !== null) {
+            foreach ($payrollRun->earnings_json as $label => $amount) {
+                $earningsRows .= '<tr><td>' . htmlspecialchars((string) $label) . '</td><td>' . htmlspecialchars(number_format((float) $amount, 2)) . '</td></tr>';
+            }
+        } else {
+            $earningsRows = '<tr><td>Gross Pay</td><td>' . htmlspecialchars(number_format((float) $payrollRun->gross_pay, 2)) . '</td></tr>';
+        }
 
+        $deductionsRows = '';
         foreach ($payrollRun->deductions_json as $label => $amount) {
-            $rows .= '<tr><td>' . htmlspecialchars((string) $label) . '</td><td>' . htmlspecialchars((string) $amount) . '</td></tr>';
+            $deductionsRows .= '<tr><td>' . htmlspecialchars((string) $label) . '</td><td>' . htmlspecialchars(number_format((float) $amount, 2)) . '</td></tr>';
         }
 
         $html = '<html><body>'
             . '<h2>Payslip</h2>'
             . '<p><strong>Employee:</strong> ' . htmlspecialchars($employee->full_name) . ' (' . htmlspecialchars($employee->employee_code) . ')</p>'
+            . '<p><strong>Staff Type:</strong> ' . htmlspecialchars($employee->staff_type ?? 'Teaching') . '</p>'
             . '<p><strong>Pay Period:</strong> ' . htmlspecialchars($payrollRun->pay_period) . '</p>'
-            . '<p><strong>Gross Pay:</strong> ' . htmlspecialchars((string) $payrollRun->gross_pay) . '</p>'
+            . '<p><strong>LWP Days:</strong> ' . htmlspecialchars((string) ($payrollRun->lwp_days ?? 0)) . '</p>'
+            . '<p><strong>Gross Pay:</strong> ' . htmlspecialchars(number_format((float) $payrollRun->gross_pay, 2)) . '</p>'
+            . '<h3>Earnings</h3>'
             . '<table border="1" cellpadding="4" cellspacing="0" style="border-collapse: collapse; width: 100%;">'
-            . '<thead><tr><th>Deduction</th><th>Amount</th></tr></thead><tbody>' . $rows . '</tbody></table>'
-            . '<p><strong>Net Pay:</strong> ' . htmlspecialchars((string) $payrollRun->net_pay) . '</p>'
+            . '<thead><tr><th>Earning Component</th><th>Amount</th></tr></thead><tbody>' . $earningsRows . '</tbody></table>'
+            . '<h3>Deductions</h3>'
+            . '<table border="1" cellpadding="4" cellspacing="0" style="border-collapse: collapse; width: 100%;">'
+            . '<thead><tr><th>Deduction Component</th><th>Amount</th></tr></thead><tbody>' . $deductionsRows . '</tbody></table>'
+            . '<p><strong>Net Pay:</strong> ' . htmlspecialchars(number_format((float) $payrollRun->net_pay, 2)) . '</p>'
             . '</body></html>';
 
         $pdfBytes = $this->pdfRenderer->render($html);

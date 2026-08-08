@@ -14,7 +14,18 @@ use App\Core\BaseEntity;
  * @property string              $full_name
  * @property int                 $department_id
  * @property int                 $designation_id
+ * @property string              $staff_type
+ * @property string|null         $qualification
+ * @property string|null         $aadhaar_number
+ * @property string|null         $pan_number
+ * @property string|null         $pf_uan
+ * @property string|null         $esi_number
+ * @property string|null         $bank_name
+ * @property string|null         $bank_account_number
+ * @property string|null         $bank_ifsc_code
  * @property string              $joining_date
+ * @property string|null         $probation_end_date
+ * @property string|null         $confirmation_date
  * @property string|null         $exit_date
  * @property array<string,mixed> $salary_structure_json
  * @property string              $status
@@ -24,16 +35,21 @@ class Employee extends BaseEntity
     public const STATUS_ACTIVE = 'Active';
     public const STATUS_EXITED = 'Exited';
 
+    public const STAFF_TYPE_TEACHING       = 'Teaching';
+    public const STAFF_TYPE_NON_TEACHING   = 'NonTeaching';
+    public const STAFF_TYPE_SUPPORT        = 'Support';
+    public const STAFF_TYPE_ADMINISTRATIVE = 'Administrative';
+
     /**
      * @param array<string, mixed>|null $data
      */
     public function __construct(?array $data = null)
     {
         $this->casts = array_merge($this->casts, [
-            'employee_id'            => 'integer',
-            'department_id'          => 'integer',
-            'designation_id'         => 'integer',
-            'salary_structure_json'  => 'json-array',
+            'employee_id'           => 'integer',
+            'department_id'         => 'integer',
+            'designation_id'        => 'integer',
+            'salary_structure_json' => 'json-array',
         ]);
 
         parent::__construct($data);
