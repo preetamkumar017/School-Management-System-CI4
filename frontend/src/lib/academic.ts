@@ -73,6 +73,26 @@ export function useSubjects() {
   return { subjects };
 }
 
+export interface GradingScheme {
+  grading_scheme_id: number;
+  scheme_name: string;
+  board_type: string;
+  grade_band_json: unknown;
+}
+
+export function useGradingSchemes() {
+  const [gradingSchemes, setGradingSchemes] = useState<GradingScheme[]>([]);
+
+  useEffect(() => {
+    api
+      .get<{ data: GradingScheme[] }>("/academic/grading-schemes")
+      .then((response) => setGradingSchemes(response.data.data))
+      .catch(() => setGradingSchemes([]));
+  }, []);
+
+  return { gradingSchemes };
+}
+
 export function useSections(classId: number | null) {
   const [sections, setSections] = useState<Section[]>([]);
   const [isLoading, setIsLoading] = useState(false);
