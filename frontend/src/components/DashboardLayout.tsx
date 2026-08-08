@@ -2,22 +2,22 @@ import type { ReactNode } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 
-const NAV_SECTIONS: { label: string; to: string }[] = [
+const NAV_SECTIONS: { label: string; to: string; permission?: string }[] = [
   { label: "Dashboard", to: "/" },
   { label: "My HR", to: "/my-hr" },
-  { label: "Academic", to: "/academic" },
-  { label: "Admission", to: "/admission" },
-  { label: "Students (SIS)", to: "/students" },
-  { label: "Examination", to: "/examination" },
-  { label: "Timetable", to: "/timetable" },
-  { label: "Attendance", to: "/attendance" },
-  { label: "Fees", to: "/fees" },
-  { label: "HR & Payroll", to: "/hr-payroll" },
-  { label: "Library", to: "/library" },
-  { label: "Transport", to: "/transport" },
-  { label: "Communication", to: "/communication" },
-  { label: "Reports", to: "/reports" },
-  { label: "Administration", to: "/administration" },
+  { label: "Academic", to: "/academic", permission: "academic.manage" },
+  { label: "Admission", to: "/admission", permission: "admission.manage" },
+  { label: "Students (SIS)", to: "/students", permission: "sis.manage" },
+  { label: "Examination", to: "/examination", permission: "examination.manage" },
+  { label: "Timetable", to: "/timetable", permission: "timetable.manage" },
+  { label: "Attendance", to: "/attendance", permission: "attendance.manage" },
+  { label: "Fees", to: "/fees", permission: "fees.manage" },
+  { label: "HR & Payroll", to: "/hr-payroll", permission: "hr_payroll.manage" },
+  { label: "Library", to: "/library", permission: "library.manage" },
+  { label: "Transport", to: "/transport", permission: "transport.manage" },
+  { label: "Communication", to: "/communication", permission: "communication.manage" },
+  { label: "Reports", to: "/reports", permission: "reports.manage" },
+  { label: "Administration", to: "/administration", permission: "administration.manage" },
 ];
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
@@ -29,6 +29,11 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     navigate("/login", { replace: true });
   }
 
+  const visibleNavSections = NAV_SECTIONS.filter((section) => {
+    if (!section.permission) return true;
+    return user?.permissionSet.includes(section.permission);
+  });
+
   return (
     <div className="flex min-h-screen bg-slate-50 dark:bg-slate-900">
       <aside className="w-60 shrink-0 border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
@@ -36,7 +41,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
           <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">School ERP</span>
         </div>
         <nav className="flex flex-col gap-0.5 p-2">
-          {NAV_SECTIONS.map((section) => (
+          {visibleNavSections.map((section) => (
             <NavLink
               key={section.to}
               to={section.to}
