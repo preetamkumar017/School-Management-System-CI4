@@ -139,7 +139,9 @@ class UserService
 
     public function getUser(int $id): User
     {
-        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+        if ($id !== (int) \App\Core\Http\RequestContext::userId()) {
+            $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+        }
 
         $user = $this->userModel->find($id);
 
