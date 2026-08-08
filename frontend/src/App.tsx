@@ -12,6 +12,7 @@ import AttendancePage from "./pages/attendance/AttendancePage";
 import ExaminationPage from "./pages/examination/ExaminationPage";
 import TimetablePage from "./pages/timetable/TimetablePage";
 import HrPayrollPage from "./pages/hr/HrPayrollPage";
+import MyHrPage from "./pages/hr/MyHrPage";
 import LibraryPage from "./pages/library/LibraryPage";
 import TransportPage from "./pages/transport/TransportPage";
 import CommunicationPage from "./pages/communication/CommunicationPage";
@@ -38,6 +39,7 @@ export default function App() {
                     <Route path="/examination" element={<ExaminationPage />} />
                     <Route path="/timetable" element={<TimetablePage />} />
                     <Route path="/hr-payroll" element={<HrPayrollPage />} />
+                    <Route path="/my-hr" element={<MyHrPage />} />
                     <Route path="/library" element={<LibraryPage />} />
                     <Route path="/transport" element={<TransportPage />} />
                     <Route path="/communication" element={<CommunicationPage />} />

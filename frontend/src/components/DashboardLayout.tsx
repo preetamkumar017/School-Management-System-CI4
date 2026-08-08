@@ -4,6 +4,7 @@ import { useAuth } from "../lib/auth";
 
 const NAV_SECTIONS: { label: string; to: string }[] = [
   { label: "Dashboard", to: "/" },
+  { label: "My HR", to: "/my-hr" },
   { label: "Academic", to: "/academic" },
   { label: "Admission", to: "/admission" },
   { label: "Students (SIS)", to: "/students" },
