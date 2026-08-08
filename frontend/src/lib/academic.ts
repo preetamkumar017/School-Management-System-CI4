@@ -30,6 +30,30 @@ export function useClasses() {
   return { classes, isLoading, error };
 }
 
+export interface AcademicSession {
+  academic_session_id: number;
+  session_name: string;
+  start_date: string;
+  end_date: string;
+  status: "ACTIVE" | "CLOSED" | "UPCOMING";
+}
+
+export function useAcademicSessions() {
+  const [sessions, setSessions] = useState<AcademicSession[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    api
+      .get<{ data: AcademicSession[] }>("/academic/sessions")
+      .then((response) => setSessions(response.data.data))
+      .catch((err) => setError(apiErrorMessage(err)))
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  return { sessions, isLoading, error };
+}
+
 export function useSections(classId: number | null) {
   const [sections, setSections] = useState<Section[]>([]);
   const [isLoading, setIsLoading] = useState(false);
