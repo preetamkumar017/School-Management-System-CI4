@@ -62,6 +62,19 @@ production DB setup, `composer install --no-dev`, file-storage path
 (`writable/uploads/`) permissions on shared hosting, and a real review
 of anything currently only validated locally.
 
+## 6. Local dev DB (`school_erp_dev`) needs `php spark migrate --all` periodically
+
+The automated test suite runs against `school_erp_test`, which each
+test class migrates fresh — so a stage can ship with 100% passing tests
+while the separate `school_erp_dev` database (used for manual smoke
+testing and now the frontend) silently falls behind. Hit this for real
+2026-08-08: six migrations from Stages 15-19 (Driver/Trip tables,
+`invoice_line_items`, notification `message_body`, student
+`photo_document_id`) had never been applied to `school_erp_dev`,
+causing a real `DatabaseException` on invoice generation until
+`php spark migrate --all` was run. Run that command after pulling any
+backend change before doing manual/frontend testing against the dev DB.
+
 ## Not on this list (already fully resolved, no action needed)
 
 BR-EXM-007 (board affiliation — already a per-`GradingScheme` column),
