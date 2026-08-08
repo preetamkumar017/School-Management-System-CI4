@@ -54,3 +54,17 @@ export, and BR-RPT-002/003/004 are explicitly out of scope (ADR-010
 §8) — a future dedicated Reports pass is the right place to add real
 per-module aggregate methods once genuine dashboard requirements are
 scoped, not this one, speculatively, across five modules at once.
+
+## Extended by ADR-022 (2026-08-08) — four real report areas, PDF/Excel export
+
+`docs/ADR/ADR-022-reports-dashboard.md` is the "future dedicated Reports
+pass" this doc's Conclusion pointed at. `ReportsService` gained four
+methods (`getFeeCollectionSummary`, `getAttendanceOverview`,
+`getAdmissionsFunnel`, `getAcademicPerformance`), each with its own DTO
+and `ReportsController` endpoint, plus `renderPdf()`/`renderExcel()`
+composed into a `/pdf`/`/excel` variant of every area. `getSummary()`
+above is untouched. See ADR-022 for the full per-area aggregate-method
+inventory, the reused-not-recomputed guarantees (GPA/class-rank/
+attendance-threshold/`Invoice.total_amount`), and why PDF/Excel exports
+are streamed directly rather than persisted via `DocumentService`
+(Reports still has no owning entity, ADR-010 §7 unreversed).

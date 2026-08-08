@@ -220,6 +220,32 @@ class AttendanceService
         return $this->calculateAttendancePercentage($studentId, $fromDate, $toDate)->isExamEligibilityAtRisk;
     }
 
+    /**
+     * docs/ADR/ADR-022-reports-dashboard.md — Attendance overview (report
+     * area 2): Reports composes this instead of touching
+     * AttendanceRecordModel directly (ADR-010 §7). Reuses the exact
+     * PRESENT/LATE-counts-as-present definition and
+     * attendance.exam_eligibility_min_percentage threshold
+     * calculateAttendancePercentage() already established for FR-13/
+     * BR-ATT-006 — never recomputed with different logic.
+     *
+     * @return array{
+     *     schoolWide: array{present: int, total: int},
+     *     byClass: array<int, array{present: int, total: int}>,
+     *     byStudent: array<int, array{present: int, total: int}>,
+     *     threshold: float,
+     * }
+     */
+    public function getAttendanceOverviewData(string $fromDate, string $toDate): array
+    {
+        return [
+            'schoolWide' => $this->attendanceRecordModel->countStatesForRange($fromDate, $toDate),
+            'byClass'    => $this->attendanceRecordModel->countStatesForRangeGroupedByClass($fromDate, $toDate),
+            'byStudent'  => $this->attendanceRecordModel->countStatesForRangeGroupedByStudent($fromDate, $toDate),
+            'threshold'  => $this->configurationService->getNumber('attendance.exam_eligibility_min_percentage'),
+        ];
+    }
+
     private function requireRecord(int $id): AttendanceRecord
     {
         $record = $this->attendanceRecordModel->find($id);

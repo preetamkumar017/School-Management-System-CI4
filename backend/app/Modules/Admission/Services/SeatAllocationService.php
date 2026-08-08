@@ -106,6 +106,23 @@ class SeatAllocationService
         return $seatAllocation === null ? null : new SeatAllocationResponse($seatAllocation);
     }
 
+    /**
+     * docs/ADR/ADR-022-reports-dashboard.md — Admissions funnel (report
+     * area 3): every SeatAllocation for a session, for seat-occupancy
+     * reporting and to resolve "this session's classes" for
+     * ApplicationService::getStatusCountsForClassIds(). Reports composes
+     * this instead of touching SeatAllocationModel directly (ADR-010 §7).
+     *
+     * @return list<SeatAllocationResponse>
+     */
+    public function listForAcademicSession(int $academicSessionId): array
+    {
+        return array_map(
+            static fn (SeatAllocation $seatAllocation): SeatAllocationResponse => new SeatAllocationResponse($seatAllocation),
+            $this->seatAllocationModel->findByAcademicSessionId($academicSessionId),
+        );
+    }
+
     private function requireSeatAllocation(int $id): SeatAllocation
     {
         $seatAllocation = $this->seatAllocationModel->find($id);

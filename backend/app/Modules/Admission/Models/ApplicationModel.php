@@ -147,4 +147,38 @@ class ApplicationModel extends BaseModel
             [$id],
         )->getRowArray();
     }
+
+    /**
+     * docs/ADR/ADR-022-reports-dashboard.md — Admissions funnel (report
+     * area 3): status counts scoped to a set of class ids. Application has
+     * no academic_session_id of its own (confirmed against Appendix-G);
+     * the caller resolves "this session's classes" via
+     * SeatAllocationModel::findByAcademicSessionId() first, the same
+     * class+session resolution ApplicationService::confirmEnrollment
+     * already uses.
+     *
+     * @param list<int> $classIds
+     *
+     * @return array<string, int> status => count
+     */
+    public function countGroupedByStatusForClassIds(array $classIds): array
+    {
+        if ($classIds === []) {
+            return [];
+        }
+
+        $rows = $this->asArray()
+            ->select('status, COUNT(*) AS total')
+            ->whereIn('class_applied_id', $classIds)
+            ->groupBy('status')
+            ->findAll();
+
+        $result = [];
+
+        foreach ($rows as $row) {
+            $result[$row['status']] = (int) $row['total'];
+        }
+
+        return $result;
+    }
 }

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Config;
 
 use App\Core\Auth\JwtManager;
+use App\Core\Excel\ExcelRenderer;
 use App\Core\Pdf\PdfRenderer;
 use App\Modules\Academic\Models\AcademicSessionModel;
 use App\Modules\Academic\Models\ClassModel;
@@ -160,6 +161,19 @@ class Services extends BaseService
         }
 
         return new PdfRenderer();
+    }
+
+    /**
+     * docs/ADR/ADR-022-reports-dashboard.md §b — the Excel-rendering
+     * counterpart to pdfRenderer(), same shared/non-shared shape.
+     */
+    public static function excelRenderer(bool $getShared = true): ExcelRenderer
+    {
+        if ($getShared) {
+            return static::getSharedInstance('excelRenderer');
+        }
+
+        return new ExcelRenderer();
     }
 
     public static function authService(bool $getShared = true): AuthService
@@ -629,6 +643,6 @@ class Services extends BaseService
             return static::getSharedInstance('reportsService');
         }
 
-        return new ReportsService();
+        return new ReportsService(static::pdfRenderer(), static::excelRenderer());
     }
 }

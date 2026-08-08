@@ -1108,6 +1108,48 @@ design, not a hardcoded single-vendor integration.
   still passing, unmodified aside from the new `message_body` argument
   their call sites now supply. 210 passing tests total (9 new).
 
+## Stage 18 — Reports dashboard, PDF/Excel export — DONE (2026-08-08)
+
+- `docs/ADR/ADR-022-reports-dashboard.md`. Four user-chosen report
+  areas, each with its own `ReportsService` method/DTO/Controller
+  endpoint: `getFeeCollectionSummary`, `getAttendanceOverview`,
+  `getAdmissionsFunnel`, `getAcademicPerformance`. Existing
+  `getSummary()`/`GET /reports/summary` unchanged.
+- New, narrowly-scoped aggregate methods on each area's owning module
+  only (ADR-010 §8): `InvoiceModel::sumOutstandingBySession/
+  sumOutstandingByClassForSession/countDefaultersBySession`,
+  `PaymentModel::sumSuccessfulByInvoiceSession/
+  sumSuccessfulByClassForSession` (Fees);
+  `AttendanceRecordModel::countStatesForRange/
+  countStatesForRangeGroupedByClass/countStatesForRangeGroupedByStudent`
+  (Attendance); `ApplicationModel::countGroupedByStatusForClassIds`,
+  `SeatAllocationModel::findByAcademicSessionId` (Admission). Examination
+  needed no new method — `ReportCardService::listReportCardsByExam`
+  already exposed everything required. Each owning Service gained one
+  thin wrapper method so Reports composes over Services, never Models
+  directly (ADR-010 §7).
+- GPA/class-rank (Stage 6a's formula/rank convention),
+  `attendance.exam_eligibility_min_percentage` (ADR-006 §11/ADR-011),
+  and `Invoice.total_amount` (ADR-007/ADR-020) are all reused verbatim,
+  never recomputed independently.
+- PDF export (`GET /reports/{area}/pdf`) reuses Stage 8's
+  `PdfRenderer`/dompdf exactly, streamed directly via
+  `$this->response->download()` rather than persisted through
+  `DocumentService` — Reports still has no owning entity for a
+  `Document` row to belong to (ADR-010 §7).
+- Excel export (`GET /reports/{area}/excel`) — new
+  `phpoffice/phpspreadsheet:^3.5` dependency (this codebase's first
+  Excel capability), behind a new `App\Core\Excel\ExcelRenderer`
+  mirroring `PdfRenderer`'s shape exactly.
+- Thirteen new tests: `tests/Feature/Reports/{FeeCollectionSummaryTest,
+  AttendanceOverviewTest,AdmissionsFunnelTest,AcademicPerformanceTest}.php`,
+  each asserting exact computed figures against known fixture data
+  (not just shape/presence), plus a PDF-export and an Excel-export test
+  per area (magic-byte assertions: `%PDF` / `PK\x03\x04`). All
+  pre-existing tests verified still passing, unmodified. 222 passing
+  tests total (12 new — the existing `ReportsSummaryTest` already
+  covered `getSummary()`).
+
 ## Ongoing, every stage
 
 - Git: feature branches (Company Development Standard §6), PR review before
@@ -1126,16 +1168,18 @@ design, not a hardcoded single-vendor integration.
 
 ## Immediate next action
 
-Stages 0 through 17 are done (2026-08-07) — every module in Appendix-G's
+Stages 0 through 18 are done (2026-08-08) — every module in Appendix-G's
 Data Dictionary is real, working, tested code, plus a real
 `Configuration` entity, a real `Document`/PDF-generation capability,
 Timetable Substitution (BR-TT-004/FR-16), the Fees/Transport/
 Examination cross-module seams, the Admission seat-hold/waitlist and
 Library reservation-queue entities, two RBAC enforcements (BR-HR-004,
 BR-FEE-002), Transport's Driver/Trip validity (BR-TRN-006), Fees'
-GST line-item itemization (BR-FEE-007), and a real MSG91-backed SMS/
-Email notification gateway closed (210 passing tests). Remaining work
-is follow-up/deepening, not new-module design:
+GST line-item itemization (BR-FEE-007), a real MSG91-backed SMS/
+Email notification gateway, and a genuine Reports dashboard (fee
+collection, attendance, admissions funnel, academic performance, with
+PDF/Excel export) closed (222 passing tests). Remaining work is
+follow-up/deepening, not new-module design:
 
 - **Stage 15 (2026-08-07, ADR-019)**: BR-TRN-006 (Driver/Vehicle
   Assignment Validity) — real `Driver`/`Trip` entities, an additive
@@ -1169,10 +1213,22 @@ is follow-up/deepening, not new-module design:
   chosen. BR-COM-002/003 (bulk send, emergency-alert priority) remain
   unbuilt — this closes the dispatch-mechanism gap they depended on,
   not the BRs themselves.
-- A genuine Reports dashboard pass, once real requirements are scoped —
-  adding aggregate query methods to the *owning* source modules (ADR-010
-  §8), not retrofitting them speculatively. Can now reuse Stage 8's
-  `dompdf`/`DocumentService` for Excel/PDF export once scoped.
+- **Stage 18 (2026-08-08, ADR-022)**: a genuine Reports dashboard — four
+  user-chosen report areas (Fee collection summary, Attendance overview,
+  Admissions funnel, Academic performance) plus PDF/Excel export for
+  each. New, narrowly-scoped aggregate query methods were added to each
+  area's *owning* module only (Fees, Attendance, Admission — Examination
+  needed none, its existing `ReportCardService::listReportCardsByExam`
+  already sufficed), per ADR-010 §8's own "once real requirements are
+  scoped" permission. GPA/class-rank/attendance-eligibility-threshold/
+  `Invoice.total_amount` are all reused verbatim from their owning
+  modules, never recomputed — Reports stays a pure composition layer
+  (ADR-010 §7, unreversed). PDF export reuses Stage 8's `PdfRenderer`/
+  dompdf exactly; Excel export is a new `phpoffice/phpspreadsheet`
+  dependency (this codebase's first) behind a new `ExcelRenderer`
+  mirroring `PdfRenderer`'s shape. FR-40/41/42's role-scoped widgets,
+  custom report builder, and trend analytics remain out of scope
+  (ADR-022 Consequences).
 - FR-09 ID Card/Certificate generation (SIS) — needs a real branding
   template and student-photo capability, explicitly deferred by
   ADR-012 §4.

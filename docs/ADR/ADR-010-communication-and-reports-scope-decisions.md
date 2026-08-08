@@ -152,6 +152,12 @@ caching/background refresh job exists, so "last refresh" is always
 summary is pure master-data counts, not exam/attendance/fee figures with
 a lock-status to check.
 
+> **Extended by [ADR-022](ADR-022-reports-dashboard.md)** (2026-08-08):
+> four real report areas (Fee collection, Attendance, Admissions funnel,
+> Academic performance) with genuine aggregate query methods added to
+> their owning modules, plus PDF/Excel export — additive alongside this
+> `getSummary()`, which is unchanged.
+
 ### 8. FR-40's role-scoped dashboards, FR-41's custom report builder, FR-42's trend analytics, and BR-RPT-001/002/003/004 are out of scope
 
 Role-gated widget visibility, ad-hoc field selection, Excel/PDF export,
@@ -185,3 +191,11 @@ them — not this pass, speculatively, across five modules at once.
   requirement is scoped, an Excel/PDF export library, and a
   `Configuration`-driven field/report authorization model (joining the
   `Configuration` candidates ADR-005/006/008 already keep).
+
+> **Resolved (in part) by [ADR-022](ADR-022-reports-dashboard.md)**
+> (2026-08-08): the aggregate-query-methods gap and the Excel/PDF
+> export library gap are both closed, for four specific, user-scoped
+> report areas — Fee collection, Attendance, Admissions funnel, Academic
+> performance. FR-40's role-scoped dashboards, FR-41's custom report
+> builder, FR-42's trend analytics, and the `Configuration`-driven
+> field/report authorization model remain open, unresolved by ADR-022.

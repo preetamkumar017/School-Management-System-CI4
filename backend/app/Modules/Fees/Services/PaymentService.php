@@ -98,6 +98,21 @@ class PaymentService
     }
 
     /**
+     * docs/ADR/ADR-022-reports-dashboard.md — Fee collection summary
+     * (report area 1): Reports composes this instead of touching
+     * PaymentModel directly (ADR-010 §7).
+     *
+     * @return array{total: float, byClass: array<int, float>}
+     */
+    public function getCollectedSummaryForSession(int $academicSessionId): array
+    {
+        return [
+            'total'   => $this->paymentModel->sumSuccessfulByInvoiceSession($academicSessionId),
+            'byClass' => $this->paymentModel->sumSuccessfulByClassForSession($academicSessionId),
+        ];
+    }
+
+    /**
      * @return list<PaymentResponse>
      */
     public function listByInvoice(int $invoiceId): array

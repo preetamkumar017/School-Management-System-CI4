@@ -33,6 +33,21 @@ class SeatAllocationModel extends BaseModel
         return $this->where('class_id', $classId)->where('academic_session_id', $academicSessionId)->first();
     }
 
+    /**
+     * docs/ADR/ADR-022-reports-dashboard.md — Admissions funnel (report
+     * area 3): every SeatAllocation row for a session, both to compute
+     * seat occupancy per class and to resolve "this session's classes"
+     * for ApplicationModel::countGroupedByStatusForClassIds() — a plain
+     * listing, not a new aggregate, since occupancy is just
+     * seats_filled/total_capacity on fields SeatAllocation already has.
+     *
+     * @return list<SeatAllocation>
+     */
+    public function findByAcademicSessionId(int $academicSessionId): array
+    {
+        return $this->where('academic_session_id', $academicSessionId)->findAll();
+    }
+
     public function existsByClassAndSession(int $classId, int $academicSessionId): bool
     {
         return $this->where('class_id', $classId)

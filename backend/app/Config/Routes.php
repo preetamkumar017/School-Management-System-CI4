@@ -298,4 +298,21 @@ $routes->group('api/v1/communication', ['namespace' => 'App\Modules\Communicatio
 // docs/design/reports/Phase-1-Service-Controller-Design.md
 $routes->group('api/v1/reports', ['namespace' => 'App\Modules\Reports\Controllers'], static function (RouteCollection $routes): void {
     $routes->get('summary', 'ReportsController::summary');
+
+    // docs/ADR/ADR-022-reports-dashboard.md
+    $routes->get('fee-collection', 'ReportsController::feeCollection');
+    $routes->get('fee-collection/pdf', 'ReportsController::feeCollectionPdf');
+    $routes->get('fee-collection/excel', 'ReportsController::feeCollectionExcel');
+
+    $routes->get('attendance-overview', 'ReportsController::attendanceOverview');
+    $routes->get('attendance-overview/pdf', 'ReportsController::attendanceOverviewPdf');
+    $routes->get('attendance-overview/excel', 'ReportsController::attendanceOverviewExcel');
+
+    $routes->get('admissions-funnel', 'ReportsController::admissionsFunnel');
+    $routes->get('admissions-funnel/pdf', 'ReportsController::admissionsFunnelPdf');
+    $routes->get('admissions-funnel/excel', 'ReportsController::admissionsFunnelExcel');
+
+    $routes->get('academic-performance', 'ReportsController::academicPerformance');
+    $routes->get('academic-performance/pdf', 'ReportsController::academicPerformancePdf');
+    $routes->get('academic-performance/excel', 'ReportsController::academicPerformanceExcel');
 });

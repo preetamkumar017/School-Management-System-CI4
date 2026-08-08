@@ -84,4 +84,70 @@ class InvoiceModel extends BaseModel
             ->where('is_locked', false)
             ->findAll();
     }
+
+    /**
+     * docs/ADR/ADR-022-reports-dashboard.md — Fee collection summary
+     * (report area 1). Outstanding = total_amount minus SUCCESSful
+     * payments received, for every invoice not fully PAID/CANCELLED,
+     * broken down by the class the invoice's student currently belongs
+     * to (via Student.section_id -> Section.class_id, the same
+     * resolution InvoiceService::generateInvoice already performs).
+     *
+     * @return array<int, float> class_id => outstanding amount
+     */
+    public function sumOutstandingByClassForSession(int $academicSessionId): array
+    {
+        $rows = $this->db->query(
+            'SELECT sec.class_id AS class_id, '
+                . 'SUM(i.total_amount - COALESCE(p.paid_total, 0)) AS outstanding '
+                . 'FROM invoices i '
+                . 'JOIN students st ON st.student_id = i.student_id AND st.deleted_at IS NULL '
+                . 'JOIN sections sec ON sec.section_id = st.section_id AND sec.deleted_at IS NULL '
+                . 'LEFT JOIN (SELECT invoice_id, SUM(amount_paid) AS paid_total FROM payments '
+                . 'WHERE status = ? AND deleted_at IS NULL GROUP BY invoice_id) p ON p.invoice_id = i.invoice_id '
+                . "WHERE i.academic_session_id = ? AND i.status IN ('UNPAID', 'PARTIALLY_PAID', 'DEFAULTER') "
+                . 'AND i.deleted_at IS NULL '
+                . 'GROUP BY sec.class_id',
+            ['SUCCESS', $academicSessionId],
+        )->getResultArray();
+
+        $result = [];
+
+        foreach ($rows as $row) {
+            $result[(int) $row['class_id']] = (float) $row['outstanding'];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Session-wide outstanding total — same definition as
+     * sumOutstandingByClassForSession(), not scoped by class.
+     */
+    public function sumOutstandingBySession(int $academicSessionId): float
+    {
+        $row = $this->db->query(
+            'SELECT SUM(i.total_amount - COALESCE(p.paid_total, 0)) AS outstanding '
+                . 'FROM invoices i '
+                . 'LEFT JOIN (SELECT invoice_id, SUM(amount_paid) AS paid_total FROM payments '
+                . 'WHERE status = ? AND deleted_at IS NULL GROUP BY invoice_id) p ON p.invoice_id = i.invoice_id '
+                . "WHERE i.academic_session_id = ? AND i.status IN ('UNPAID', 'PARTIALLY_PAID', 'DEFAULTER') "
+                . 'AND i.deleted_at IS NULL',
+            ['SUCCESS', $academicSessionId],
+        )->getRowArray();
+
+        return (float) ($row['outstanding'] ?? 0.0);
+    }
+
+    /**
+     * BR-FEE-008's existing DEFAULTER flag, counted per session for the
+     * Reports dashboard (report area 1) — no new flag/column, just a
+     * count of the existing status value.
+     */
+    public function countDefaultersBySession(int $academicSessionId): int
+    {
+        return $this->where('academic_session_id', $academicSessionId)
+            ->where('status', Invoice::STATUS_DEFAULTER)
+            ->countAllResults();
+    }
 }

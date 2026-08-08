@@ -460,6 +460,20 @@ class ApplicationService
         return new ApplicationResponse($after);
     }
 
+    /**
+     * docs/ADR/ADR-022-reports-dashboard.md — Admissions funnel (report
+     * area 3): Reports composes this instead of touching ApplicationModel
+     * directly (ADR-010 §7).
+     *
+     * @param list<int> $classIds
+     *
+     * @return array<string, int> status => count
+     */
+    public function getStatusCountsForClassIds(array $classIds): array
+    {
+        return $this->applicationModel->countGroupedByStatusForClassIds($classIds);
+    }
+
     private function requireApplication(int $id): Application
     {
         $application = $this->applicationModel->find($id);

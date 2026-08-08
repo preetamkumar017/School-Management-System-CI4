@@ -350,6 +350,22 @@ class InvoiceService
     }
 
     /**
+     * docs/ADR/ADR-022-reports-dashboard.md — Fee collection summary
+     * (report area 1): Reports composes this instead of touching
+     * InvoiceModel directly (ADR-010 §7).
+     *
+     * @return array{total: float, byClass: array<int, float>, defaulterCount: int}
+     */
+    public function getOutstandingSummaryForSession(int $academicSessionId): array
+    {
+        return [
+            'total'          => $this->invoiceModel->sumOutstandingBySession($academicSessionId),
+            'byClass'        => $this->invoiceModel->sumOutstandingByClassForSession($academicSessionId),
+            'defaulterCount' => $this->invoiceModel->countDefaultersBySession($academicSessionId),
+        ];
+    }
+
+    /**
      * @return list<InvoiceResponse>
      */
     public function listByStudent(int $studentId): array

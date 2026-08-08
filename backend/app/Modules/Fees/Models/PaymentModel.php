@@ -51,4 +51,50 @@ class PaymentModel extends BaseModel
 
         return (float) ($row['amount_paid'] ?? 0.0);
     }
+
+    /**
+     * docs/ADR/ADR-022-reports-dashboard.md — Fee collection summary
+     * (report area 1): total collected for a session (sum of SUCCESS
+     * payments against that session's invoices).
+     */
+    public function sumSuccessfulByInvoiceSession(int $academicSessionId): float
+    {
+        $row = $this->db->query(
+            'SELECT SUM(p.amount_paid) AS collected FROM payments p '
+                . 'JOIN invoices i ON i.invoice_id = p.invoice_id AND i.deleted_at IS NULL '
+                . 'WHERE p.status = ? AND p.deleted_at IS NULL AND i.academic_session_id = ?',
+            [Payment::STATUS_SUCCESS, $academicSessionId],
+        )->getRowArray();
+
+        return (float) ($row['collected'] ?? 0.0);
+    }
+
+    /**
+     * Same total, broken down by the class each invoice's student
+     * currently belongs to (same Student.section_id -> Section.class_id
+     * resolution as InvoiceModel::sumOutstandingByClassForSession).
+     *
+     * @return array<int, float> class_id => collected amount
+     */
+    public function sumSuccessfulByClassForSession(int $academicSessionId): array
+    {
+        $rows = $this->db->query(
+            'SELECT sec.class_id AS class_id, SUM(p.amount_paid) AS collected '
+                . 'FROM payments p '
+                . 'JOIN invoices i ON i.invoice_id = p.invoice_id AND i.deleted_at IS NULL '
+                . 'JOIN students st ON st.student_id = i.student_id AND st.deleted_at IS NULL '
+                . 'JOIN sections sec ON sec.section_id = st.section_id AND sec.deleted_at IS NULL '
+                . 'WHERE p.status = ? AND p.deleted_at IS NULL AND i.academic_session_id = ? '
+                . 'GROUP BY sec.class_id',
+            [Payment::STATUS_SUCCESS, $academicSessionId],
+        )->getResultArray();
+
+        $result = [];
+
+        foreach ($rows as $row) {
+            $result[(int) $row['class_id']] = (float) $row['collected'];
+        }
+
+        return $result;
+    }
 }
