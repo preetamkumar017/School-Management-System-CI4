@@ -44,17 +44,18 @@ interface LeaveBalances {
 }
 
 const LEAVE_TYPE_LABELS: Record<LeaveRequest["leave_type"], string> = {
-  CL: "Casual Leave",
-  SL: "Sick Leave",
-  EL: "Earned Leave",
-  ML: "Maternity Leave",
-  LWP: "Loss of Pay (Unpaid)",
-  DL: "Duty Leave (Official Duty)",
+  CL: "Casual Leave (CL)",
+  SL: "Sick Leave (SL)",
+  EL: "Earned Leave (EL)",
+  ML: "Maternity Leave (ML)",
+  LWP: "Loss of Pay (LWP)",
+  DL: "Duty Leave (DL)",
 };
 
 export default function LeaveRequestsPage() {
   const { employees, isLoading: isLoadingEmployees } = useEmployees();
-  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
+  const [selectedStatus, setSelectedStatus] = useState<"All" | "Pending" | "Approved" | "Rejected">("All");
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("All");
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [balances, setBalances] = useState<LeaveBalances | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -71,38 +72,49 @@ export default function LeaveRequestsPage() {
   const [rejectionReason, setRejectionReason] = useState("");
   const [isRejecting, setIsRejecting] = useState(false);
 
-  const currentEmployee = employees.find((e) => String(e.employee_id) === selectedEmployeeId);
-
-  function reload(forEmployeeId: number) {
+  function reload() {
     setIsLoading(true);
     setError(null);
-    Promise.all([
-      api.get<{ data: LeaveRequest[] }>("/hr-payroll/leave-requests", { params: { employee_id: forEmployeeId } }),
-      api.get<{ data: LeaveBalances }>("/hr-payroll/leave-requests/balance", { params: { employee_id: forEmployeeId } }),
-    ])
+    const params: Record<string, string | number> = {};
+    if (selectedEmployeeId && selectedEmployeeId !== "All") {
+      params.employee_id = Number(selectedEmployeeId);
+    } else if (selectedStatus && selectedStatus !== "All") {
+      params.status = selectedStatus;
+    }
+
+    const fetchRequests = api.get<{ data: LeaveRequest[] }>("/hr-payroll/leave-requests", { params });
+
+    const fetchBalance =
+      selectedEmployeeId && selectedEmployeeId !== "All"
+        ? api.get<{ data: LeaveBalances }>("/hr-payroll/leave-requests/balance", {
+            params: { employee_id: Number(selectedEmployeeId) },
+          })
+        : Promise.resolve(null);
+
+    Promise.all([fetchRequests, fetchBalance])
       .then(([requestsResponse, balanceResponse]) => {
         setRequests(requestsResponse.data.data);
-        setBalances(balanceResponse.data.data);
+        if (balanceResponse) {
+          setBalances(balanceResponse.data.data);
+        } else {
+          setBalances(null);
+        }
       })
       .catch((err) => setError(apiErrorMessage(err)))
       .finally(() => setIsLoading(false));
   }
 
   useEffect(() => {
-    if (employees.length > 0 && !selectedEmployeeId) {
-      const firstId = String(employees[0].employee_id);
-      setSelectedEmployeeId(firstId);
-      reload(employees[0].employee_id);
-    }
-  }, [employees]);
+    reload();
+  }, [selectedStatus, selectedEmployeeId]);
 
-  function handleSelectEmployee(idStr: string) {
-    setSelectedEmployeeId(idStr);
-    if (idStr) reload(Number(idStr));
+  function getEmployeeDetails(empId: number) {
+    return employees.find((e) => e.employee_id === empId);
   }
 
   function openCreate() {
-    setForm({ ...EMPTY_FORM, employee_id: selectedEmployeeId });
+    const defaultEmp = selectedEmployeeId !== "All" ? selectedEmployeeId : employees[0] ? String(employees[0].employee_id) : "";
+    setForm({ ...EMPTY_FORM, employee_id: defaultEmp });
     setFormError(null);
     setIsCreating(true);
   }
@@ -124,7 +136,7 @@ export default function LeaveRequestsPage() {
         duty_leave_reference: form.duty_leave_reference || null,
       });
       setIsCreating(false);
-      reload(empId);
+      reload();
     } catch (err) {
       setFormError(apiErrorMessage(err));
     } finally {
@@ -136,7 +148,7 @@ export default function LeaveRequestsPage() {
     setMessage(null);
     try {
       await api.post(`/hr-payroll/leave-requests/${request.leave_request_id}/decide`, { decision: "Approved" });
-      if (selectedEmployeeId) reload(Number(selectedEmployeeId));
+      reload();
     } catch (err) {
       setMessage(apiErrorMessage(err));
     }
@@ -159,7 +171,7 @@ export default function LeaveRequestsPage() {
         override_reason: rejectionReason || null,
       });
       setRejectingRequest(null);
-      if (selectedEmployeeId) reload(Number(selectedEmployeeId));
+      reload();
     } catch (err) {
       setMessage(apiErrorMessage(err));
     } finally {
@@ -167,88 +179,136 @@ export default function LeaveRequestsPage() {
     }
   }
 
+  const pendingCount = requests.filter((r) => r.status === "Pending").length;
+
   return (
     <div>
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">Leave Requests & Allocations</h2>
-          <p className="text-xs text-slate-500">Manage employee leave applications and balances</p>
+          <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+            School Leave Management & Approval Inbox
+          </h2>
+          <p className="text-xs text-slate-500">
+            View all staff leave applications across the school and approve/reject with 1-click
+          </p>
         </div>
         <button type="button" onClick={openCreate} className={primaryButtonClass}>
-          New Leave Request
+          + New Leave Request
         </button>
       </div>
 
-      {/* Employee Selector Dropdown */}
-      <div className="mb-6 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/50">
-        <label className="text-sm font-semibold text-slate-700 dark:text-slate-300">Select Employee:</label>
-        <select
-          value={selectedEmployeeId}
-          onChange={(e) => handleSelectEmployee(e.target.value)}
-          className={`${inputClass} max-w-md font-medium text-slate-900 dark:text-slate-100`}
-        >
-          {employees.map((emp) => (
-            <option key={emp.employee_id} value={emp.employee_id}>
-              {emp.employee_code} — {emp.full_name} ({emp.staff_type || "Staff"})
-            </option>
-          ))}
-        </select>
+      {/* Filter Bar: Status & Employee Dropdown */}
+      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 rounded-xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/50">
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1 block">
+            Filter by Status:
+          </label>
+          <div className="flex flex-wrap gap-1">
+            {(["All", "Pending", "Approved", "Rejected"] as const).map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => {
+                  setSelectedStatus(s);
+                  setSelectedEmployeeId("All");
+                }}
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                  selectedStatus === s
+                    ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 shadow-xs"
+                    : "border border-slate-300 bg-white text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300 dark:hover:bg-slate-900"
+                }`}
+              >
+                {s} {s === "Pending" && pendingCount > 0 ? `(${pendingCount})` : ""}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1 block">
+            Filter by Specific Staff Member:
+          </label>
+          <select
+            value={selectedEmployeeId}
+            onChange={(e) => {
+              setSelectedEmployeeId(e.target.value);
+              setSelectedStatus("All");
+            }}
+            className={`${inputClass} font-medium`}
+          >
+            <option value="All">All Staff Members ({employees.length} Employees)</option>
+            {employees.map((emp) => (
+              <option key={emp.employee_id} value={emp.employee_id}>
+                {emp.employee_code} — {emp.full_name} ({emp.staff_type || "Staff"})
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {message && <p className="mb-3 text-sm text-red-600 dark:text-red-400">{message}</p>}
       {isLoadingEmployees && <p className="text-sm text-slate-500">Loading staff directory…</p>}
-      {isLoading && <p className="text-sm text-slate-500 dark:text-slate-400">Loading leave requests…</p>}
+      {isLoading && <p className="text-sm text-slate-500 dark:text-slate-400">Loading leave inbox…</p>}
       {error && (
         <p role="alert" className="text-sm text-red-600 dark:text-red-400">
           {error}
         </p>
       )}
 
-      {selectedEmployeeId && !isLoading && !error && (
-        <>
-          {balances && (
-            <div className="mb-6">
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Annual Leave Balances ({balances.year}) — {currentEmployee?.full_name}
-              </h3>
-              <div className="grid grid-cols-3 gap-3">
-                {(["CL", "SL", "EL"] as const).map((type) => {
-                  const b = balances.balances[type];
-                  return (
-                    <div
-                      key={type}
-                      className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950"
-                    >
-                      <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{LEAVE_TYPE_LABELS[type]}</p>
-                      <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
-                        {b ? `${b.remaining} remaining` : "N/A"}
-                      </p>
-                      {b && (
-                        <p className="text-xs text-slate-400">
-                          {b.consumed} used of {b.allocation}
-                        </p>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+      {/* Selected Employee Balance Banner */}
+      {balances && selectedEmployeeId !== "All" && (
+        <div className="mb-6">
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
+            Annual Leave Balances ({balances.year}) — {getEmployeeDetails(Number(selectedEmployeeId))?.full_name}
+          </h3>
+          <div className="grid grid-cols-3 gap-3">
+            {(["CL", "SL", "EL"] as const).map((type) => {
+              const b = balances.balances[type];
+              return (
+                <div
+                  key={type}
+                  className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950"
+                >
+                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{LEAVE_TYPE_LABELS[type]}</p>
+                  <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
+                    {b ? `${b.remaining} remaining` : "N/A"}
+                  </p>
+                  {b && (
+                    <p className="text-xs text-slate-400">
+                      {b.consumed} used of {b.allocation}
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
-          <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
-            <table className="w-full text-left text-sm">
-              <thead className="border-b border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
-                <tr>
-                  <th className="px-4 py-2 font-medium">Type</th>
-                  <th className="px-4 py-2 font-medium">Dates</th>
-                  <th className="px-4 py-2 font-medium">Reason & Reference</th>
-                  <th className="px-4 py-2 font-medium">Status</th>
-                  <th className="px-4 py-2 text-right">Decision</th>
-                </tr>
-              </thead>
-              <tbody>
-                {requests.map((r) => (
+      {!isLoading && !error && (
+        <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
+          <table className="w-full text-left text-sm">
+            <thead className="border-b border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+              <tr>
+                <th className="px-4 py-2 font-medium">Applicant Staff</th>
+                <th className="px-4 py-2 font-medium">Leave Type</th>
+                <th className="px-4 py-2 font-medium">Dates</th>
+                <th className="px-4 py-2 font-medium">Reason & Reference</th>
+                <th className="px-4 py-2 font-medium">Status</th>
+                <th className="px-4 py-2 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {requests.map((r) => {
+                const emp = getEmployeeDetails(r.employee_id);
+                return (
                   <tr key={r.leave_request_id} className="border-b border-slate-100 last:border-0 dark:border-slate-900">
+                    <td className="px-4 py-2 font-medium text-slate-900 dark:text-slate-100">
+                      <div>{emp?.full_name || `Employee #${r.employee_id}`}</div>
+                      <div className="text-xs text-slate-500">
+                        {emp?.employee_code} • {emp?.staff_type || "Staff"}
+                      </div>
+                    </td>
                     <td className="px-4 py-2 font-semibold text-slate-900 dark:text-slate-100">
                       {LEAVE_TYPE_LABELS[r.leave_type] || r.leave_type}
                     </td>
@@ -282,14 +342,14 @@ export default function LeaveRequestsPage() {
                           <button
                             type="button"
                             onClick={() => handleApprove(r)}
-                            className="rounded border border-green-300 px-2 py-1 text-xs text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-300"
+                            className="rounded border border-green-300 px-2.5 py-1 text-xs font-medium text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-300"
                           >
                             Approve
                           </button>
                           <button
                             type="button"
                             onClick={() => openRejectModal(r)}
-                            className="rounded border border-red-300 px-2 py-1 text-xs text-red-700 hover:bg-red-50 dark:border-red-700 dark:text-red-300"
+                            className="rounded border border-red-300 px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-50 dark:border-red-700 dark:text-red-300"
                           >
                             Reject
                           </button>
@@ -297,18 +357,18 @@ export default function LeaveRequestsPage() {
                       )}
                     </td>
                   </tr>
-                ))}
-                {requests.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-6 text-center text-slate-400">
-                      No leave requests for this employee.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </>
+                );
+              })}
+              {requests.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-4 py-6 text-center text-slate-400">
+                    No leave requests match the selected filters.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {/* New Leave Request Modal */}
@@ -325,7 +385,7 @@ export default function LeaveRequestsPage() {
               >
                 {employees.map((emp) => (
                   <option key={emp.employee_id} value={emp.employee_id}>
-                    {emp.employee_code} — {emp.full_name}
+                    {emp.employee_code} — {emp.full_name} ({emp.staff_type || "Staff"})
                   </option>
                 ))}
               </select>
@@ -417,7 +477,11 @@ export default function LeaveRequestsPage() {
         <Modal title="Reject Leave Request" onClose={() => setRejectingRequest(null)} maxWidth="lg">
           <form onSubmit={confirmRejection} className="space-y-4">
             <p className="text-sm text-slate-600 dark:text-slate-400">
-              Rejecting leave application for <strong className="text-slate-900 dark:text-slate-100">{currentEmployee?.full_name}</strong> ({rejectingRequest.start_date} to {rejectingRequest.end_date}).
+              Rejecting leave application for{" "}
+              <strong className="text-slate-900 dark:text-slate-100">
+                {getEmployeeDetails(rejectingRequest.employee_id)?.full_name || `Employee #${rejectingRequest.employee_id}`}
+              </strong>{" "}
+              ({rejectingRequest.start_date} to {rejectingRequest.end_date}).
             </p>
 
             <div>

@@ -174,6 +174,24 @@ class LeaveRequestService
     }
 
     /**
+     * @return list<LeaveRequestResponse>
+     */
+    public function listAll(?string $status = null): array
+    {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
+        $query = $this->leaveRequestModel;
+        if ($status !== null && $status !== '') {
+            $query = $query->where('status', $status);
+        }
+
+        return array_map(
+            static fn (LeaveRequest $leaveRequest): LeaveRequestResponse => new LeaveRequestResponse($leaveRequest),
+            $query->findAll(),
+        );
+    }
+
+    /**
      * Read-only entry point for Attendance's BR-ATT-005 reconciliation
      * (ADR-008 §3) — Attendance → HR & Payroll is the allowed direction.
      *

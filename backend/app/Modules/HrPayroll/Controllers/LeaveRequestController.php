@@ -118,7 +118,10 @@ class LeaveRequestController extends BaseController
         path: '/hr-payroll/leave-requests',
         tags: ['Leave Requests'],
         security: [['bearerAuth' => []]],
-        parameters: [new OA\Parameter(name: 'employee_id', in: 'query', required: true, schema: new OA\Schema(type: 'integer'))],
+        parameters: [
+            new OA\Parameter(name: 'employee_id', in: 'query', required: false, schema: new OA\Schema(type: 'integer')),
+            new OA\Parameter(name: 'status', in: 'query', required: false, schema: new OA\Schema(type: 'string')),
+        ],
         responses: [
             new OA\Response(
                 response: 200,
@@ -130,12 +133,13 @@ class LeaveRequestController extends BaseController
     public function index()
     {
         $employeeId = (int) ($this->request->getGet('employee_id') ?? 0);
+        $status     = (string) ($this->request->getGet('status') ?? '');
 
-        if ($employeeId <= 0) {
-            throw new ValidationException(['employee_id' => 'employee_id query parameter is required.']);
+        if ($employeeId > 0) {
+            $responses = Services::leaveRequestService()->listByEmployee($employeeId);
+        } else {
+            $responses = Services::leaveRequestService()->listAll($status !== '' ? $status : null);
         }
-
-        $responses = Services::leaveRequestService()->listByEmployee($employeeId);
 
         return $this->respondSuccess(array_map(static fn ($response) => $response->toArray(), $responses));
     }
