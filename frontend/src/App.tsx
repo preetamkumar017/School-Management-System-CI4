@@ -4,6 +4,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import DashboardLayout from "./components/DashboardLayout";
 import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
+import AdministrationPage from "./pages/administration/AdministrationPage";
 
 export default function App() {
   return (
@@ -18,6 +19,7 @@ export default function App() {
                 <DashboardLayout>
                   <Routes>
                     <Route path="/" element={<DashboardPage />} />
+                    <Route path="/administration" element={<AdministrationPage />} />
                   </Routes>
                 </DashboardLayout>
               </ProtectedRoute>
