@@ -20,21 +20,21 @@ hardware, which vendor API, push-webhook vs. poll) before any design or
 implementation can begin. Everything else in Transport (Route, Vehicle,
 Driver, Trip, TransportAllocation) is done; this is the one named gap.
 
-## 2. RBAC — only two rules enforced, not a systematic pass
+## 2. RBAC — Phase 1 done (Administration + HR & Payroll), Phase 2 in progress
 
-`RequestContext::permissionSet()` is checked in exactly two places:
-BR-HR-004 (leave-balance override, ADR-015) and BR-FEE-002 (payment
-void/refund, ADR-018). Every other endpoint in every other module relies
-on authentication alone (a valid JWT) — no per-action role/permission
-gating anywhere else, even though Appendix-E names role restrictions
-across most modules (Academic Head approvals, Teacher-only creates,
-Finance-only actions, etc.). Both existing ADRs deliberately declined a
-broader sweep, flagging it as a separate future effort. **Before
-production use with real, distinct user roles (not just "logged in or
-not"), this needs a dedicated design pass**: enumerate every
-Appendix-E-named restriction, decide the permission-string taxonomy,
-wire checks at each Service's mutating entry point, same shape as the
-two existing instances.
+2026-08-08: a real exploit was demonstrated live (an `Employee`-role
+login could edit another employee's salary, apply leave on someone
+else's behalf, and list every `User` account) and closed the same day
+via `docs/ADR/ADR-024-systemwide-rbac-enforcement.md` — a two-tier
+model (`<module>.manage` permission, or ownership of the record) backed
+by a shared `App\Core\Authz\ModuleAuthorizer`. **Phase 1 covers
+Administration and HR & Payroll** (the two modules the exploit
+spanned) — real-server-verified closed, 246 passing tests. **Phase 2
+(remaining 11 modules — Academic, Admission, SIS, Examination,
+Timetable, Attendance, Fees, Library, Transport, Communication,
+Reports) is the same pattern, not yet applied** — every write endpoint
+outside Administration/HR & Payroll still relies on authentication
+alone. Continue from ADR-024's own per-module table once resumed.
 
 ## 3. MSG91 gateway — wired but not credentialed
 
