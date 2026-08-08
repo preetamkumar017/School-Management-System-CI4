@@ -21,6 +21,15 @@ export default function EmployeeEditModal({
   const [fullName, setFullName] = useState(employee.full_name);
   const [departmentId, setDepartmentId] = useState(String(employee.department_id));
   const [designationId, setDesignationId] = useState(String(employee.designation_id));
+  const [staffType, setStaffType] = useState(employee.staff_type || "Teaching");
+  const [qualification, setQualification] = useState(employee.qualification || "");
+  const [aadhaarNumber, setAadhaarNumber] = useState(employee.aadhaar_number || "");
+  const [panNumber, setPanNumber] = useState(employee.pan_number || "");
+  const [pfUan, setPfUan] = useState(employee.pf_uan || "");
+  const [esiNumber, setEsiNumber] = useState(employee.esi_number || "");
+  const [bankName, setBankName] = useState(employee.bank_name || "");
+  const [bankAccountNumber, setBankAccountNumber] = useState(employee.bank_account_number || "");
+  const [bankIfscCode, setBankIfscCode] = useState(employee.bank_ifsc_code || "");
   const [components, setComponents] = useState<SalaryComponents>(jsonToSalaryComponents(employee.salary_structure_json));
   const [exitDate, setExitDate] = useState(employee.exit_date ?? "");
   const [confirmExit, setConfirmExit] = useState(false);
@@ -42,6 +51,15 @@ export default function EmployeeEditModal({
         full_name: fullName,
         department_id: Number(departmentId),
         designation_id: Number(designationId),
+        staff_type: staffType,
+        qualification: qualification || null,
+        aadhaar_number: aadhaarNumber || null,
+        pan_number: panNumber || null,
+        pf_uan: pfUan || null,
+        esi_number: esiNumber || null,
+        bank_name: bankName || null,
+        bank_account_number: bankAccountNumber || null,
+        bank_ifsc_code: bankIfscCode || null,
         salary_structure_json: salaryComponentsToJson(components),
         exit_date: exitDate || null,
       });
@@ -55,12 +73,22 @@ export default function EmployeeEditModal({
 
   return (
     <Modal title={`Edit — ${employee.employee_code}`} onClose={onClose}>
-      <form onSubmit={handleSave} className="max-h-[70vh] space-y-4 overflow-y-auto pr-1">
+      <form onSubmit={handleSave} className="max-h-[75vh] space-y-4 overflow-y-auto pr-1">
         <div>
           <label className={labelClass}>Full name</label>
           <input required value={fullName} onChange={(e) => setFullName(e.target.value)} className={inputClass} />
         </div>
-        <div className="grid grid-cols-2 gap-3">
+
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className={labelClass}>Staff Type</label>
+            <select required value={staffType} onChange={(e) => setStaffType(e.target.value)} className={inputClass}>
+              <option value="Teaching">Teaching</option>
+              <option value="NonTeaching">Non-Teaching</option>
+              <option value="Support">Support</option>
+              <option value="Administrative">Administrative</option>
+            </select>
+          </div>
           <div>
             <label className={labelClass}>Department</label>
             <select required value={departmentId} onChange={(e) => setDepartmentId(e.target.value)} className={inputClass}>
@@ -83,14 +111,104 @@ export default function EmployeeEditModal({
           </div>
         </div>
 
+        <div>
+          <label className={labelClass}>Qualification</label>
+          <input
+            placeholder="e.g. M.Sc Physics, B.Ed"
+            value={qualification}
+            onChange={(e) => setQualification(e.target.value)}
+            className={inputClass}
+          />
+        </div>
+
+        {/* Indian School KYC & Statutory */}
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-3 dark:border-slate-800 dark:bg-slate-900/50">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Statutory & Identity KYC</h4>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelClass}>Aadhaar Number</label>
+              <input
+                maxLength={12}
+                placeholder="12 digit Aadhaar"
+                value={aadhaarNumber}
+                onChange={(e) => setAadhaarNumber(e.target.value)}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>PAN Number</label>
+              <input
+                maxLength={10}
+                placeholder="10 char PAN"
+                value={panNumber}
+                onChange={(e) => setPanNumber(e.target.value)}
+                className={inputClass}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={labelClass}>PF UAN</label>
+              <input
+                placeholder="Universal Account Number"
+                value={pfUan}
+                onChange={(e) => setPfUan(e.target.value)}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>ESI Number</label>
+              <input
+                placeholder="ESI Insurance Number"
+                value={esiNumber}
+                onChange={(e) => setEsiNumber(e.target.value)}
+                className={inputClass}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Bank Details */}
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-3 dark:border-slate-800 dark:bg-slate-900/50">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Bank Account Details</h4>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className={labelClass}>Bank Name</label>
+              <input
+                placeholder="e.g. State Bank of India"
+                value={bankName}
+                onChange={(e) => setBankName(e.target.value)}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Account Number</label>
+              <input
+                placeholder="Account Number"
+                value={bankAccountNumber}
+                onChange={(e) => setBankAccountNumber(e.target.value)}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>IFSC Code</label>
+              <input
+                placeholder="IFSC Code"
+                value={bankIfscCode}
+                onChange={(e) => setBankIfscCode(e.target.value)}
+                className={inputClass}
+              />
+            </div>
+          </div>
+        </div>
+
         <SalaryStructureEditor components={components} onChange={setComponents} />
 
         <div className="border-t border-slate-200 pt-4 dark:border-slate-800">
           <label className={labelClass}>Exit date</label>
           {employee.exit_date !== null ? (
             <p className="text-sm text-slate-500 dark:text-slate-400">
-              Exited on {employee.exit_date} — this is permanent, no un-exit path exists (ADR-008 §9: no
-              settlement/reversal workflow modeled).
+              Exited on {employee.exit_date} — this is permanent, no un-exit path exists.
             </p>
           ) : (
             <>

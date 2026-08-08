@@ -12,7 +12,18 @@ export interface Employee {
   full_name: string;
   department_id: number;
   designation_id: number;
+  staff_type?: string;
+  qualification?: string;
+  aadhaar_number?: string;
+  pan_number?: string;
+  pf_uan?: string;
+  esi_number?: string;
+  bank_name?: string;
+  bank_account_number?: string;
+  bank_ifsc_code?: string;
   joining_date: string;
+  probation_end_date?: string;
+  confirmation_date?: string;
   exit_date: string | null;
   salary_structure_json: Record<string, number>;
   status: "Active" | "Exited";
@@ -23,10 +34,34 @@ interface FormState {
   full_name: string;
   department_id: string;
   designation_id: string;
+  staff_type: string;
+  qualification: string;
+  aadhaar_number: string;
+  pan_number: string;
+  pf_uan: string;
+  esi_number: string;
+  bank_name: string;
+  bank_account_number: string;
+  bank_ifsc_code: string;
   joining_date: string;
 }
 
-const EMPTY_FORM: FormState = { employee_code: "", full_name: "", department_id: "", designation_id: "", joining_date: "" };
+const EMPTY_FORM: FormState = {
+  employee_code: "",
+  full_name: "",
+  department_id: "",
+  designation_id: "",
+  staff_type: "Teaching",
+  qualification: "",
+  aadhaar_number: "",
+  pan_number: "",
+  pf_uan: "",
+  esi_number: "",
+  bank_name: "",
+  bank_account_number: "",
+  bank_ifsc_code: "",
+  joining_date: "",
+};
 
 export function useEmployees() {
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -97,6 +132,15 @@ export default function EmployeesPage() {
         full_name: form.full_name,
         department_id: Number(form.department_id),
         designation_id: Number(form.designation_id),
+        staff_type: form.staff_type,
+        qualification: form.qualification || null,
+        aadhaar_number: form.aadhaar_number || null,
+        pan_number: form.pan_number || null,
+        pf_uan: form.pf_uan || null,
+        esi_number: form.esi_number || null,
+        bank_name: form.bank_name || null,
+        bank_account_number: form.bank_account_number || null,
+        bank_ifsc_code: form.bank_ifsc_code || null,
         joining_date: form.joining_date,
         salary_structure_json: salaryComponentsToJson(components),
       });
@@ -157,6 +201,7 @@ export default function EmployeesPage() {
               <tr>
                 <th className="px-4 py-2 font-medium">Code</th>
                 <th className="px-4 py-2 font-medium">Name</th>
+                <th className="px-4 py-2 font-medium">Type</th>
                 <th className="px-4 py-2 font-medium">Department</th>
                 <th className="px-4 py-2 font-medium">Designation</th>
                 <th className="px-4 py-2 font-medium">Gross</th>
@@ -170,7 +215,12 @@ export default function EmployeesPage() {
                 return (
                   <tr key={e.employee_id} className="border-b border-slate-100 last:border-0 dark:border-slate-900">
                     <td className="px-4 py-2 text-slate-900 dark:text-slate-100">{e.employee_code}</td>
-                    <td className="px-4 py-2 text-slate-900 dark:text-slate-100">{e.full_name}</td>
+                    <td className="px-4 py-2 text-slate-900 dark:text-slate-100 font-medium">{e.full_name}</td>
+                    <td className="px-4 py-2">
+                      <span className="rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-800 dark:bg-blue-950 dark:text-blue-300">
+                        {e.staff_type || "Teaching"}
+                      </span>
+                    </td>
                     <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{departmentName(e.department_id)}</td>
                     <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{designationName(e.designation_id)}</td>
                     <td className="px-4 py-2 text-slate-500 dark:text-slate-400">₹{gross.toLocaleString()}</td>
@@ -199,7 +249,7 @@ export default function EmployeesPage() {
               })}
               {filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="px-4 py-6 text-center text-slate-400">
+                  <td colSpan={8} className="px-4 py-6 text-center text-slate-400">
                     No employees match.
                   </td>
                 </tr>
@@ -211,26 +261,43 @@ export default function EmployeesPage() {
 
       {isCreating && (
         <Modal title="New Employee" onClose={() => setIsCreating(false)}>
-          <form onSubmit={handleSubmit} className="max-h-[70vh] space-y-4 overflow-y-auto pr-1">
-            <div>
-              <label className={labelClass}>Employee code</label>
-              <input
-                required
-                value={form.employee_code}
-                onChange={(e) => setForm({ ...form, employee_code: e.target.value })}
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label className={labelClass}>Full name</label>
-              <input
-                required
-                value={form.full_name}
-                onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-                className={inputClass}
-              />
-            </div>
+          <form onSubmit={handleSubmit} className="max-h-[75vh] space-y-4 overflow-y-auto pr-1">
             <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelClass}>Employee code</label>
+                <input
+                  required
+                  value={form.employee_code}
+                  onChange={(e) => setForm({ ...form, employee_code: e.target.value })}
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Full name</label>
+                <input
+                  required
+                  value={form.full_name}
+                  onChange={(e) => setForm({ ...form, full_name: e.target.value })}
+                  className={inputClass}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className={labelClass}>Staff Type</label>
+                <select
+                  required
+                  value={form.staff_type}
+                  onChange={(e) => setForm({ ...form, staff_type: e.target.value })}
+                  className={inputClass}
+                >
+                  <option value="Teaching">Teaching</option>
+                  <option value="NonTeaching">Non-Teaching</option>
+                  <option value="Support">Support</option>
+                  <option value="Administrative">Administrative</option>
+                </select>
+              </div>
               <div>
                 <label className={labelClass}>Department</label>
                 <select
@@ -268,15 +335,108 @@ export default function EmployeesPage() {
                 </select>
               </div>
             </div>
-            <div>
-              <label className={labelClass}>Joining date</label>
-              <input
-                required
-                type="date"
-                value={form.joining_date}
-                onChange={(e) => setForm({ ...form, joining_date: e.target.value })}
-                className={inputClass}
-              />
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelClass}>Qualification</label>
+                <input
+                  placeholder="e.g. M.Sc Physics, B.Ed"
+                  value={form.qualification}
+                  onChange={(e) => setForm({ ...form, qualification: e.target.value })}
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Joining date</label>
+                <input
+                  required
+                  type="date"
+                  value={form.joining_date}
+                  onChange={(e) => setForm({ ...form, joining_date: e.target.value })}
+                  className={inputClass}
+                />
+              </div>
+            </div>
+
+            {/* Indian School KYC & Statutory */}
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-3 dark:border-slate-800 dark:bg-slate-900/50">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Statutory & Identity KYC</h4>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelClass}>Aadhaar Number</label>
+                  <input
+                    maxLength={12}
+                    placeholder="12 digit Aadhaar"
+                    value={form.aadhaar_number}
+                    onChange={(e) => setForm({ ...form, aadhaar_number: e.target.value })}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>PAN Number</label>
+                  <input
+                    maxLength={10}
+                    placeholder="10 char PAN"
+                    value={form.pan_number}
+                    onChange={(e) => setForm({ ...form, pan_number: e.target.value })}
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelClass}>PF UAN</label>
+                  <input
+                    placeholder="Universal Account Number"
+                    value={form.pf_uan}
+                    onChange={(e) => setForm({ ...form, pf_uan: e.target.value })}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>ESI Number</label>
+                  <input
+                    placeholder="ESI Insurance Number"
+                    value={form.esi_number}
+                    onChange={(e) => setForm({ ...form, esi_number: e.target.value })}
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Bank Details */}
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-3 dark:border-slate-800 dark:bg-slate-900/50">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Bank Account Details</h4>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className={labelClass}>Bank Name</label>
+                  <input
+                    placeholder="e.g. State Bank of India"
+                    value={form.bank_name}
+                    onChange={(e) => setForm({ ...form, bank_name: e.target.value })}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Account Number</label>
+                  <input
+                    placeholder="Account Number"
+                    value={form.bank_account_number}
+                    onChange={(e) => setForm({ ...form, bank_account_number: e.target.value })}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>IFSC Code</label>
+                  <input
+                    placeholder="IFSC Code"
+                    value={form.bank_ifsc_code}
+                    onChange={(e) => setForm({ ...form, bank_ifsc_code: e.target.value })}
+                    className={inputClass}
+                  />
+                </div>
+              </div>
             </div>
 
             <SalaryStructureEditor components={components} onChange={setComponents} />
