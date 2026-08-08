@@ -54,6 +54,25 @@ export function useAcademicSessions() {
   return { sessions, isLoading, error };
 }
 
+export interface Subject {
+  subject_id: number;
+  subject_name: string;
+  subject_code: string;
+}
+
+export function useSubjects() {
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+
+  useEffect(() => {
+    api
+      .get<{ data: Subject[] }>("/academic/subjects")
+      .then((response) => setSubjects(response.data.data))
+      .catch(() => setSubjects([]));
+  }, []);
+
+  return { subjects };
+}
+
 export function useSections(classId: number | null) {
   const [sections, setSections] = useState<Section[]>([]);
   const [isLoading, setIsLoading] = useState(false);
