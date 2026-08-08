@@ -98,9 +98,9 @@ class DevDataSeeder extends Seeder
         }
 
         // 4. Seed Employees
-        $emp1Id = $db->table('employees')->where('employee_code', 'EMP-1001')->get()->getRow('employee_id');
-        if ($emp1Id === null) {
-            $emp1Id = $db->table('employees')->insert([
+        $emp1 = $db->table('employees')->where('employee_code', 'EMP-1001')->get()->getRow();
+        if ($emp1 === null) {
+            $emp1Id = (int) $db->table('employees')->insert([
                 'employee_code'         => 'EMP-1001',
                 'full_name'             => 'Ramesh Kumar',
                 'department_id'         => $academicsDeptId,
@@ -120,11 +120,13 @@ class DevDataSeeder extends Seeder
                 'created_at'            => date('Y-m-d H:i:s'),
                 'updated_at'            => date('Y-m-d H:i:s'),
             ], true);
+        } else {
+            $emp1Id = (int) $emp1->employee_id;
         }
 
-        $emp2Id = $db->table('employees')->where('employee_code', 'EMP-1002')->get()->getRow('employee_id');
-        if ($emp2Id === null) {
-            $emp2Id = $db->table('employees')->insert([
+        $emp2 = $db->table('employees')->where('employee_code', 'EMP-1002')->get()->getRow();
+        if ($emp2 === null) {
+            $emp2Id = (int) $db->table('employees')->insert([
                 'employee_code'         => 'EMP-1002',
                 'full_name'             => 'Sunita Sharma',
                 'department_id'         => $academicsDeptId,
@@ -139,11 +141,13 @@ class DevDataSeeder extends Seeder
                 'created_at'            => date('Y-m-d H:i:s'),
                 'updated_at'            => date('Y-m-d H:i:s'),
             ], true);
+        } else {
+            $emp2Id = (int) $emp2->employee_id;
         }
 
-        $emp3Id = $db->table('employees')->where('employee_code', 'EMP-1003')->get()->getRow('employee_id');
-        if ($emp3Id === null) {
-            $emp3Id = $db->table('employees')->insert([
+        $emp3 = $db->table('employees')->where('employee_code', 'EMP-1003')->get()->getRow();
+        if ($emp3 === null) {
+            $emp3Id = (int) $db->table('employees')->insert([
                 'employee_code'         => 'EMP-1003',
                 'full_name'             => 'Vikram Singh',
                 'department_id'         => $accountsDeptId,
@@ -156,6 +160,8 @@ class DevDataSeeder extends Seeder
                 'created_at'            => date('Y-m-d H:i:s'),
                 'updated_at'            => date('Y-m-d H:i:s'),
             ], true);
+        } else {
+            $emp3Id = (int) $emp3->employee_id;
         }
 
         // 5. Seed Users
@@ -175,6 +181,7 @@ class DevDataSeeder extends Seeder
             $db->table('users')->where('username', 'admin')->update([
                 'password_hash' => password_hash('Admin@1234', PASSWORD_BCRYPT),
                 'role_id'       => $adminRoleId,
+                'owner_type'    => 'EMPLOYEE',
                 'owner_ref_id'  => $emp1Id,
                 'status'        => 'ACTIVE',
             ]);
@@ -196,6 +203,7 @@ class DevDataSeeder extends Seeder
             $db->table('users')->where('username', 'priya.iyer')->update([
                 'password_hash' => password_hash('Employee@1234', PASSWORD_BCRYPT),
                 'role_id'       => $employeeRoleId,
+                'owner_type'    => 'EMPLOYEE',
                 'owner_ref_id'  => $emp2Id,
                 'status'        => 'ACTIVE',
             ]);

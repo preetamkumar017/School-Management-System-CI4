@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api, apiErrorMessage } from "../lib/api";
+import { useAuth } from "../lib/auth";
 
 interface SummaryData {
   generated_at: string;
@@ -30,12 +32,20 @@ const TILES: { key: keyof SummaryData; label: string }[] = [
 ];
 
 export default function DashboardPage() {
+  const { user } = useAuth();
   const [summary, setSummary] = useState<SummaryData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  const canViewReports = user?.permissionSet.includes("reports.manage");
+
   useEffect(() => {
     let cancelled = false;
+
+    if (!canViewReports) {
+      setIsLoading(false);
+      return;
+    }
 
     api
       .get<{ data: SummaryData }>("/reports/summary")
@@ -52,11 +62,38 @@ export default function DashboardPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [canViewReports]);
+
+  if (!canViewReports) {
+    return (
+      <div>
+        <div className="mb-6 rounded-xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-950">
+          <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">Welcome to Staff Portal 👋</h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Access your personal employee profile, leave applications, attendance, and payslips below.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Link
+            to="/my-hr"
+            className="group rounded-xl border border-slate-200 bg-white p-5 transition hover:border-slate-400 dark:border-slate-800 dark:bg-slate-950 dark:hover:border-slate-600"
+          >
+            <h3 className="font-semibold text-slate-900 group-hover:text-blue-600 dark:text-slate-100 dark:group-hover:text-blue-400">
+              My HR & Leaves
+            </h3>
+            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+              View profile details, check leave balances, submit leave requests, and download payslips.
+            </p>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
-      <h1 className="mb-6 text-lg font-semibold text-slate-900 dark:text-slate-100">Dashboard</h1>
+      <h1 className="mb-6 text-lg font-semibold text-slate-900 dark:text-slate-100">Institutional Overview Dashboard</h1>
 
       {isLoading && <p className="text-sm text-slate-500 dark:text-slate-400">Loading…</p>}
 
