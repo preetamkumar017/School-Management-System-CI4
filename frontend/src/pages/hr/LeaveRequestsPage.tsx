@@ -43,6 +43,12 @@ interface LeaveBalances {
   >;
 }
 
+interface QuotaPolicy {
+  cl: string;
+  sl: string;
+  el: string;
+}
+
 const LEAVE_TYPE_LABELS: Record<LeaveRequest["leave_type"], string> = {
   CL: "Casual Leave (CL)",
   SL: "Sick Leave (SL)",
@@ -71,6 +77,12 @@ export default function LeaveRequestsPage() {
   const [rejectingRequest, setRejectingRequest] = useState<LeaveRequest | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [isRejecting, setIsRejecting] = useState(false);
+
+  // Policy configuration modal state
+  const [isPolicyModalOpen, setIsPolicyModalOpen] = useState(false);
+  const [quotas, setQuotas] = useState<QuotaPolicy>({ cl: "12", sl: "10", el: "15" });
+  const [isSavingPolicy, setIsSavingPolicy] = useState(false);
+  const [policyMessage, setPolicyMessage] = useState<string | null>(null);
 
   function reload() {
     setIsLoading(true);
@@ -104,8 +116,28 @@ export default function LeaveRequestsPage() {
       .finally(() => setIsLoading(false));
   }
 
+  function loadPolicyConfig() {
+    api
+      .get<{ data: { setting_key: string; setting_value: string }[] }>("/administration/configurations", {
+        params: { module: "HrPayroll" },
+      })
+      .then((res) => {
+        const map: Record<string, string> = {};
+        for (const item of res.data.data) {
+          map[item.setting_key] = item.setting_value;
+        }
+        setQuotas({
+          cl: map["hr_payroll.leave_allocation.cl"] || "12",
+          sl: map["hr_payroll.leave_allocation.sl"] || "10",
+          el: map["hr_payroll.leave_allocation.el"] || "15",
+        });
+      })
+      .catch(() => {});
+  }
+
   useEffect(() => {
     reload();
+    loadPolicyConfig();
   }, [selectedStatus, selectedEmployeeId]);
 
   function getEmployeeDetails(empId: number) {
@@ -179,6 +211,24 @@ export default function LeaveRequestsPage() {
     }
   }
 
+  async function handleSavePolicy(event: FormEvent) {
+    event.preventDefault();
+    setPolicyMessage(null);
+    setIsSavingPolicy(true);
+    try {
+      await api.patch("/administration/configurations/hr_payroll.leave_allocation.cl", { setting_value: quotas.cl });
+      await api.patch("/administration/configurations/hr_payroll.leave_allocation.sl", { setting_value: quotas.sl });
+      await api.patch("/administration/configurations/hr_payroll.leave_allocation.el", { setting_value: quotas.el });
+      setPolicyMessage("Annual leave policies updated successfully!");
+      setTimeout(() => setIsPolicyModalOpen(false), 1200);
+      reload();
+    } catch (err) {
+      setPolicyMessage(apiErrorMessage(err));
+    } finally {
+      setIsSavingPolicy(false);
+    }
+  }
+
   const pendingCount = requests.filter((r) => r.status === "Pending").length;
 
   return (
@@ -189,12 +239,25 @@ export default function LeaveRequestsPage() {
             School Leave Management & Approval Inbox
           </h2>
           <p className="text-xs text-slate-500">
-            View all staff leave applications across the school and approve/reject with 1-click
+            View all staff leave applications across the school and configure annual leave policies
           </p>
         </div>
-        <button type="button" onClick={openCreate} className={primaryButtonClass}>
-          + New Leave Request
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              loadPolicyConfig();
+              setPolicyMessage(null);
+              setIsPolicyModalOpen(true);
+            }}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300 dark:hover:bg-slate-900"
+          >
+            ⚙️ Configure Leave Policy & Quotas
+          </button>
+          <button type="button" onClick={openCreate} className={primaryButtonClass}>
+            + New Leave Request
+          </button>
+        </div>
       </div>
 
       {/* Filter Bar: Status & Employee Dropdown */}
@@ -501,6 +564,82 @@ export default function LeaveRequestsPage() {
               </button>
               <button type="submit" disabled={isRejecting} className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50">
                 {isRejecting ? "Rejecting…" : "Confirm Rejection"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Leave Policy & Quota Configuration Modal */}
+      {isPolicyModalOpen && (
+        <Modal title="⚙️ Configure School Leave Policy & Quotas" onClose={() => setIsPolicyModalOpen(false)} maxWidth="2xl">
+          <form onSubmit={handleSavePolicy} className="space-y-4">
+            <p className="text-xs text-slate-500">
+              Configure the annual paid leave quota allocated to every school staff member at the start of each calendar year.
+            </p>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className={labelClass}>Casual Leave (CL) Quota</label>
+                <input
+                  type="number"
+                  min={1}
+                  required
+                  value={quotas.cl}
+                  onChange={(e) => setQuotas({ ...quotas, cl: e.target.value })}
+                  className={inputClass}
+                />
+                <span className="text-[11px] text-slate-400">days / year (Default: 12)</span>
+              </div>
+
+              <div>
+                <label className={labelClass}>Sick Leave (SL) Quota</label>
+                <input
+                  type="number"
+                  min={1}
+                  required
+                  value={quotas.sl}
+                  onChange={(e) => setQuotas({ ...quotas, sl: e.target.value })}
+                  className={inputClass}
+                />
+                <span className="text-[11px] text-slate-400">days / year (Default: 10)</span>
+              </div>
+
+              <div>
+                <label className={labelClass}>Earned Leave (EL) Quota</label>
+                <input
+                  type="number"
+                  min={1}
+                  required
+                  value={quotas.el}
+                  onChange={(e) => setQuotas({ ...quotas, el: e.target.value })}
+                  className={inputClass}
+                />
+                <span className="text-[11px] text-slate-400">days / year (Default: 15)</span>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2 dark:border-slate-800 dark:bg-slate-900/50">
+              <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Special Leave Entitlements</h4>
+              <ul className="text-xs text-slate-600 dark:text-slate-400 space-y-1">
+                <li>• <strong>Maternity Leave (ML)</strong>: 180 Days Paid Leave (Statutory Indian Maternity Benefit Act).</li>
+                <li>• <strong>Duty Leave (DL)</strong>: Uncapped Paid Leave (Requires Official CBSE/Board Exam/Training Order Ref).</li>
+                <li>• <strong>Loss of Pay (LWP)</strong>: Unpaid Leave (Calculated in monthly payroll LWP deductions).</li>
+              </ul>
+            </div>
+
+            {policyMessage && (
+              <p role="alert" className={`text-sm ${policyMessage.includes("success") ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}>
+                {policyMessage}
+              </p>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button type="button" onClick={() => setIsPolicyModalOpen(false)} className={secondaryButtonClass}>
+                Cancel
+              </button>
+              <button type="submit" disabled={isSavingPolicy} className={primaryButtonClass}>
+                {isSavingPolicy ? "Saving…" : "Save Leave Policy"}
               </button>
             </div>
           </form>
