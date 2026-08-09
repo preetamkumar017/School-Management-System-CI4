@@ -1,6 +1,9 @@
 import { useState, type FormEvent } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { useAuth, apiErrorMessage } from "../lib/auth";
+import { api } from "../lib/api";
+import Modal from "../components/ui/Modal";
+import { inputClass, labelClass, primaryButtonClass, secondaryButtonClass } from "../components/ui/form";
 
 export default function LoginPage() {
   const { login, isAuthenticated } = useAuth();
@@ -10,6 +13,18 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Forgot password flow states
+  const [isForgotOpen, setIsForgotOpen] = useState(false);
+  const [forgotStep, setForgotStep] = useState<1 | 2>(1);
+  const [forgotUsername, setForgotUsername] = useState("");
+  const [resetCode, setResetCode] = useState(""); // Exposes generated code for easy local testing
+  const [verCode, setVerCode] = useState("");
+  const [newPwd, setNewPwd] = useState("");
+  const [confirmNewPwd, setConfirmNewPwd] = useState("");
+  const [forgotErr, setForgotErr] = useState<string | null>(null);
+  const [forgotSuccess, setForgotSuccess] = useState<string | null>(null);
+  const [isForgotSubmitting, setIsForgotSubmitting] = useState(false);
 
   if (isAuthenticated) {
     const redirectTo = (location.state as { from?: string } | null)?.from ?? "/";
@@ -27,6 +42,58 @@ export default function LoginPage() {
       setError(apiErrorMessage(err));
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function handleRequestCode(e: FormEvent) {
+    e.preventDefault();
+    setForgotErr(null);
+    setIsForgotSubmitting(true);
+    try {
+      const res = await api.post<{ success: boolean; data: { reset_code?: string; message: string } }>(
+        "/auth/forgot-password",
+        { username: forgotUsername }
+      );
+      if (res.data.data?.reset_code) {
+        setResetCode(res.data.data.reset_code);
+      }
+      setForgotStep(2);
+    } catch (err) {
+      setForgotErr(apiErrorMessage(err));
+    } finally {
+      setIsForgotSubmitting(false);
+    }
+  }
+
+  async function handleResetPassword(e: FormEvent) {
+    e.preventDefault();
+    if (newPwd !== confirmNewPwd) {
+      setForgotErr("New passwords do not match.");
+      return;
+    }
+    setForgotErr(null);
+    setIsForgotSubmitting(true);
+    try {
+      await api.post("/auth/reset-password", {
+        username: forgotUsername,
+        verification_code: verCode,
+        new_password: newPwd,
+      });
+      setForgotSuccess("Password reset successfully! You can now sign in.");
+      setTimeout(() => {
+        setIsForgotOpen(false);
+        setForgotStep(1);
+        setForgotUsername("");
+        setResetCode("");
+        setVerCode("");
+        setNewPwd("");
+        setConfirmNewPwd("");
+        setForgotSuccess(null);
+      }, 3000);
+    } catch (err) {
+      setForgotErr(apiErrorMessage(err));
+    } finally {
+      setIsForgotSubmitting(false);
     }
   }
 
@@ -54,9 +121,22 @@ export default function LoginPage() {
           </div>
 
           <div>
-            <label htmlFor="password" className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">
-              Password
-            </label>
+            <div className="flex justify-between items-center mb-1">
+              <label htmlFor="password" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                Password
+              </label>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsForgotOpen(true);
+                  setForgotStep(1);
+                  setForgotErr(null);
+                }}
+                className="text-xs text-indigo-600 hover:underline dark:text-indigo-400 font-semibold"
+              >
+                Forgot Password?
+              </button>
+            </div>
             <input
               id="password"
               type="password"
@@ -83,6 +163,110 @@ export default function LoginPage() {
           </button>
         </form>
       </div>
+
+      {/* Forgot Password Modal */}
+      {isForgotOpen && (
+        <Modal title="Password Recovery" onClose={() => setIsForgotOpen(false)}>
+          {forgotStep === 1 ? (
+            <form onSubmit={handleRequestCode} className="space-y-4">
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Enter your username to request a password reset verification code.
+              </p>
+              <div>
+                <label className={labelClass}>Username</label>
+                <input
+                  required
+                  type="text"
+                  placeholder="Enter your username"
+                  value={forgotUsername}
+                  onChange={(e) => setForgotUsername(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+
+              {forgotErr && (
+                <p role="alert" className="text-xs text-red-600 dark:text-red-400 font-semibold">
+                  {forgotErr}
+                </p>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={() => setIsForgotOpen(false)} className={secondaryButtonClass}>
+                  Cancel
+                </button>
+                <button type="submit" disabled={isForgotSubmitting} className={primaryButtonClass}>
+                  {isForgotSubmitting ? "Sending..." : "Request Code"}
+                </button>
+              </div>
+            </form>
+          ) : (
+            <form onSubmit={handleResetPassword} className="space-y-4">
+              <div className="rounded-lg bg-indigo-50 p-3 text-xs text-indigo-800 dark:bg-indigo-950/20 dark:text-indigo-400">
+                🔑 <strong>Local Verification Code:</strong> <span className="font-bold text-slate-900 dark:text-white">{resetCode || "123456"}</span>
+                <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">Use this generated code to reset your password instantly.</p>
+              </div>
+
+              <div>
+                <label className={labelClass}>Verification Code</label>
+                <input
+                  required
+                  type="text"
+                  placeholder="Enter 6-digit code"
+                  value={verCode}
+                  onChange={(e) => setVerCode(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className={labelClass}>New Password</label>
+                  <input
+                    required
+                    type="password"
+                    placeholder="New password"
+                    value={newPwd}
+                    onChange={(e) => setNewPwd(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Confirm Password</label>
+                  <input
+                    required
+                    type="password"
+                    placeholder="Confirm password"
+                    value={confirmNewPwd}
+                    onChange={(e) => setConfirmNewPwd(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+
+              {forgotErr && (
+                <p role="alert" className="text-xs text-red-600 dark:text-red-400 font-semibold">
+                  {forgotErr}
+                </p>
+              )}
+
+              {forgotSuccess && (
+                <p className="text-xs text-green-600 dark:text-green-400 font-semibold">
+                  {forgotSuccess}
+                </p>
+              )}
+
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={() => setForgotStep(1)} className={secondaryButtonClass}>
+                  Back
+                </button>
+                <button type="submit" disabled={isForgotSubmitting || !verCode || !newPwd} className={primaryButtonClass}>
+                  {isForgotSubmitting ? "Resetting..." : "Reset Password"}
+                </button>
+              </div>
+            </form>
+          )}
+        </Modal>
+      )}
     </div>
   );
 }

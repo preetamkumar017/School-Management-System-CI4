@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { api, apiErrorMessage } from "../lib/api";
 import { useAuth } from "../lib/auth";
 import { useCurrentEmployee } from "../lib/currentEmployee";
+import { inputClass, labelClass, primaryButtonClass } from "../components/ui/form";
 
 interface UserInfo {
   user_id: number;
@@ -11,12 +12,49 @@ interface UserInfo {
 }
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { employee, isLoading: isEmpLoading, error: empError } = useCurrentEmployee();
 
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [isUserLoading, setIsUserLoading] = useState(true);
   const [userError, setUserError] = useState<string | null>(null);
+
+  // Change password states
+  const [currPassword, setCurrPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [pwdError, setPwdError] = useState<string | null>(null);
+  const [pwdSuccess, setPwdSuccess] = useState<string | null>(null);
+  const [isChangingPwd, setIsChangingPwd] = useState(false);
+
+  async function handleChangePassword(e: FormEvent) {
+    e.preventDefault();
+    if (newPassword !== confirmPassword) {
+      setPwdError("New passwords do not match.");
+      return;
+    }
+    setIsChangingPwd(true);
+    setPwdError(null);
+    setPwdSuccess(null);
+    try {
+      await api.post("/auth/change-password", {
+        current_password: currPassword,
+        new_password: newPassword,
+      });
+      setPwdSuccess("Password changed successfully! Logging out...");
+      setCurrPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setTimeout(async () => {
+        await logout();
+        window.location.reload();
+      }, 2000);
+    } catch (err) {
+      setPwdError(apiErrorMessage(err));
+    } finally {
+      setIsChangingPwd(false);
+    }
+  }
 
   const [depts, setDepts] = useState<any[]>([]);
   const [desigs, setDesigs] = useState<any[]>([]);
@@ -141,6 +179,62 @@ export default function ProfilePage() {
                 <div className="text-slate-400 italic text-center py-2">No salary structure defined.</div>
               )}
             </div>
+          </div>
+
+          {/* Change Password Security Card */}
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+            <h3 className="text-sm font-bold text-slate-900 dark:text-slate-100">Change Password</h3>
+            <form onSubmit={handleChangePassword} className="mt-4 space-y-3">
+              <div>
+                <label className={labelClass}>Current Password</label>
+                <input
+                  required
+                  type="password"
+                  value={currPassword}
+                  onChange={(e) => setCurrPassword(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>New Password</label>
+                <input
+                  required
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className={labelClass}>Confirm New Password</label>
+                <input
+                  required
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+
+              {pwdError && (
+                <p role="alert" className="text-xs text-red-600 dark:text-red-400 font-semibold">
+                  {pwdError}
+                </p>
+              )}
+              {pwdSuccess && (
+                <p className="text-xs text-green-600 dark:text-green-400 font-semibold">
+                  {pwdSuccess}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                disabled={isChangingPwd || !currPassword || !newPassword}
+                className={`${primaryButtonClass} w-full mt-2`}
+              >
+                {isChangingPwd ? "Updating..." : "Update Password"}
+              </button>
+            </form>
           </div>
         </div>
 

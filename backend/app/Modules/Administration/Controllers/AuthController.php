@@ -178,4 +178,69 @@ class AuthController extends BaseController
 
         return $this->respondSuccess();
     }
+
+    public function forgotPassword()
+    {
+        $body = $this->request->getJSON(true) ?? [];
+        $username = trim((string) ($body['username'] ?? ''));
+
+        if ($username === '') {
+            throw new \App\Core\Exceptions\ValidationException(['username' => 'username is required.']);
+        }
+
+        $userModel = new \App\Modules\Administration\Models\UserModel();
+        $user = $userModel->findByUsername($username);
+        if ($user === null) {
+            return $this->respondSuccess([
+                'message' => 'If this username exists, a reset code has been sent.',
+            ]);
+        }
+
+        $code = (string) random_int(100000, 999999);
+        cache()->save('pwd_reset_' . $username, $code, 600);
+
+        return $this->respondSuccess([
+            'reset_code' => $code,
+            'message'    => 'Verification code generated.',
+        ]);
+    }
+
+    public function resetPasswordConfirm()
+    {
+        $body = $this->request->getJSON(true) ?? [];
+        $username = trim((string) ($body['username'] ?? ''));
+        $code = trim((string) ($body['verification_code'] ?? ''));
+        $newPassword = (string) ($body['new_password'] ?? '');
+
+        if ($username === '' || $code === '' || $newPassword === '') {
+            throw new \App\Core\Exceptions\ValidationException([
+                'username'          => 'username is required.',
+                'verification_code' => 'verification_code is required.',
+                'new_password'      => 'new_password is required.',
+            ]);
+        }
+
+        $cached = cache()->get('pwd_reset_' . $username);
+        if ($cached === null || $cached !== $code) {
+            throw new \App\Core\Exceptions\BusinessRuleException(
+                'INVALID_RESET_CODE',
+                'The verification code is invalid or has expired.'
+            );
+        }
+
+        $userModel = new \App\Modules\Administration\Models\UserModel();
+        $user = $userModel->findByUsername($username);
+        if ($user === null) {
+            throw new \App\Core\Exceptions\BusinessRuleException('USER_NOT_FOUND', 'User not found.');
+        }
+
+        $userModel->update($user->user_id, [
+            'password_hash' => password_hash($newPassword, PASSWORD_BCRYPT),
+        ]);
+
+        Services::authService()->logoutAll($user->user_id);
+        cache()->delete('pwd_reset_' . $username);
+
+        return $this->respondSuccess(['message' => 'Password reset successfully.']);
+    }
 }

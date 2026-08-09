@@ -12,6 +12,8 @@ $routes->group('api/v1/auth', ['namespace' => 'App\Modules\Administration\Contro
     $routes->post('logout', 'AuthController::logout');
     $routes->post('logout-all', 'AuthController::logoutAll');
     $routes->post('change-password', 'AuthController::changePassword');
+    $routes->post('forgot-password', 'AuthController::forgotPassword');
+    $routes->post('reset-password', 'AuthController::resetPasswordConfirm');
 });
 
 $routes->group('api/v1/administration', ['namespace' => 'App\Modules\Administration\Controllers'], static function (RouteCollection $routes): void {
