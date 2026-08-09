@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Modules\HrPayroll\Models;
 
-use App\Core\BaseModel;
+use CodeIgniter\Model;
 
-class StaffCommunicationReadModel extends BaseModel
+class StaffCommunicationReadModel extends Model
 {
     protected $table          = 'staff_communication_reads';
     protected $primaryKey     = 'id';
