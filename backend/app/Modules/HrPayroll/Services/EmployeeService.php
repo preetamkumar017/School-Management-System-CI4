@@ -135,6 +135,18 @@ class EmployeeService
         if ($request->qualification !== null) {
             $data['qualification'] = $request->qualification;
         }
+        if ($request->experienceYears !== null) {
+            $data['experience_years'] = $request->experienceYears;
+        }
+        if ($request->emergencyContactName !== null) {
+            $data['emergency_contact_name'] = $request->emergencyContactName;
+        }
+        if ($request->emergencyContactPhone !== null) {
+            $data['emergency_contact_phone'] = $request->emergencyContactPhone;
+        }
+        if ($request->documentsJson !== null) {
+            $data['documents_json'] = $request->documentsJson;
+        }
         if ($request->aadhaarNumber !== null) {
             $data['aadhaar_number'] = $request->aadhaarNumber;
         }

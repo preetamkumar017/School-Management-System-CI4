@@ -18,6 +18,12 @@ final class EmployeeResponse
     public readonly int $designationId;
     public readonly string $staffType;
     public readonly ?string $qualification;
+    public readonly ?float $experienceYears;
+    public readonly ?string $emergencyContactName;
+    public readonly ?string $emergencyContactPhone;
+
+    /** @var array<string, mixed> */
+    public readonly array $documentsJson;
     public readonly ?string $aadhaarNumber;
     public readonly ?string $panNumber;
     public readonly ?string $pfUan;
@@ -43,6 +49,10 @@ final class EmployeeResponse
         $this->designationId       = $employee->designation_id;
         $this->staffType           = $employee->staff_type ?? Employee::STAFF_TYPE_TEACHING;
         $this->qualification       = $employee->qualification;
+        $this->experienceYears     = $employee->experience_years;
+        $this->emergencyContactName  = $employee->emergency_contact_name;
+        $this->emergencyContactPhone = $employee->emergency_contact_phone;
+        $this->documentsJson       = is_array($employee->documents_json) ? $employee->documents_json : [];
         $this->aadhaarNumber       = $employee->aadhaar_number;
         $this->panNumber           = $employee->pan_number;
         $this->pfUan               = $employee->pf_uan;
@@ -71,6 +81,10 @@ final class EmployeeResponse
             'designation_id'         => $this->designationId,
             'staff_type'             => $this->staffType,
             'qualification'          => $this->qualification,
+            'experience_years'        => $this->experienceYears,
+            'emergency_contact_name'  => $this->emergencyContactName,
+            'emergency_contact_phone' => $this->emergencyContactPhone,
+            'documents_json'          => $this->documentsJson,
             'aadhaar_number'         => $this->aadhaarNumber,
             'pan_number'             => $this->panNumber,
             'pf_uan'                 => $this->pfUan,

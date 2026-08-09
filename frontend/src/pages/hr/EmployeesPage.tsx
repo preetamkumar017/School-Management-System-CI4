@@ -16,6 +16,10 @@ export interface Employee {
   cbse_classification?: "PRT" | "TGT" | "PGT" | "None";
   cbse_teacher_code?: string;
   qualification?: string;
+  experience_years?: number | null;
+  emergency_contact_name?: string | null;
+  emergency_contact_phone?: string | null;
+  documents_json?: Array<{ name: string; url?: string }> | null;
   aadhaar_number?: string;
   pan_number?: string;
   pf_uan?: string;

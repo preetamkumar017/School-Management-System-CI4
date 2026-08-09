@@ -289,12 +289,54 @@ export default function ProfilePage() {
                 <span className="text-slate-400 block">CBSE Teacher Code</span>
                 <span className="font-semibold text-slate-800 dark:text-slate-200">{employee?.cbse_teacher_code || "N/A"}</span>
               </div>
-              <div className="col-span-2">
+              <div>
                 <span className="text-slate-400 block">Qualification</span>
                 <span className="font-semibold text-slate-800 dark:text-slate-200">{employee?.qualification || "N/A"}</span>
               </div>
+              <div>
+                <span className="text-slate-400 block">Experience</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200">
+                  {employee?.experience_years != null ? `${employee.experience_years} yrs` : "N/A"}
+                </span>
+              </div>
             </div>
           </div>
+
+          {/* Emergency Contact */}
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+            <h3 className="border-b border-slate-100 pb-3 text-sm font-bold text-slate-900 dark:text-slate-100 dark:border-slate-800">Emergency Contact</h3>
+            <div className="mt-4 grid grid-cols-2 gap-y-4 text-xs">
+              <div>
+                <span className="text-slate-400 block">Contact Name</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200">{employee?.emergency_contact_name || "N/A"}</span>
+              </div>
+              <div>
+                <span className="text-slate-400 block">Contact Phone</span>
+                <span className="font-semibold text-slate-800 dark:text-slate-200">{employee?.emergency_contact_phone || "N/A"}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Documents */}
+          {employee?.documents_json && employee.documents_json.length > 0 && (
+            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">
+              <h3 className="border-b border-slate-100 pb-3 text-sm font-bold text-slate-900 dark:text-slate-100 dark:border-slate-800">Documents</h3>
+              <ul className="mt-4 space-y-2 text-xs">
+                {employee.documents_json.map((doc: any, idx: number) => (
+                  <li key={idx} className="flex items-center justify-between border-b border-slate-50 pb-1.5 last:border-0 dark:border-slate-900">
+                    <span className="font-semibold text-slate-700 dark:text-slate-300">{doc.name}</span>
+                    {doc.url ? (
+                      <a href={doc.url} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline dark:text-indigo-400">
+                        View ↗
+                      </a>
+                    ) : (
+                      <span className="text-slate-400 italic">No link</span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {/* Banking details */}
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-950">

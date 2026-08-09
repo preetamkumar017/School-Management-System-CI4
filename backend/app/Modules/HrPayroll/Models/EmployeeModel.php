@@ -26,6 +26,10 @@ class EmployeeModel extends BaseModel
         'cbse_classification',
         'cbse_teacher_code',
         'qualification',
+        'experience_years',
+        'emergency_contact_name',
+        'emergency_contact_phone',
+        'documents_json',
         'aadhaar_number',
         'pan_number',
         'pf_uan',
@@ -43,8 +47,8 @@ class EmployeeModel extends BaseModel
         'updated_by',
     ];
 
-    protected $beforeInsert = ['stampCreatedBy', 'encodeSalaryStructureJson'];
-    protected $beforeUpdate = ['stampUpdatedBy', 'encodeSalaryStructureJson'];
+    protected $beforeInsert = ['stampCreatedBy', 'encodeSalaryStructureJson', 'encodeDocumentsJson'];
+    protected $beforeUpdate = ['stampUpdatedBy', 'encodeSalaryStructureJson', 'encodeDocumentsJson'];
 
     /**
      * Same reasoning as GradingSchemeModel::encodeGradeBandJson — the
@@ -55,6 +59,15 @@ class EmployeeModel extends BaseModel
     {
         if (isset($eventData['data']['salary_structure_json']) && is_array($eventData['data']['salary_structure_json'])) {
             $eventData['data']['salary_structure_json'] = json_encode($eventData['data']['salary_structure_json']);
+        }
+
+        return $eventData;
+    }
+
+    protected function encodeDocumentsJson(array $eventData): array
+    {
+        if (isset($eventData['data']['documents_json']) && is_array($eventData['data']['documents_json'])) {
+            $eventData['data']['documents_json'] = json_encode($eventData['data']['documents_json']);
         }
 
         return $eventData;

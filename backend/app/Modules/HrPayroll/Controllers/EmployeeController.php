@@ -136,6 +136,10 @@ class EmployeeController extends BaseController
         $exitDate           = isset($body['exit_date']) && $body['exit_date'] !== '' ? (string) $body['exit_date'] : null;
         $staffType          = isset($body['staff_type']) && $body['staff_type'] !== '' ? (string) $body['staff_type'] : null;
         $qualification      = isset($body['qualification']) && $body['qualification'] !== '' ? (string) $body['qualification'] : null;
+        $experienceYears    = isset($body['experience_years']) && $body['experience_years'] !== '' ? (float) $body['experience_years'] : null;
+        $emergencyContactName  = isset($body['emergency_contact_name']) && $body['emergency_contact_name'] !== '' ? (string) $body['emergency_contact_name'] : null;
+        $emergencyContactPhone = isset($body['emergency_contact_phone']) && $body['emergency_contact_phone'] !== '' ? (string) $body['emergency_contact_phone'] : null;
+        $documentsJson      = is_array($body['documents_json'] ?? null) ? $body['documents_json'] : null;
         $aadhaarNumber      = isset($body['aadhaar_number']) && $body['aadhaar_number'] !== '' ? (string) $body['aadhaar_number'] : null;
         $panNumber          = isset($body['pan_number']) && $body['pan_number'] !== '' ? (string) $body['pan_number'] : null;
         $pfUan              = isset($body['pf_uan']) && $body['pf_uan'] !== '' ? (string) $body['pf_uan'] : null;
@@ -173,24 +177,28 @@ class EmployeeController extends BaseController
         $response = Services::employeeService()->updateEmployee(
             $id,
             new UpdateEmployeeRequest(
-                $fullName,
-                $departmentId,
-                $designationId,
-                $salaryJson,
-                $exitDate,
-                $staffType,
-                $cbseClassification,
-                $cbseTeacherCode,
-                $qualification,
-                $aadhaarNumber,
-                $panNumber,
-                $pfUan,
-                $esiNumber,
-                $bankName,
-                $bankAccountNumber,
-                $bankIfscCode,
-                $probationEndDate,
-                $confirmationDate,
+                fullName: $fullName,
+                departmentId: $departmentId,
+                designationId: $designationId,
+                salaryStructureJson: $salaryJson,
+                exitDate: $exitDate,
+                staffType: $staffType,
+                cbseClassification: $cbseClassification,
+                cbseTeacherCode: $cbseTeacherCode,
+                qualification: $qualification,
+                experienceYears: $experienceYears,
+                emergencyContactName: $emergencyContactName,
+                emergencyContactPhone: $emergencyContactPhone,
+                documentsJson: $documentsJson,
+                aadhaarNumber: $aadhaarNumber,
+                panNumber: $panNumber,
+                pfUan: $pfUan,
+                esiNumber: $esiNumber,
+                bankName: $bankName,
+                bankAccountNumber: $bankAccountNumber,
+                bankIfscCode: $bankIfscCode,
+                probationEndDate: $probationEndDate,
+                confirmationDate: $confirmationDate,
             ),
         );
 

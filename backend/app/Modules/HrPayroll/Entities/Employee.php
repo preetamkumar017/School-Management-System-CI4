@@ -18,6 +18,10 @@ use App\Core\BaseEntity;
  * @property string|null         $cbse_classification
  * @property string|null         $cbse_teacher_code
  * @property string|null         $qualification
+ * @property float|null          $experience_years
+ * @property string|null         $emergency_contact_name
+ * @property string|null         $emergency_contact_phone
+ * @property array<string,mixed> $documents_json
  * @property string|null         $aadhaar_number
  * @property string|null         $pan_number
  * @property string|null         $pf_uan
@@ -52,6 +56,8 @@ class Employee extends BaseEntity
             'department_id'         => 'integer',
             'designation_id'        => 'integer',
             'salary_structure_json' => 'json-array',
+            'documents_json'        => 'json-array',
+            'experience_years'      => 'float',
         ]);
 
         parent::__construct($data);

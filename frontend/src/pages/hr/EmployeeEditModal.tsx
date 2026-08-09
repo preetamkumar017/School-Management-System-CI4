@@ -25,6 +25,13 @@ export default function EmployeeEditModal({
   const [cbseClassification, setCbseClassification] = useState(employee.cbse_classification || "None");
   const [cbseTeacherCode, setCbseTeacherCode] = useState(employee.cbse_teacher_code || "");
   const [qualification, setQualification] = useState(employee.qualification || "");
+  const [experienceYears, setExperienceYears] = useState(String(employee.experience_years ?? ""));
+  const [emergencyContactName, setEmergencyContactName] = useState(employee.emergency_contact_name || "");
+  const [emergencyContactPhone, setEmergencyContactPhone] = useState(employee.emergency_contact_phone || "");
+  // documents stored as array of {name, url}
+  const [documents, setDocuments] = useState<Array<{ name: string; url: string }>>(
+    (employee.documents_json || []).map((d: any) => ({ name: d.name || "", url: d.url || "" }))
+  );
   const [aadhaarNumber, setAadhaarNumber] = useState(employee.aadhaar_number || "");
   const [panNumber, setPanNumber] = useState(employee.pan_number || "");
   const [pfUan, setPfUan] = useState(employee.pf_uan || "");
@@ -57,6 +64,10 @@ export default function EmployeeEditModal({
         cbse_classification: cbseClassification,
         cbse_teacher_code: cbseTeacherCode || null,
         qualification: qualification || null,
+        experience_years: experienceYears !== "" ? parseFloat(experienceYears) : null,
+        emergency_contact_name: emergencyContactName || null,
+        emergency_contact_phone: emergencyContactPhone || null,
+        documents_json: documents.filter(d => d.name.trim() !== ""),
         aadhaar_number: aadhaarNumber || null,
         pan_number: panNumber || null,
         pf_uan: pfUan || null,
@@ -141,6 +152,96 @@ export default function EmployeeEditModal({
             onChange={(e) => setQualification(e.target.value)}
             className={inputClass}
           />
+        </div>
+
+        {/* Experience & Emergency Contact */}
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-3 dark:border-slate-800 dark:bg-slate-900/50">
+          <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Experience &amp; Emergency Contact</h4>
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className={labelClass}>Experience (Years)</label>
+              <input
+                type="number"
+                min="0"
+                max="60"
+                step="0.5"
+                placeholder="e.g. 5.5"
+                value={experienceYears}
+                onChange={(e) => setExperienceYears(e.target.value)}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Emergency Contact Name</label>
+              <input
+                placeholder="Contact person name"
+                value={emergencyContactName}
+                onChange={(e) => setEmergencyContactName(e.target.value)}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className={labelClass}>Emergency Contact Phone</label>
+              <input
+                placeholder="+91 9XXXXXXXXX"
+                value={emergencyContactPhone}
+                onChange={(e) => setEmergencyContactPhone(e.target.value)}
+                className={inputClass}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Documents */}
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2 dark:border-slate-800 dark:bg-slate-900/50">
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Documents / References</h4>
+            <button
+              type="button"
+              onClick={() => setDocuments([...documents, { name: "", url: "" }])}
+              className="text-xs text-indigo-600 hover:underline dark:text-indigo-400 font-semibold"
+            >
+              + Add Document
+            </button>
+          </div>
+          {documents.length === 0 && (
+            <p className="text-xs text-slate-400 italic">No documents added yet.</p>
+          )}
+          {documents.map((doc, idx) => (
+            <div key={idx} className="grid grid-cols-5 gap-2 items-center">
+              <div className="col-span-2">
+                <input
+                  placeholder="Document name (e.g. Degree Certificate)"
+                  value={doc.name}
+                  onChange={(e) => {
+                    const updated = [...documents];
+                    updated[idx] = { ...updated[idx], name: e.target.value };
+                    setDocuments(updated);
+                  }}
+                  className={inputClass}
+                />
+              </div>
+              <div className="col-span-2">
+                <input
+                  placeholder="Link or reference (optional)"
+                  value={doc.url}
+                  onChange={(e) => {
+                    const updated = [...documents];
+                    updated[idx] = { ...updated[idx], url: e.target.value };
+                    setDocuments(updated);
+                  }}
+                  className={inputClass}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setDocuments(documents.filter((_, i) => i !== idx))}
+                className="text-xs text-red-500 hover:text-red-700 font-semibold"
+              >
+                Remove
+              </button>
+            </div>
+          ))}
         </div>
 
         {/* Indian School KYC & Statutory */}
