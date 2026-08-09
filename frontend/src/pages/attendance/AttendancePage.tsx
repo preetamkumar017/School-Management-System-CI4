@@ -1,11 +1,13 @@
 import { useState } from "react";
 import MarkAttendancePage from "./MarkAttendancePage";
 import PercentagePage from "./PercentagePage";
+import DailyAttendancePage from "./DailyAttendancePage";
 import AttendanceSettingsPage from "./AttendanceSettingsPage";
 
 const TABS = [
   { key: "mark", label: "Mark Attendance" },
   { key: "percentage", label: "Percentage Lookup" },
+  { key: "daily", label: "Daily HR View" },
   { key: "settings", label: "Attendance Rules" },
 ] as const;
 
@@ -35,6 +37,7 @@ export default function AttendancePage() {
 
       {tab === "mark" && <MarkAttendancePage />}
       {tab === "percentage" && <PercentagePage />}
+      {tab === "daily" && <DailyAttendancePage />}
       {tab === "settings" && <AttendanceSettingsPage />}
     </div>
   );

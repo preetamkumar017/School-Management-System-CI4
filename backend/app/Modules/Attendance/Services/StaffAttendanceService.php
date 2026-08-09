@@ -159,6 +159,19 @@ class StaffAttendanceService
     }
 
     /**
+     * @return list<StaffAttendanceRecordResponse>
+     */
+    public function listByDate(string $date): array
+    {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
+        return array_map(
+            static fn (StaffAttendanceRecord $record): StaffAttendanceRecordResponse => new StaffAttendanceRecordResponse($record),
+            $this->staffAttendanceRecordModel->where('attendance_date', $date)->findAll()
+        );
+    }
+
+    /**
      * @return array{0: string, 1: string}
      */
     private function periodBounds(string $payPeriod): array

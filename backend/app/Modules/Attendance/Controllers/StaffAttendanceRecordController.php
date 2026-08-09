@@ -148,4 +148,32 @@ class StaffAttendanceRecordController extends BaseController
 
         return $this->respondSuccess(array_map(static fn ($response) => $response->toArray(), $responses));
     }
+
+    #[OA\Get(
+        path: '/attendance/staff-attendance/daily',
+        tags: ['Staff Attendance'],
+        security: [['bearerAuth' => []]],
+        parameters: [
+            new OA\Parameter(name: 'date', in: 'query', required: true, schema: new OA\Schema(type: 'string', format: 'date')),
+        ],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'OK.',
+                content: new OA\JsonContent(type: 'array', items: new OA\Items(ref: '#/components/schemas/StaffAttendanceRecordResponse')),
+            ),
+        ],
+    )]
+    public function daily()
+    {
+        $date = (string) ($this->request->getGet('date') ?? '');
+
+        if ($date === '') {
+            throw new ValidationException(['date' => 'date query parameter is required.']);
+        }
+
+        $responses = Services::staffAttendanceService()->listByDate($date);
+
+        return $this->respondSuccess(array_map(static fn ($response) => $response->toArray(), $responses));
+    }
 }
