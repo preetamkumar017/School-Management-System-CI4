@@ -205,7 +205,7 @@ export default function MyHrPage() {
         </div>
 
         {balances && (
-          <div className="mb-4 grid grid-cols-3 gap-3">
+          <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
             {(["CL", "SL", "EL"] as const).map((type) => {
               const b = balances.balances[type];
               return (
