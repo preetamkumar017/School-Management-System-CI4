@@ -220,6 +220,13 @@ $routes->group('api/v1/hr-payroll', ['namespace' => 'App\Modules\HrPayroll\Contr
     $routes->get('employees/(:num)', 'EmployeeController::show/$1');
     $routes->get('employees', 'EmployeeController::index');
 
+    // Onboarding — checklist, document verification, PDF downloads
+    $routes->get('employees/(:num)/checklist', 'EmployeeController::checklist/$1');
+    $routes->patch('employees/(:num)/checklist/(:num)', 'EmployeeController::updateChecklistItem/$1/$2');
+    $routes->patch('employees/(:num)/documents', 'EmployeeController::verifyDocuments/$1');
+    $routes->get('employees/(:num)/appointment-letter', 'EmployeeController::appointmentLetter/$1');
+    $routes->get('employees/(:num)/id-card', 'EmployeeController::idCard/$1');
+
     $routes->post('payroll-runs', 'PayrollRunController::create');
     $routes->post('payroll-runs/(:num)/approve', 'PayrollRunController::approve/$1');
     $routes->post('payroll-runs/(:num)/process', 'PayrollRunController::process/$1');

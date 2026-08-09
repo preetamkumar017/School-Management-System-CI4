@@ -235,4 +235,51 @@ class EmployeeController extends BaseController
 
         return $this->respondSuccess(array_map(static fn ($response) => $response->toArray(), $responses));
     }
+
+    // ── Onboarding Checklist ──────────────────────────────────────────────────
+
+    public function checklist(int $id)
+    {
+        $data = Services::onboardingChecklistService()->getChecklist($id);
+        return $this->respondSuccess($data);
+    }
+
+    public function updateChecklistItem(int $id, int $itemId)
+    {
+        $body = $this->request->getJSON(true) ?? [];
+        $data = Services::onboardingChecklistService()->updateChecklistItem($id, $itemId, $body);
+        return $this->respondSuccess($data);
+    }
+
+    // ── Document Verification ─────────────────────────────────────────────────
+
+    public function verifyDocuments(int $id)
+    {
+        $body    = $this->request->getJSON(true) ?? [];
+        $updates = is_array($body['updates'] ?? null) ? $body['updates'] : [];
+        $data    = Services::onboardingChecklistService()->verifyDocuments($id, $updates);
+        return $this->respondSuccess($data);
+    }
+
+    // ── PDF Downloads ─────────────────────────────────────────────────────────
+
+    public function appointmentLetter(int $id)
+    {
+        $pdf = Services::onboardingChecklistService()->generateAppointmentLetter($id);
+
+        return $this->response
+            ->setHeader('Content-Type', 'application/pdf')
+            ->setHeader('Content-Disposition', "attachment; filename=\"appointment-letter-{$id}.pdf\"")
+            ->setBody($pdf);
+    }
+
+    public function idCard(int $id)
+    {
+        $pdf = Services::onboardingChecklistService()->generateIdCard($id);
+
+        return $this->response
+            ->setHeader('Content-Type', 'application/pdf')
+            ->setHeader('Content-Disposition', "attachment; filename=\"id-card-{$id}.pdf\"")
+            ->setBody($pdf);
+    }
 }

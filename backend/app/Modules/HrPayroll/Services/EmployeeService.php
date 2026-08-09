@@ -19,6 +19,7 @@ use App\Modules\HrPayroll\Models\AttendanceClosureModel;
 use App\Modules\HrPayroll\Models\DepartmentModel;
 use App\Modules\HrPayroll\Models\DesignationModel;
 use App\Modules\HrPayroll\Models\EmployeeModel;
+use App\Modules\HrPayroll\Models\OnboardingChecklistModel;
 use CodeIgniter\I18n\Time;
 use Config\Database;
 use Config\Services as AppServices;
@@ -88,6 +89,9 @@ class EmployeeService
         $employee = $this->employeeModel->find($id);
 
         $this->auditService->record('Employee', $id, AuditLog::ACTION_CREATE, null, $employee->toRawArray());
+
+        // Auto-create 10-item onboarding checklist for this new employee
+        AppServices::onboardingChecklistService()->createDefaultChecklist((int) $id);
 
         return new EmployeeResponse($employee);
     }

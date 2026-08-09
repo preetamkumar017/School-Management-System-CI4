@@ -4,6 +4,7 @@ import Modal from "../../components/ui/Modal";
 import { inputClass, labelClass, primaryButtonClass, secondaryButtonClass } from "../../components/ui/form";
 import { useDepartments, useDesignations } from "./OrgPage";
 import EmployeeEditModal from "./EmployeeEditModal";
+import OnboardingModal from "./OnboardingModal";
 import SalaryStructureEditor, { jsonToSalaryComponents, salaryComponentsToJson, type SalaryComponents } from "./SalaryStructureEditor";
 
 export interface Employee {
@@ -111,6 +112,9 @@ export default function EmployeesPage() {
   const [balanceEmployee, setBalanceEmployee] = useState<Employee | null>(null);
   const [employeeBalances, setEmployeeBalances] = useState<any>(null);
   const [balanceLoading, setBalanceLoading] = useState(false);
+
+  // Onboarding modal
+  const [onboardingEmployee, setOnboardingEmployee] = useState<Employee | null>(null);
 
   function handleViewBalance(emp: Employee) {
     setBalanceEmployee(emp);
@@ -272,8 +276,15 @@ export default function EmployeesPage() {
                         {e.status}
                       </span>
                     </td>
-                     <td className="px-4 py-2 text-right">
+                    <td className="px-4 py-2 text-right">
                       <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setOnboardingEmployee(e)}
+                          className="text-xs text-emerald-600 hover:underline dark:text-emerald-400 font-semibold"
+                        >
+                          Onboarding
+                        </button>
                         <button
                           type="button"
                           onClick={() => handleViewBalance(e)}
@@ -536,6 +547,13 @@ export default function EmployeesPage() {
             setEditing(null);
             reload();
           }}
+        />
+      )}
+
+      {onboardingEmployee && (
+        <OnboardingModal
+          employee={onboardingEmployee}
+          onClose={() => setOnboardingEmployee(null)}
         />
       )}
 

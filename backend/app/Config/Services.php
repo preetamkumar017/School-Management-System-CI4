@@ -73,6 +73,7 @@ use App\Modules\HrPayroll\Models\EmployeeModel;
 use App\Modules\HrPayroll\Models\HolidayModel;
 use App\Modules\HrPayroll\Models\LeaveRequestModel;
 use App\Modules\HrPayroll\Models\LeaveTypeModel;
+use App\Modules\HrPayroll\Models\OnboardingChecklistModel;
 use App\Modules\HrPayroll\Models\PayrollRunModel;
 use App\Modules\HrPayroll\Services\DepartmentService;
 use App\Modules\HrPayroll\Services\DesignationService;
@@ -80,6 +81,7 @@ use App\Modules\HrPayroll\Services\EmployeeService;
 use App\Modules\HrPayroll\Services\HolidayService;
 use App\Modules\HrPayroll\Services\LeaveRequestService;
 use App\Modules\HrPayroll\Services\LeaveTypeService;
+use App\Modules\HrPayroll\Services\OnboardingChecklistService;
 use App\Modules\HrPayroll\Services\PayrollRunService;
 use App\Modules\Library\Models\BookIssueModel;
 use App\Modules\Library\Models\BookModel;
@@ -520,6 +522,20 @@ class Services extends BaseService
             new DesignationModel(),
             new AttendanceClosureModel(),
             static::auditService(),
+            static::moduleAuthorizer(),
+        );
+    }
+
+    public static function onboardingChecklistService(bool $getShared = true): OnboardingChecklistService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('onboardingChecklistService');
+        }
+
+        return new OnboardingChecklistService(
+            new OnboardingChecklistModel(),
+            new EmployeeModel(),
+            static::pdfRenderer(),
             static::moduleAuthorizer(),
         );
     }
