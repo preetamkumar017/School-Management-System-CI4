@@ -7,9 +7,10 @@ import HolidaysPage from "./HolidaysPage";
 import LeaveTypesPage from "./LeaveTypesPage";
 import DailyAttendancePage from "../attendance/DailyAttendancePage";
 import AttendanceSettingsPage from "../attendance/AttendanceSettingsPage";
+import TeacherWorkloadDashboard from "./workload/TeacherWorkloadDashboard";
 import { api } from "../../lib/api";
 
-type TabKey = "employees" | "org" | "payroll" | "leave_management" | "time_attendance";
+type TabKey = "employees" | "org" | "payroll" | "leave_management" | "time_attendance" | "workload";
 type LeaveSubTabKey = "requests" | "holidays" | "leavetypes";
 type TimeSubTabKey = "daily" | "rules";
 
@@ -37,6 +38,7 @@ export default function HrPayrollPage() {
     { key: "org", label: "Departments/Designations" },
     { key: "payroll", label: "Payroll Runs" },
     { key: "time_attendance", label: "Time & Attendance" },
+    { key: "workload", label: "Teacher Workload" },
     { key: "leave_management", label: "Leave Management" },
   ] as const;
 
@@ -149,6 +151,8 @@ export default function HrPayrollPage() {
           </div>
         </div>
       )}
+
+      {tab === "workload" && <TeacherWorkloadDashboard />}
     </div>
   );
 }

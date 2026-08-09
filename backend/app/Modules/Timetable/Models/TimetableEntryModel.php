@@ -26,6 +26,7 @@ class TimetableEntryModel extends BaseModel
         'room_id',
         'version_no',
         'status',
+        'is_extra_class',
         'created_by',
         'updated_by',
     ];

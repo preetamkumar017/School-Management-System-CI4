@@ -18,6 +18,7 @@ use App\Core\BaseEntity;
  * @property string|null $room_id
  * @property int         $version_no
  * @property string      $status
+ * @property bool        $is_extra_class
  */
 class TimetableEntry extends BaseEntity
 {
@@ -43,6 +44,7 @@ class TimetableEntry extends BaseEntity
             'employee_id'        => 'integer',
             'period_no'          => 'integer',
             'version_no'         => 'integer',
+            'is_extra_class'     => 'boolean',
         ]);
 
         parent::__construct($data);

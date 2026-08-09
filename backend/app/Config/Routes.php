@@ -154,6 +154,12 @@ $routes->group('api/v1/timetable', ['namespace' => 'App\Modules\Timetable\Contro
 
     $routes->post('substitutions', 'SubstitutionController::create');
     $routes->get('substitutions/(:num)', 'SubstitutionController::show/$1');
+    $routes->get('substitutions', 'SubstitutionController::index');
+
+    $routes->get('workload/teachers', 'TeacherWorkloadController::index');
+    $routes->get('workload/teachers/(:num)', 'TeacherWorkloadController::show/$1');
+    $routes->get('workload/teachers/(:num)/free-periods/(:segment)', 'TeacherWorkloadController::freePeriods/$1/$2');
+    $routes->patch('workload/entries/(:num)/toggle-extra', 'TeacherWorkloadController::toggleExtraClass/$1');
 });
 
 // docs/design/attendance/Phase-3-Service-Controller-Design.md
