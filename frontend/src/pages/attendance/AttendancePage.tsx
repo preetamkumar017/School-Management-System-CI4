@@ -1,10 +1,12 @@
 import { useState } from "react";
 import MarkAttendancePage from "./MarkAttendancePage";
 import PercentagePage from "./PercentagePage";
+import AttendanceSettingsPage from "./AttendanceSettingsPage";
 
 const TABS = [
   { key: "mark", label: "Mark Attendance" },
   { key: "percentage", label: "Percentage Lookup" },
+  { key: "settings", label: "Attendance Rules" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -33,6 +35,7 @@ export default function AttendancePage() {
 
       {tab === "mark" && <MarkAttendancePage />}
       {tab === "percentage" && <PercentagePage />}
+      {tab === "settings" && <AttendanceSettingsPage />}
     </div>
   );
 }

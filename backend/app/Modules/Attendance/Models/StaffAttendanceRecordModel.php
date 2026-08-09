@@ -22,6 +22,13 @@ class StaffAttendanceRecordModel extends BaseModel
         'attendance_date',
         'state',
         'is_reconciled',
+        'first_in_time',
+        'last_out_time',
+        'total_hours',
+        'late_minutes',
+        'early_minutes',
+        'overtime_hours',
+        'is_half_day',
         'created_by',
         'updated_by',
     ];

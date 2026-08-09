@@ -98,7 +98,9 @@ use App\Modules\Sis\Models\StudentGuardianLinkModel;
 use App\Modules\Sis\Models\StudentModel;
 use App\Modules\Sis\Services\GuardianService;
 use App\Modules\Sis\Services\StudentGuardianLinkService;
-use App\Modules\Sis\Services\StudentService;
+use App\Modules\Attendance\Services\AttendanceCalculationEngine;
+use App\Modules\Attendance\Services\StaffPunchService;
+use App\Modules\Attendance\Models\StaffPunchModel;
 use App\Modules\Timetable\Models\SubjectTeacherEligibilityModel;
 use App\Modules\Timetable\Models\SubstitutionModel;
 use App\Modules\Timetable\Models\TimetableEntryModel;
@@ -547,6 +549,28 @@ class Services extends BaseService
         }
 
         return new PayrollRunService(new PayrollRunModel(), new EmployeeModel(), new AttendanceClosureModel(), static::auditService(), static::documentService(), static::pdfRenderer(), static::moduleAuthorizer());
+    }
+
+    public static function attendanceCalculationEngine(bool $getShared = true): AttendanceCalculationEngine
+    {
+        if ($getShared) {
+            return static::getSharedInstance('attendanceCalculationEngine');
+        }
+        return new AttendanceCalculationEngine(
+            new StaffAttendanceRecordModel(),
+            static::configurationService()
+        );
+    }
+
+    public static function staffPunchService(bool $getShared = true): StaffPunchService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('staffPunchService');
+        }
+        return new StaffPunchService(
+            new StaffPunchModel(),
+            static::attendanceCalculationEngine()
+        );
     }
 
     public static function leaveRequestService(bool $getShared = true): LeaveRequestService
