@@ -43,6 +43,26 @@ class ModuleAuthorizer
     }
 
     /**
+     * Tier 1 only. Throws if the caller's JWT permission_set doesn't carry
+     * at least one of the `$managePermissions`.
+     */
+    public function assertAnyManage(array $managePermissions): void
+    {
+        $userPerms = RequestContext::permissionSet();
+        foreach ($managePermissions as $perm) {
+            if (in_array($perm, $userPerms, true)) {
+                return;
+            }
+        }
+
+        $permsString = implode('" or "', $managePermissions);
+        throw new AuthorizationException(
+            'NOT_AUTHORIZED',
+            "This action requires the \"{$permsString}\" permission.",
+        );
+    }
+
+    /**
      * Tier 1 (module-manage permission) OR Tier 2 (the caller's own
      * `User.owner_type`/`owner_ref_id` matches the target record's owner).
      * Throws if neither passes.

@@ -163,7 +163,7 @@ class StaffAttendanceService
      */
     public function listByDate(string $date): array
     {
-        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+        $this->moduleAuthorizer->assertAnyManage([self::PERMISSION_MANAGE, 'hr_payroll.manage']);
 
         return array_map(
             static fn (StaffAttendanceRecord $record): StaffAttendanceRecordResponse => new StaffAttendanceRecordResponse($record),

@@ -19,7 +19,8 @@ class TeacherWorkloadController extends BaseController
         $this->service = new TeacherWorkloadService(
             new TimetableEntryModel(),
             new SubstitutionModel(),
-            new EmployeeModel()
+            new EmployeeModel(),
+            new \App\Core\Authz\ModuleAuthorizer(new \App\Modules\Administration\Models\UserModel())
         );
     }
 

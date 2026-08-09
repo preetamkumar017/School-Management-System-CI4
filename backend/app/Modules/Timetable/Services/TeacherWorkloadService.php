@@ -8,12 +8,15 @@ use App\Modules\Timetable\Models\TimetableEntryModel;
 use App\Modules\Timetable\Models\SubstitutionModel;
 use App\Modules\HrPayroll\Models\EmployeeModel;
 
+use App\Core\Authz\ModuleAuthorizer;
+
 class TeacherWorkloadService
 {
     public function __construct(
         private readonly TimetableEntryModel $timetableEntryModel,
         private readonly SubstitutionModel $substitutionModel,
-        private readonly EmployeeModel $employeeModel
+        private readonly EmployeeModel $employeeModel,
+        private readonly ModuleAuthorizer $moduleAuthorizer
     ) {
     }
 
@@ -22,6 +25,8 @@ class TeacherWorkloadService
      */
     public function getSchoolWorkloadReport(): array
     {
+        $this->moduleAuthorizer->assertAnyManage(['timetable.manage', 'hr_payroll.manage']);
+        
         $teachers = $this->employeeModel->where('status', 'Active')->findAll();
         $report = [];
 
@@ -67,6 +72,8 @@ class TeacherWorkloadService
      */
     public function getTeacherWorkload(int $employeeId): array
     {
+        $this->moduleAuthorizer->assertAnyManage(['timetable.manage', 'hr_payroll.manage']);
+
         $entries = $this->timetableEntryModel->where('employee_id', $employeeId)
                                              ->where('status', 'PUBLISHED')
                                              ->findAll();
@@ -89,6 +96,8 @@ class TeacherWorkloadService
      */
     public function getFreePeriods(int $employeeId, string $dayOfWeek): array
     {
+        $this->moduleAuthorizer->assertAnyManage(['timetable.manage', 'hr_payroll.manage']);
+
         $entries = $this->timetableEntryModel->where('employee_id', $employeeId)
                                              ->where('day_of_week', $dayOfWeek)
                                              ->where('status', 'PUBLISHED')
