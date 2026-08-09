@@ -1,6 +1,6 @@
 ---
-status: Approved (Original)
-last-updated: 2026-08-07
+status: Approved (Updated — Stage 24 additive columns)
+last-updated: 2026-08-09
 references: Appendix-G Data Dictionary v1.0 (HR module entities, ENT-ATT-002), Appendix-C v1.1 (BR-HR-001–007), ADR-008
 ---
 
@@ -56,12 +56,36 @@ Extends `App\Core\BaseEntity`.
 | full_name | VARCHAR(100) | N | – | Non-empty |
 | department_id | BIGINT UNSIGNED | N | – | FK → `departments` (intra-module, real FK) |
 | designation_id | BIGINT UNSIGNED | N | – | FK → `designations` (intra-module, real FK) |
+| staff_type | ENUM(`Teaching`,`NonTeaching`,`Support`,`Administrative`) | N | Teaching | |
+| cbse_classification | ENUM(`None`,`PRT`,`TGT`,`PGT`) | Y | None | CBSE-specific teacher category |
+| cbse_teacher_code | VARCHAR(20) | Y | NULL | Optional CBSE-issued teacher code |
+| qualification | VARCHAR(200) | Y | NULL | Educational qualification string |
+| experience_years | DECIMAL(5,2) | Y | NULL | Total years of work experience *(added Stage 24)* |
+| emergency_contact_name | VARCHAR(150) | Y | NULL | Emergency contact person name *(added Stage 24)* |
+| emergency_contact_phone | VARCHAR(20) | Y | NULL | Emergency contact phone number *(added Stage 24)* |
+| documents_json | JSON | Y | NULL | Array of `{name, url}` document references *(added Stage 24)* |
+| aadhaar_number | VARCHAR(12) | Y | NULL | 12-digit Aadhaar |
+| pan_number | VARCHAR(10) | Y | NULL | 10-char PAN |
+| pf_uan | VARCHAR(30) | Y | NULL | PF Universal Account Number |
+| esi_number | VARCHAR(30) | Y | NULL | ESI insurance number |
+| bank_name | VARCHAR(100) | Y | NULL | Bank name for salary credit |
+| bank_account_number | VARCHAR(30) | Y | NULL | Bank account number |
+| bank_ifsc_code | VARCHAR(11) | Y | NULL | IFSC code |
 | joining_date | DATE | N | – | |
+| probation_end_date | DATE | Y | NULL | Probation period end date |
+| confirmation_date | DATE | Y | NULL | Date of employment confirmation |
 | exit_date | DATE | Y | NULL | ≥ `joining_date`; setting it triggers BR-HR-002 (ADR-008 §5) |
 | salary_structure_json | JSON | N | – | Serialized breakdown, e.g. `{"basic":40000}` |
-| status | enum (`Active`, `Exited`) | N | Active | BR-HR-002 |
+| status | ENUM(`Active`,`Exited`,`Cancelled`) | N | Active | BR-HR-002 |
 
 Unique constraint: `employee_code`.
+
+> **Stage 24 Additive Note (2026-08-09):** Four columns were added via
+> migration `2026-08-09-072834_AddExtraProfileFieldsToEmployeesMigration`:
+> `experience_years`, `emergency_contact_name`, `emergency_contact_phone`,
+> `documents_json`. These complete the Employee / Staff Management module
+> requirements (Experience, Emergency Contact, Documents per BR-HR-001
+> extended scope). No existing columns were altered; no data loss.
 
 ### Lifecycle
 

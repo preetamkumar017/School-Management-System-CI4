@@ -1,17 +1,17 @@
 ---
 status: Active
-last-updated: 2026-08-08
+last-updated: 2026-08-09
 references: School-ERP-Development-Roadmap.md
 ---
 
 # Backend — Outstanding Items
 
-Backend functional scope is complete as of Stage 19 (227 passing tests,
-`main` pushed) — every module in Appendix-G's Data Dictionary is real,
-tested, working code. This doc tracks what's deliberately left before
-calling the backend production-ready. Frontend work starts now (see
-`School-ERP-Development-Roadmap.md`); revisit this list before a real
-deploy or whenever picking backend work back up.
+Backend functional scope is complete as of Stage 24 (Stages 20–24 added
+Leave enhancements, real-time notifications, Profile page, Password
+Change/Reset flows, and Employee profile completion) — 32 PHPUnit feature
+tests passing, `main` updated. This doc tracks what's deliberately left
+before calling the backend production-ready. Frontend work continues
+in parallel; revisit this list before a real deploy.
 
 ## 1. GPS live-tracking (BR-TRN-003, Transport) — blocked on vendor/hardware
 

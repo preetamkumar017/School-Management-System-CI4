@@ -1,6 +1,6 @@
 ---
 status: Active
-last-updated: 2026-08-07
+last-updated: 2026-08-09
 references: Company Development Standard, School-ERP-Module-Architecture.md, docs/design/academic, docs/design/admission, docs/design/sis
 ---
 
@@ -1296,3 +1296,107 @@ module:
 
 None of these block anything else — check with the project owner on
 priority before starting any of them.
+
+---
+
+## Session — 2026-08-08 to 2026-08-09 (HR & Auth enhancements)
+
+### Stage 20 — Leave Management Enhancements (2026-08-08)
+
+- **Same-day overlap validation**: `LeaveRequestModel::existsOverlappingApproved`
+  updated to block both `Approved` and `Pending` overlapping requests on the
+  same date range — preventing duplicate same-day applications.
+- **Leave cancellation with reason**: new `STATUS_CANCELLED` constant in
+  `LeaveRequest` entity; `cancelLeaveRequest` method in `LeaveRequestService`;
+  `POST /api/v1/hr-payroll/leave-requests/:id/cancel` route added;
+  cancellation modal with mandatory reason textarea added to `MyHrPage.tsx`.
+  User can cancel their own Pending leave with a reason; cancellation is
+  irreversible.
+- **Applied & Deductible days visibility**: `LeaveRequestResponse` now exposes
+  `applied_days` (calendar range) and `deductible_days` (post-sandwich-rule,
+  from `LeaveRequestModel::calculateDays`). These columns are rendered in
+  `LeaveRequestsPage.tsx` HR table so HR can see how many days will be
+  deducted before approving.
+- **Leave balance viewer for HR**: `EmployeesPage.tsx` gained a "Leave Balances"
+  button per employee row. Clicking it opens a modal that fetches and renders
+  the active leave-type balance mapping for that employee.
+- **Leave duration display in apply form**: `MyHrPage.tsx` now shows available
+  leave types dynamically fetched from the backend (not a hard-coded list).
+
+### Stage 21 — Real-Time Notifications & Dashboard Counters (2026-08-08)
+
+- **Internal notification dispatch**: `NotificationLogService::dispatchInternal`
+  added — bypasses RBAC permission checks for system-level dispatches
+  (e.g., when an employee submits a leave request, the system notifies HR
+  without running as the employee's auth context).
+- **Leave request → HR notification**: `LeaveRequestService::createLeaveRequest`
+  now auto-dispatches an internal notification to HR on every new submission;
+  `decide` (approve/reject) auto-dispatches a notification back to the
+  requesting employee.
+- **Real-time toast alerts with audio chime**: `DashboardLayout.tsx` polls
+  for new leave requests every 10 seconds using `setInterval`. On new
+  arrivals, a slide-in toast popup appears with an audio chime (Web Audio
+  API, no external dependency) and a "Review" button that navigates HR
+  directly to `/hr-payroll?tab=leave_management&sub=requests`. Toast
+  stays visible for 10 seconds.
+- **Dashboard Action Center live counters**: `DashboardPage.tsx` counters
+  (Pending Leave Requests, Pending Admissions, etc.) now auto-refresh on
+  the same 10-second polling interval — count updates without a page reload.
+
+### Stage 22 — User Profile Page (2026-08-09)
+
+- **New `ProfilePage.tsx`** (`/profile` route): displays the logged-in
+  employee's full profile in a structured card layout:
+  - Account Credentials (username, role, permission badges)
+  - Salary Structure breakdown
+  - Statutory Identification (Aadhaar, PAN, PF UAN, ESI)
+  - Employment Details (staff type, joining date, CBSE classification,
+    qualification, experience)
+  - Emergency Contact
+  - Documents list (with optional links)
+  - Bank Details
+  - Change Password form (see Stage 23)
+- Route `/profile` registered in `App.tsx`; sidebar/avatar link updated.
+
+### Stage 23 — Password Change & Forgot Password Flows (2026-08-09)
+
+- **Change Password (authenticated)**: `ProfilePage.tsx` gained a "Change
+  Password" card with Current / New / Confirm password fields. On success,
+  all active sessions are revoked and the user is auto-logged out after
+  2 seconds. Calls existing `POST /api/v1/auth/change-password`.
+- **Forgot Password — `POST /api/v1/auth/forgot-password`** (unauthenticated):
+  accepts `username`, generates a cryptographically random 6-digit code,
+  stores it in CodeIgniter's Cache service with a 10-minute TTL, and
+  returns the code in the API response (for local environment — no SMTP
+  needed). Route registered outside the `jwtauth` filter group.
+- **Reset Password — `POST /api/v1/auth/reset-password`** (unauthenticated):
+  accepts `username`, `verification_code`, `new_password`; validates the
+  cached code, updates `password_hash` via `UserModel`, revokes all sessions
+  via `AuthService::logoutAll`, and deletes the used code from cache.
+- **Forgot Password modal in `LoginPage.tsx`**: "Forgot Password?" link opens
+  a 2-step modal — Step 1: enter username and request code; Step 2: code is
+  displayed in a highlighted box for easy local testing, user enters it plus
+  new password to complete the reset. Modal closes and resets on success.
+
+### Stage 24 — Employee Profile Completion: Experience, Emergency Contact & Documents (2026-08-09)
+
+- **Database migration** (`2026-08-09-072834_AddExtraProfileFieldsToEmployeesMigration`):
+  4 new columns added to `employees` table:
+  - `experience_years DECIMAL(5,2)` — total work experience
+  - `emergency_contact_name VARCHAR(150)` — emergency contact person
+  - `emergency_contact_phone VARCHAR(20)` — emergency contact number
+  - `documents_json JSON` — array of `{name, url}` document references
+- **Backend**: `EmployeeModel` `$allowedFields` + `encodeDocumentsJson` hook;
+  `Employee` entity docblock + `float`/`json-array` casts; `UpdateEmployeeRequest`
+  new optional params; `EmployeeResponse` new properties + `toArray()` entries;
+  `EmployeeService::updateEmployee` new field mappings; `EmployeeController::update`
+  body parsing with named args.
+- **Frontend**:
+  - `Employee` interface in `EmployeesPage.tsx` extended with 4 new optional fields.
+  - `EmployeeEditModal.tsx`: new "Experience & Emergency Contact" section (3-column
+    grid: experience years, contact name, contact phone) and a dynamic
+    "Documents / References" section (add/remove rows, each with name + URL fields).
+  - `ProfilePage.tsx`: Experience displayed inline in Employment Details; new
+    "Emergency Contact" card; "Documents" card (conditionally rendered, with
+    clickable "View ↗" links where URL is provided).
+- All 32 PHPUnit feature tests pass. Frontend Vite production build clean.
