@@ -227,9 +227,22 @@ $routes->group('api/v1/hr-payroll', ['namespace' => 'App\Modules\HrPayroll\Contr
 
     $routes->post('leave-requests', 'LeaveRequestController::create');
     $routes->post('leave-requests/(:num)/decide', 'LeaveRequestController::decide/$1');
+    $routes->post('leave-requests/(:num)/cancel', 'LeaveRequestController::cancel/$1');
     $routes->get('leave-requests/balance', 'LeaveRequestController::balance');
     $routes->get('leave-requests/(:num)', 'LeaveRequestController::show/$1');
     $routes->get('leave-requests', 'LeaveRequestController::index');
+
+    $routes->post('holidays', 'HolidayController::create');
+    $routes->patch('holidays/(:num)', 'HolidayController::update/$1');
+    $routes->delete('holidays/(:num)', 'HolidayController::destroy/$1');
+    $routes->get('holidays/(:num)', 'HolidayController::show/$1');
+    $routes->get('holidays', 'HolidayController::index');
+
+    $routes->post('leave-types', 'LeaveTypeController::create');
+    $routes->patch('leave-types/(:num)', 'LeaveTypeController::update/$1');
+    $routes->delete('leave-types/(:num)', 'LeaveTypeController::destroy/$1');
+    $routes->get('leave-types/(:num)', 'LeaveTypeController::show/$1');
+    $routes->get('leave-types', 'LeaveTypeController::index');
 });
 
 // docs/design/library/Phase-3-Service-Controller-Design.md

@@ -57,6 +57,8 @@ class EmployeeController extends BaseController
         $bankIfscCode       = isset($body['bank_ifsc_code']) && $body['bank_ifsc_code'] !== '' ? (string) $body['bank_ifsc_code'] : null;
         $probationEndDate   = isset($body['probation_end_date']) && $body['probation_end_date'] !== '' ? (string) $body['probation_end_date'] : null;
         $confirmationDate   = isset($body['confirmation_date']) && $body['confirmation_date'] !== '' ? (string) $body['confirmation_date'] : null;
+        $cbseClassification = isset($body['cbse_classification']) && $body['cbse_classification'] !== '' ? (string) $body['cbse_classification'] : 'None';
+        $cbseTeacherCode    = isset($body['cbse_teacher_code']) && $body['cbse_teacher_code'] !== '' ? (string) $body['cbse_teacher_code'] : null;
 
         $fields = [];
 
@@ -97,6 +99,8 @@ class EmployeeController extends BaseController
                 $joiningDate,
                 $salaryJson,
                 $staffType,
+                $cbseClassification,
+                $cbseTeacherCode,
                 $qualification,
                 $aadhaarNumber,
                 $panNumber,
@@ -141,6 +145,8 @@ class EmployeeController extends BaseController
         $bankIfscCode       = isset($body['bank_ifsc_code']) && $body['bank_ifsc_code'] !== '' ? (string) $body['bank_ifsc_code'] : null;
         $probationEndDate   = isset($body['probation_end_date']) && $body['probation_end_date'] !== '' ? (string) $body['probation_end_date'] : null;
         $confirmationDate   = isset($body['confirmation_date']) && $body['confirmation_date'] !== '' ? (string) $body['confirmation_date'] : null;
+        $cbseClassification = isset($body['cbse_classification']) && $body['cbse_classification'] !== '' ? (string) $body['cbse_classification'] : null;
+        $cbseTeacherCode    = isset($body['cbse_teacher_code']) && $body['cbse_teacher_code'] !== '' ? (string) $body['cbse_teacher_code'] : null;
 
         $fields = [];
 
@@ -173,6 +179,8 @@ class EmployeeController extends BaseController
                 $salaryJson,
                 $exitDate,
                 $staffType,
+                $cbseClassification,
+                $cbseTeacherCode,
                 $qualification,
                 $aadhaarNumber,
                 $panNumber,

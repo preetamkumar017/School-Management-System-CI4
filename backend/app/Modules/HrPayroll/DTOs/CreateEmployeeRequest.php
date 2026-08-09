@@ -17,6 +17,8 @@ final class CreateEmployeeRequest
         public readonly string $joiningDate,
         public readonly array $salaryStructureJson,
         public readonly string $staffType = 'Teaching',
+        public readonly ?string $cbseClassification = 'None',
+        public readonly ?string $cbseTeacherCode = null,
         public readonly ?string $qualification = null,
         public readonly ?string $aadhaarNumber = null,
         public readonly ?string $panNumber = null,

@@ -68,6 +68,8 @@ class EmployeeService
             'department_id'         => $request->departmentId,
             'designation_id'        => $request->designationId,
             'staff_type'            => $request->staffType,
+            'cbse_classification'   => $request->cbseClassification,
+            'cbse_teacher_code'     => $request->cbseTeacherCode,
             'qualification'         => $request->qualification,
             'aadhaar_number'        => $request->aadhaarNumber,
             'pan_number'            => $request->panNumber,
@@ -123,6 +125,12 @@ class EmployeeService
 
         if ($request->staffType !== null) {
             $data['staff_type'] = $request->staffType;
+        }
+        if ($request->cbseClassification !== null) {
+            $data['cbse_classification'] = $request->cbseClassification;
+        }
+        if ($request->cbseTeacherCode !== null) {
+            $data['cbse_teacher_code'] = $request->cbseTeacherCode;
         }
         if ($request->qualification !== null) {
             $data['qualification'] = $request->qualification;

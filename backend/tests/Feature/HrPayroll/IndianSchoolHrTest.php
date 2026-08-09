@@ -87,7 +87,7 @@ class IndianSchoolHrTest extends AdministrationTestCase
         // Maternity Leave
         $mlResult = $this->post('/api/v1/hr-payroll/leave-requests', [
             'employee_id' => $empId,
-            'leave_type'  => LeaveRequest::TYPE_ML,
+            'leave_type'  => 'ML',
             'start_date'  => '2026-09-01',
             'end_date'    => '2026-11-30',
             'reason'      => 'Maternity leave requested for 90 days',
@@ -95,13 +95,13 @@ class IndianSchoolHrTest extends AdministrationTestCase
         $mlResult->assertStatus(201);
 
         $mlJson = json_decode($mlResult->getJSON(), true)['data'];
-        $this->assertSame(LeaveRequest::TYPE_ML, $mlJson['leave_type']);
+        $this->assertSame('ML', $mlJson['leave_type']);
         $this->assertSame('Maternity leave requested for 90 days', $mlJson['reason']);
 
         // Duty Leave
         $dlResult = $this->post('/api/v1/hr-payroll/leave-requests', [
             'employee_id'          => $empId,
-            'leave_type'           => LeaveRequest::TYPE_DL,
+            'leave_type'           => 'DL',
             'start_date'           => '2026-08-10',
             'end_date'             => '2026-08-12',
             'reason'               => 'CBSE Board Examination Evaluation Duty',
@@ -110,7 +110,7 @@ class IndianSchoolHrTest extends AdministrationTestCase
         $dlResult->assertStatus(201);
 
         $dlJson = json_decode($dlResult->getJSON(), true)['data'];
-        $this->assertSame(LeaveRequest::TYPE_DL, $dlJson['leave_type']);
+        $this->assertSame('DL', $dlJson['leave_type']);
         $this->assertSame('CBSE/EVAL/2026/ORDER-992', $dlJson['duty_leave_reference']);
     }
 

@@ -23,6 +23,8 @@ class EmployeeModel extends BaseModel
         'department_id',
         'designation_id',
         'staff_type',
+        'cbse_classification',
+        'cbse_teacher_code',
         'qualification',
         'aadhaar_number',
         'pan_number',

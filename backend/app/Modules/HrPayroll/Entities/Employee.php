@@ -15,6 +15,8 @@ use App\Core\BaseEntity;
  * @property int                 $department_id
  * @property int                 $designation_id
  * @property string              $staff_type
+ * @property string|null         $cbse_classification
+ * @property string|null         $cbse_teacher_code
  * @property string|null         $qualification
  * @property string|null         $aadhaar_number
  * @property string|null         $pan_number

@@ -77,16 +77,61 @@ export default function PayrollRunsPage() {
     return employees.find((e) => e.employee_id === empId);
   }
 
+  const autoCalculateDeductions = (empId: number, currentGrossPay: number) => {
+    const emp = getEmployeeDetails(empId);
+    if (!emp) return;
+
+    const basicPay = Number(emp.salary_structure_json["Basic"] || emp.salary_structure_json["basic"] || 0);
+    const grossVal = currentGrossPay > 0 ? currentGrossPay : Object.values(emp.salary_structure_json).reduce((a, b) => a + Number(b), 0);
+
+    // PF: 12% of Basic (capped at ₹15,000 salary base standard => max ₹1,800)
+    let calculatedPf = 0;
+    if (basicPay > 0) {
+      const pfSalaryLimit = Math.min(basicPay, 15000);
+      calculatedPf = Math.round(pfSalaryLimit * 0.12);
+    }
+
+    // ESI: 0.75% of Gross if Gross <= ₹21,000
+    let calculatedEsi = 0;
+    if (grossVal <= 21000 && grossVal > 0) {
+      calculatedEsi = Math.round(grossVal * 0.0075);
+    }
+
+    // PT (Professional Tax): standard slab ₹200 if gross > ₹10,000, else ₹175
+    let calculatedPt = 0;
+    if (grossVal > 10000) {
+      calculatedPt = 200;
+    } else if (grossVal > 7500) {
+      calculatedPt = 175;
+    }
+
+    setForm((prev) => ({
+      ...prev,
+      pf: String(calculatedPf),
+      esi: String(calculatedEsi),
+      pt: String(calculatedPt),
+    }));
+  };
+
   function openCreate() {
     const emp = selectedEmployeeId !== "All" ? getEmployeeDetails(Number(selectedEmployeeId)) : employees[0];
+    const initialGross = emp ? Object.values(emp.salary_structure_json).reduce((a, b) => a + Number(b), 0) : 0;
+    
     setForm({
       ...EMPTY_FORM,
       employee_id: emp ? String(emp.employee_id) : "",
       pay_period: selectedPeriod !== "All" ? selectedPeriod : "2026-08",
-      gross_pay: emp ? String(Object.values(emp.salary_structure_json).reduce((a, b) => a + Number(b), 0)) : "",
+      gross_pay: emp ? String(initialGross) : "",
     });
+
     setFormError(null);
     setIsCreating(true);
+
+    if (emp) {
+      setTimeout(() => {
+        autoCalculateDeductions(emp.employee_id, initialGross);
+      }, 50);
+    }
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -385,9 +430,18 @@ export default function PayrollRunsPage() {
               <select
                 required
                 value={form.employee_id}
-                onChange={(e) => setForm({ ...form, employee_id: e.target.value })}
+                onChange={(e) => {
+                  const empId = Number(e.target.value);
+                  const emp = getEmployeeDetails(empId);
+                  const gross = emp ? Object.values(emp.salary_structure_json).reduce((a, b) => a + Number(b), 0) : 0;
+                  setForm({ ...form, employee_id: e.target.value, gross_pay: String(gross) });
+                  autoCalculateDeductions(empId, gross);
+                }}
                 className={inputClass}
               >
+                <option value="" disabled>
+                  Select Employee
+                </option>
                 {employees.map((emp) => (
                   <option key={emp.employee_id} value={emp.employee_id}>
                     {emp.employee_code} — {emp.full_name} ({emp.staff_type || "Staff"})
@@ -432,7 +486,16 @@ export default function PayrollRunsPage() {
             </div>
 
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-3 dark:border-slate-800 dark:bg-slate-900/50">
-              <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Statutory Monthly Deductions</h4>
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Statutory Monthly Deductions</h4>
+                <button
+                  type="button"
+                  onClick={() => autoCalculateDeductions(Number(form.employee_id), Number(form.gross_pay))}
+                  className="rounded bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold text-indigo-700 hover:bg-indigo-100 dark:bg-indigo-950 dark:text-indigo-300"
+                >
+                  ⚡ Auto-Calculate
+                </button>
+              </div>
               <div className="grid grid-cols-4 gap-3">
                 <div>
                   <label className={labelClass}>PF Deduction</label>

@@ -21,16 +21,14 @@ use App\Core\BaseEntity;
  */
 class LeaveRequest extends BaseEntity
 {
-    public const TYPE_CL  = 'CL';
-    public const TYPE_SL  = 'SL';
-    public const TYPE_EL  = 'EL';
-    public const TYPE_ML  = 'ML';
-    public const TYPE_LWP = 'LWP';
-    public const TYPE_DL  = 'DL';
+    // NOTE: Leave type codes (CL, SL, EL, etc.) are now dynamic — managed
+    // via the leave_types table. Do NOT add new TYPE_* constants here.
+    // Use LeaveTypeModel::getActiveCodes() for runtime validation.
 
-    public const STATUS_PENDING  = 'Pending';
-    public const STATUS_APPROVED = 'Approved';
-    public const STATUS_REJECTED = 'Rejected';
+    public const STATUS_PENDING   = 'Pending';
+    public const STATUS_APPROVED  = 'Approved';
+    public const STATUS_REJECTED  = 'Rejected';
+    public const STATUS_CANCELLED = 'Cancelled';
 
     /**
      * @param array<string, mixed>|null $data

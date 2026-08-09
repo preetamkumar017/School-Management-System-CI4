@@ -9,6 +9,7 @@ use App\Core\Exceptions\ValidationException;
 use App\Modules\HrPayroll\DTOs\CreateLeaveRequestRequest;
 use App\Modules\HrPayroll\DTOs\DecideLeaveRequestRequest;
 use App\Modules\HrPayroll\Entities\LeaveRequest;
+use App\Modules\HrPayroll\Models\LeaveTypeModel;
 use Config\Services;
 use OpenApi\Attributes as OA;
 
@@ -19,15 +20,17 @@ use OpenApi\Attributes as OA;
 #[OA\Tag(name: 'Leave Requests')]
 class LeaveRequestController extends BaseController
 {
-    private const VALID_TYPES = [
-        LeaveRequest::TYPE_CL,
-        LeaveRequest::TYPE_SL,
-        LeaveRequest::TYPE_EL,
-        LeaveRequest::TYPE_ML,
-        LeaveRequest::TYPE_LWP,
-        LeaveRequest::TYPE_DL,
-    ];
     private const VALID_DECISIONS = [LeaveRequest::STATUS_APPROVED, LeaveRequest::STATUS_REJECTED];
+
+    /** Get valid leave type codes from DB (falls back to empty = no validation if table missing) */
+    private function getValidTypes(): array
+    {
+        try {
+            return (new LeaveTypeModel())->getActiveCodes();
+        } catch (\Throwable) {
+            return []; // no restriction if table not ready yet
+        }
+    }
 
     #[OA\Post(
         path: '/hr-payroll/leave-requests',
@@ -56,8 +59,9 @@ class LeaveRequestController extends BaseController
             $fields['employee_id'] = 'employee_id is required.';
         }
 
-        if (! in_array($leaveType, self::VALID_TYPES, true)) {
-            $fields['leave_type'] = 'leave_type must be one of CL, SL, EL, ML, LWP, DL.';
+        $validTypes = $this->getValidTypes();
+        if ($validTypes !== [] && ! in_array($leaveType, $validTypes, true)) {
+            $fields['leave_type'] = 'leave_type must be one of: ' . implode(', ', $validTypes) . '.';
         }
 
         if ($startDate === '' || $endDate === '' || $endDate < $startDate) {
@@ -172,5 +176,19 @@ class LeaveRequestController extends BaseController
         $balances = Services::leaveRequestService()->getBalances($employeeId, $year);
 
         return $this->respondSuccess(['employee_id' => $employeeId, 'year' => $year, 'balances' => $balances]);
+    }
+
+    public function cancel(int $id)
+    {
+        $body = $this->request->getJSON(true) ?? [];
+        $reason = (string) ($body['reason'] ?? '');
+
+        if ($reason === '') {
+            throw new ValidationException(['reason' => 'reason is required to cancel leave requests.']);
+        }
+
+        $response = Services::leaveRequestService()->cancelLeaveRequest($id, $reason);
+
+        return $this->respondSuccess($response->toArray());
     }
 }

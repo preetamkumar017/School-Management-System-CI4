@@ -7,27 +7,40 @@ import { useEmployees } from "./EmployeesPage";
 interface LeaveRequest {
   leave_request_id: number;
   employee_id: number;
-  leave_type: "CL" | "SL" | "EL" | "ML" | "LWP" | "DL";
+  leave_type: string;  // Dynamic from leave_types table
   start_date: string;
   end_date: string;
   reason?: string;
   duty_leave_reference?: string;
   status: "Pending" | "Approved" | "Rejected";
   approver_id: number | null;
+  applied_days?: number;
+  deductible_days?: number;
 }
 
 interface FormState {
   employee_id: string;
-  leave_type: LeaveRequest["leave_type"];
+  leave_type: string;
   start_date: string;
   end_date: string;
   reason: string;
   duty_leave_reference: string;
 }
 
+interface DbLeaveType {
+  leave_type_id: number;
+  code: string;
+  name: string;
+  is_paid: number;
+  balance_check: number;
+  sandwich_rule: 0 | 1 | null;
+  color_hex: string;
+  max_days_per_year: number;
+}
+
 const EMPTY_FORM: FormState = {
   employee_id: "",
-  leave_type: "CL",
+  leave_type: "",   // Will be set to first active type after load
   start_date: "",
   end_date: "",
   reason: "",
@@ -37,26 +50,15 @@ const EMPTY_FORM: FormState = {
 interface LeaveBalances {
   employee_id: number;
   year: number;
-  balances: Record<
-    "CL" | "SL" | "EL",
-    { allocation: number; consumed: number; remaining: number }
-  >;
+  balances: Record<string, { allocation: number; consumed: number; remaining: number; name?: string; color_hex?: string; no_limit?: boolean }>;
 }
 
 interface QuotaPolicy {
   cl: string;
   sl: string;
   el: string;
+  sandwichRule: boolean;
 }
-
-const LEAVE_TYPE_LABELS: Record<LeaveRequest["leave_type"], string> = {
-  CL: "Casual Leave (CL)",
-  SL: "Sick Leave (SL)",
-  EL: "Earned Leave (EL)",
-  ML: "Maternity Leave (ML)",
-  LWP: "Loss of Pay (LWP)",
-  DL: "Duty Leave (DL)",
-};
 
 export default function LeaveRequestsPage() {
   const { employees, isLoading: isLoadingEmployees } = useEmployees();
@@ -67,6 +69,10 @@ export default function LeaveRequestsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+
+  // Dynamic leave types from DB
+  const [leaveTypes, setLeaveTypes] = useState<DbLeaveType[]>([]);
+  const leaveTypeLabel = (code: string) => leaveTypes.find((l) => l.code === code)?.name ?? code;
 
   const [isCreating, setIsCreating] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
@@ -80,7 +86,7 @@ export default function LeaveRequestsPage() {
 
   // Policy configuration modal state
   const [isPolicyModalOpen, setIsPolicyModalOpen] = useState(false);
-  const [quotas, setQuotas] = useState<QuotaPolicy>({ cl: "12", sl: "10", el: "15" });
+  const [quotas, setQuotas] = useState<QuotaPolicy>({ cl: "12", sl: "10", el: "15", sandwichRule: false });
   const [isSavingPolicy, setIsSavingPolicy] = useState(false);
   const [policyMessage, setPolicyMessage] = useState<string | null>(null);
 
@@ -130,10 +136,25 @@ export default function LeaveRequestsPage() {
           cl: map["hr_payroll.leave_allocation.cl"] || "12",
           sl: map["hr_payroll.leave_allocation.sl"] || "10",
           el: map["hr_payroll.leave_allocation.el"] || "15",
+          sandwichRule: map["hr_payroll.sandwich_rule_enabled"] === "true",
         });
       })
       .catch(() => {});
   }
+
+  useEffect(() => {
+    // Load dynamic leave types on mount
+    api.get("/hr-payroll/leave-types?active=1")
+      .then((res) => {
+        const types: DbLeaveType[] = res.data?.data ?? [];
+        setLeaveTypes(types);
+        // Set default form leave_type to first active code
+        if (types.length > 0 && !form.leave_type) {
+          setForm((prev) => ({ ...prev, leave_type: types[0].code }));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     reload();
@@ -219,7 +240,10 @@ export default function LeaveRequestsPage() {
       await api.patch("/administration/configurations/hr_payroll.leave_allocation.cl", { setting_value: quotas.cl });
       await api.patch("/administration/configurations/hr_payroll.leave_allocation.sl", { setting_value: quotas.sl });
       await api.patch("/administration/configurations/hr_payroll.leave_allocation.el", { setting_value: quotas.el });
-      setPolicyMessage("Annual leave policies updated successfully!");
+      await api.patch("/administration/configurations/hr_payroll.sandwich_rule_enabled", {
+        setting_value: quotas.sandwichRule ? "true" : "false",
+      });
+      setPolicyMessage("Annual leave & calculation policies updated successfully!");
       setTimeout(() => setIsPolicyModalOpen(false), 1200);
       reload();
     } catch (err) {
@@ -325,18 +349,24 @@ export default function LeaveRequestsPage() {
             Annual Leave Balances ({balances.year}) — {getEmployeeDetails(Number(selectedEmployeeId))?.full_name}
           </h3>
           <div className="grid grid-cols-3 gap-3">
-            {(["CL", "SL", "EL"] as const).map((type) => {
-              const b = balances.balances[type];
+            {Object.entries(balances.balances).map(([code, b]) => {
+              const lt = leaveTypes.find((l) => l.code === code);
+              const displayName = lt?.name ?? b.name ?? code;
+              const bgColor = lt?.color_hex ?? "#6366f1";
+              const isUnlimited = b.no_limit || b.allocation >= 999;
               return (
                 <div
-                  key={type}
+                  key={code}
                   className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950"
                 >
-                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{LEAVE_TYPE_LABELS[type]}</p>
+                  <div className="flex items-center gap-1.5">
+                    <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ backgroundColor: bgColor }} />
+                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{displayName}</p>
+                  </div>
                   <p className="mt-1 text-lg font-semibold text-slate-900 dark:text-slate-100">
-                    {b ? `${b.remaining} remaining` : "N/A"}
+                    {isUnlimited ? "Unlimited" : `${b.remaining} remaining`}
                   </p>
-                  {b && (
+                  {!isUnlimited && (
                     <p className="text-xs text-slate-400">
                       {b.consumed} used of {b.allocation}
                     </p>
@@ -356,6 +386,8 @@ export default function LeaveRequestsPage() {
                 <th className="px-4 py-2 font-medium">Applicant Staff</th>
                 <th className="px-4 py-2 font-medium">Leave Type</th>
                 <th className="px-4 py-2 font-medium">Dates</th>
+                <th className="px-4 py-2 font-medium text-center">Applied</th>
+                <th className="px-4 py-2 font-medium text-center">Deductible</th>
                 <th className="px-4 py-2 font-medium">Reason & Reference</th>
                 <th className="px-4 py-2 font-medium">Status</th>
                 <th className="px-4 py-2 text-right">Actions</th>
@@ -373,10 +405,24 @@ export default function LeaveRequestsPage() {
                       </div>
                     </td>
                     <td className="px-4 py-2 font-semibold text-slate-900 dark:text-slate-100">
-                      {LEAVE_TYPE_LABELS[r.leave_type] || r.leave_type}
+                      <div className="flex items-center gap-1.5">
+                        {(() => {
+                          const lt = leaveTypes.find((l) => l.code === r.leave_type);
+                          return lt ? (
+                            <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: lt.color_hex }} />
+                          ) : null;
+                        })()}
+                        {leaveTypeLabel(r.leave_type)}
+                      </div>
                     </td>
                     <td className="px-4 py-2 text-slate-500 dark:text-slate-400">
                       {r.start_date} to {r.end_date}
+                    </td>
+                    <td className="px-4 py-2 text-center font-semibold text-slate-700 dark:text-slate-300">
+                      {r.applied_days ?? 0} {Number(r.applied_days) === 1 ? "Day" : "Days"}
+                    </td>
+                    <td className="px-4 py-2 text-center font-bold text-indigo-600 dark:text-indigo-400">
+                      {r.deductible_days ?? 0} {Number(r.deductible_days) === 1 ? "Day" : "Days"}
                     </td>
                     <td className="px-4 py-2 text-slate-500 dark:text-slate-400">
                       <div>{r.reason || "N/A"}</div>
@@ -459,15 +505,18 @@ export default function LeaveRequestsPage() {
               <select
                 required
                 value={form.leave_type}
-                onChange={(e) => setForm({ ...form, leave_type: e.target.value as FormState["leave_type"] })}
+                onChange={(e) => setForm({ ...form, leave_type: e.target.value })}
                 className={inputClass}
               >
-                <option value="CL">Casual Leave (CL)</option>
-                <option value="SL">Sick Leave (SL)</option>
-                <option value="EL">Earned Leave (EL)</option>
-                <option value="ML">Maternity Leave (ML - 90/180 Days)</option>
-                <option value="LWP">Loss of Pay (LWP - Unpaid)</option>
-                <option value="DL">Duty Leave (DL - Official Duty)</option>
+                {leaveTypes.length === 0 && (
+                  <option value="">Loading leave types...</option>
+                )}
+                {leaveTypes.map((lt) => (
+                  <option key={lt.code} value={lt.code}>
+                    {lt.name} ({lt.code}){!lt.is_paid ? " — Unpaid" : ""}
+                    {lt.max_days_per_year === 0 ? " — Unlimited" : ""}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -505,17 +554,17 @@ export default function LeaveRequestsPage() {
               />
             </div>
 
-            {form.leave_type === "DL" && (
-              <div>
-                <label className={labelClass}>Duty Leave Reference / Order No.</label>
-                <input
-                  placeholder="e.g. CBSE/EVAL/2026/ORDER-992"
-                  value={form.duty_leave_reference}
-                  onChange={(e) => setForm({ ...form, duty_leave_reference: e.target.value })}
-                  className={inputClass}
-                />
-              </div>
-            )}
+            <div>
+              <label className={labelClass}>
+                Official Reference / Order No. <span className="text-slate-400 font-normal">(optional — for Duty Leave / Exam Duty)</span>
+              </label>
+              <input
+                placeholder="e.g. CBSE/EVAL/2026/ORDER-992"
+                value={form.duty_leave_reference}
+                onChange={(e) => setForm({ ...form, duty_leave_reference: e.target.value })}
+                className={inputClass}
+              />
+            </div>
 
             {formError && (
               <p role="alert" className="text-sm text-red-600 dark:text-red-400">
@@ -572,11 +621,34 @@ export default function LeaveRequestsPage() {
 
       {/* Leave Policy & Quota Configuration Modal */}
       {isPolicyModalOpen && (
-        <Modal title="⚙️ Configure School Leave Policy & Quotas" onClose={() => setIsPolicyModalOpen(false)} maxWidth="2xl">
+        <Modal title="⚙️ Configure School Leave Policy & Day Calculation Rules" onClose={() => setIsPolicyModalOpen(false)} maxWidth="2xl">
           <form onSubmit={handleSavePolicy} className="space-y-4">
             <p className="text-xs text-slate-500">
-              Configure the annual paid leave quota allocated to every school staff member at the start of each calendar year.
+              Configure annual leave quotas and dynamic day calculation rules (Working Days Only vs Sandwich Policy).
             </p>
+
+            {/* Dynamic Calculation Policy Selector */}
+            <div className="rounded-lg border border-blue-200 bg-blue-50/50 p-3 space-y-2 dark:border-blue-900/50 dark:bg-blue-950/30">
+              <label className={`${labelClass} text-blue-900 dark:text-blue-200 font-semibold`}>
+                🗓️ Intervening Holidays & Sundays Calculation Policy
+              </label>
+              <select
+                value={quotas.sandwichRule ? "true" : "false"}
+                onChange={(e) => setQuotas({ ...quotas, sandwichRule: e.target.value === "true" })}
+                className={`${inputClass} font-semibold`}
+              >
+                <option value="false">
+                  Working Days Only (Exclude Sundays & National Holidays e.g. 15 Aug) — Recommended
+                </option>
+                <option value="true">
+                  Sandwich Rule / Calendar Days (Include Sundays & Intervening Holidays)
+                </option>
+              </select>
+              <p className="text-xs text-blue-700 dark:text-blue-300">
+                💡 <strong>Example (14 Aug to 18 Aug)</strong>: Applying leave from 14 Aug to 18 Aug (containing 15 Aug Independence Day & 17 Aug Sunday) will count as{" "}
+                <strong className="underline">{quotas.sandwichRule ? "5 Days (Sandwich Rule)" : "2 Working Days (14th & 18th Aug)"}</strong> against the staff quota.
+              </p>
+            </div>
 
             <div className="grid grid-cols-3 gap-3">
               <div>
@@ -639,7 +711,7 @@ export default function LeaveRequestsPage() {
                 Cancel
               </button>
               <button type="submit" disabled={isSavingPolicy} className={primaryButtonClass}>
-                {isSavingPolicy ? "Saving…" : "Save Leave Policy"}
+                {isSavingPolicy ? "Saving Policy…" : "Save Policy"}
               </button>
             </div>
           </form>

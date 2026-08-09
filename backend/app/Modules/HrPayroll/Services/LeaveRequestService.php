@@ -17,7 +17,9 @@ use App\Modules\HrPayroll\DTOs\DecideLeaveRequestRequest;
 use App\Modules\HrPayroll\DTOs\LeaveRequestResponse;
 use App\Modules\HrPayroll\Entities\LeaveRequest;
 use App\Modules\HrPayroll\Models\EmployeeModel;
+use App\Modules\HrPayroll\Models\HolidayModel;
 use App\Modules\HrPayroll\Models\LeaveRequestModel;
+use App\Modules\HrPayroll\Models\LeaveTypeModel;
 
 /**
  * docs/design/hr-payroll/Phase-3-Service-Controller-Design.md
@@ -42,22 +44,60 @@ class LeaveRequestService
      */
     public const PERMISSION_MANAGE = 'hr_payroll.manage';
 
-    private const ALLOCATION_CONFIG_KEYS = [
-        LeaveRequest::TYPE_CL  => 'hr_payroll.leave_allocation.cl',
-        LeaveRequest::TYPE_SL  => 'hr_payroll.leave_allocation.sl',
-        LeaveRequest::TYPE_EL  => 'hr_payroll.leave_allocation.el',
-        LeaveRequest::TYPE_ML  => 'hr_payroll.leave_allocation.ml',
-        LeaveRequest::TYPE_LWP => 'hr_payroll.leave_allocation.lwp',
-        LeaveRequest::TYPE_DL  => 'hr_payroll.leave_allocation.dl',
-    ];
-
     public function __construct(
         private readonly LeaveRequestModel $leaveRequestModel,
         private readonly EmployeeModel $employeeModel,
+        private readonly HolidayModel $holidayModel,
+        private readonly LeaveTypeModel $leaveTypeModel,
         private readonly AuditService $auditService,
         private readonly ConfigurationService $configurationService,
         private readonly ModuleAuthorizer $moduleAuthorizer,
     ) {
+    }
+
+    /**
+     * Fetch holiday date strings for a given year from the school_holidays table.
+     * Falls back to empty array if table doesn't exist yet (e.g. unit tests).
+     * @return list<string>
+     */
+    private function getHolidaysForYear(int $year): array
+    {
+        try {
+            return $this->holidayModel->getHolidayDatesForYear($year);
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * Get the global sandwich_rule setting (fallback = true = calendar days).
+     */
+    private function getGlobalSandwichRule(): bool
+    {
+        try {
+            $val = $this->configurationService->getString('hr_payroll.sandwich_rule_enabled');
+            return filter_var($val, FILTER_VALIDATE_BOOLEAN);
+        } catch (\Throwable) {
+            return true;
+        }
+    }
+
+    /**
+     * Resolve the effective sandwich rule for a given leave type code.
+     * Per-type sandwich_rule (0/1) overrides the global setting.
+     * NULL in the DB means inherit global.
+     */
+    private function resolveSandwichRule(string $leaveTypeCode): bool
+    {
+        try {
+            $leaveType = $this->leaveTypeModel->findByCode($leaveTypeCode);
+            if ($leaveType !== null && $leaveType['sandwich_rule'] !== null) {
+                return (bool) $leaveType['sandwich_rule'];
+            }
+        } catch (\Throwable) {
+            // table may not exist in isolated test DBs
+        }
+        return $this->getGlobalSandwichRule();
     }
 
     /**
@@ -93,7 +133,38 @@ class LeaveRequestService
 
         $this->auditService->record('LeaveRequest', $id, AuditLog::ACTION_CREATE, null, $leaveRequest->toRawArray());
 
-        return new LeaveRequestResponse($leaveRequest);
+        // Notify HR Managers (users with hr_payroll.manage role permission)
+        try {
+            $db = \Config\Database::connect();
+            $hrUsers = $db->table('users')
+                ->select('users.owner_ref_id')
+                ->join('roles', 'users.role_id = roles.role_id')
+                ->where('users.owner_type', 'EMPLOYEE')
+                ->like('roles.permission_set', 'hr_payroll.manage')
+                ->get()
+                ->getResultArray();
+
+            $notificationService = \Config\Services::notificationLogService();
+            $employee = $this->employeeModel->find($request->employeeId);
+            $empName = $employee !== null ? $employee->full_name : "Staff member";
+
+            foreach ($hrUsers as $hrUser) {
+                $response = $notificationService->createInternal(new \App\Modules\Communication\DTOs\CreateNotificationLogRequest(
+                    \App\Modules\Communication\Entities\NotificationLog::RECIPIENT_EMPLOYEE,
+                    (int) $hrUser['owner_ref_id'],
+                    \App\Modules\Communication\Entities\NotificationLog::CHANNEL_SMS,
+                    'Leave Request Pending Approval',
+                    "New leave request submitted by {$empName} for {$request->leaveType} from {$request->startDate} to {$request->endDate}."
+                ));
+                // Automatically dispatch it through gateway
+                $notificationService->dispatchInternal($response->notificationLogId);
+            }
+        } catch (\Throwable $e) {
+            // Log/ignore notification failures so core business transaction doesn't fail
+            log_message('error', 'Failed to dispatch leave creation notifications: ' . $e->getMessage());
+        }
+
+        return $this->buildResponse($leaveRequest);
     }
 
     /**
@@ -152,12 +223,31 @@ class LeaveRequestService
             $this->auditService->record('LeaveRequest', $id, AuditLog::ACTION_UPDATE, $before->toRawArray(), $after->toRawArray());
         }
 
-        return new LeaveRequestResponse($after);
+        // Notify the Employee of the decision (Approve/Reject)
+        try {
+            $notificationService = \Config\Services::notificationLogService();
+            $decisionText = $request->decision === LeaveRequest::STATUS_APPROVED ? 'Approved' : 'Rejected';
+
+            $response = $notificationService->createInternal(new \App\Modules\Communication\DTOs\CreateNotificationLogRequest(
+                \App\Modules\Communication\Entities\NotificationLog::RECIPIENT_EMPLOYEE,
+                (int) $before->employee_id,
+                \App\Modules\Communication\Entities\NotificationLog::CHANNEL_SMS,
+                "Leave Request {$decisionText}",
+                "Your leave request for {$before->leave_type} from {$before->start_date} to {$before->end_date} has been {$decisionText}."
+            ));
+            // Automatically dispatch it through gateway
+            $notificationService->dispatchInternal($response->notificationLogId);
+        } catch (\Throwable $e) {
+            // Log/ignore notification failures so core business transaction doesn't fail
+            log_message('error', 'Failed to dispatch leave decision notification: ' . $e->getMessage());
+        }
+
+        return $this->buildResponse($after);
     }
 
     public function getLeaveRequest(int $id): LeaveRequestResponse
     {
-        return new LeaveRequestResponse($this->requireLeaveRequest($id));
+        return $this->buildResponse($this->requireLeaveRequest($id));
     }
 
     /**
@@ -168,7 +258,7 @@ class LeaveRequestService
         $this->moduleAuthorizer->assertManageOrOwner(self::PERMISSION_MANAGE, 'EMPLOYEE', $employeeId);
 
         return array_map(
-            static fn (LeaveRequest $leaveRequest): LeaveRequestResponse => new LeaveRequestResponse($leaveRequest),
+            fn (LeaveRequest $leaveRequest): LeaveRequestResponse => $this->buildResponse($leaveRequest),
             $this->leaveRequestModel->findByEmployeeId($employeeId),
         );
     }
@@ -186,7 +276,7 @@ class LeaveRequestService
         }
 
         return array_map(
-            static fn (LeaveRequest $leaveRequest): LeaveRequestResponse => new LeaveRequestResponse($leaveRequest),
+            fn (LeaveRequest $leaveRequest): LeaveRequestResponse => $this->buildResponse($leaveRequest),
             $query->findAll(),
         );
     }
@@ -200,18 +290,17 @@ class LeaveRequestService
     public function listApprovedOverlapping(int $employeeId, string $fromDate, string $toDate): array
     {
         return array_map(
-            static fn (LeaveRequest $leaveRequest): LeaveRequestResponse => new LeaveRequestResponse($leaveRequest),
+            fn (LeaveRequest $leaveRequest): LeaveRequestResponse => $this->buildResponse($leaveRequest),
             $this->leaveRequestModel->findApprovedOverlapping($employeeId, $fromDate, $toDate),
         );
     }
 
     /**
-     * Read-only balance visibility for the given calendar year — reuses
-     * the exact allocation-minus-consumed computation `decide()` already
-     * enforces server-side, just without a pending request's own days
-     * subtracted. No new business rule; existing logic exposed as a read.
+     * Read-only balance visibility for the given calendar year.
+     * Loops over ALL active leave types from DB (dynamic, per-school).
+     * Each leave type uses its own sandwich_rule (or inherits global).
      *
-     * @return array<string, array{allocation: int, consumed: int, remaining: int}>
+     * @return array<string, array{allocation: int, consumed: int, remaining: int, name: string, is_paid: int}>
      */
     public function getBalances(int $employeeId, int $year): array
     {
@@ -221,21 +310,36 @@ class LeaveRequestService
             throw new BusinessRuleException('EMPLOYEE_NOT_FOUND', 'Employee not found.');
         }
 
-        $balances = [];
+        $balances   = [];
+        $yearHolidays = $this->getHolidaysForYear($year);
 
-        foreach (self::ALLOCATION_CONFIG_KEYS as $leaveType => $configKey) {
-            $allocation = match ($leaveType) {
-                LeaveRequest::TYPE_ML  => 180,
-                LeaveRequest::TYPE_LWP => 999,
-                LeaveRequest::TYPE_DL  => 999,
-                default => (int) $this->configurationService->getNumber($configKey),
-            };
-            $consumed = $this->leaveRequestModel->sumApprovedDaysByEmployeeTypeYear($employeeId, $leaveType, $year);
+        try {
+            $leaveTypes = $this->leaveTypeModel->findActive();
+        } catch (\Throwable) {
+            $leaveTypes = [];
+        }
 
-            $balances[$leaveType] = [
-                'allocation' => $allocation,
+        foreach ($leaveTypes as $lt) {
+            $code       = $lt['code'];
+            $allocation = (int) $lt['max_days_per_year'];  // 0 = unlimited
+            $noLimit    = ! $lt['balance_check'] || $allocation === 0;
+
+            // Per-type sandwich rule override
+            $sandwichRule = $lt['sandwich_rule'] !== null
+                ? (bool) $lt['sandwich_rule']
+                : $this->getGlobalSandwichRule();
+
+            $holidays = $sandwichRule ? [] : $yearHolidays;
+            $consumed = $this->leaveRequestModel->sumApprovedDaysByEmployeeTypeYear($employeeId, $code, $year, $sandwichRule, $holidays);
+
+            $balances[$code] = [
+                'name'       => $lt['name'],
+                'is_paid'    => (int) $lt['is_paid'],
+                'allocation' => $noLimit ? 999 : $allocation,
                 'consumed'   => $consumed,
-                'remaining'  => max(0, $allocation - $consumed),
+                'remaining'  => $noLimit ? 999 : max(0, $allocation - $consumed),
+                'no_limit'   => $noLimit,
+                'color_hex'  => $lt['color_hex'] ?? '#6366f1',
             ];
         }
 
@@ -244,23 +348,112 @@ class LeaveRequestService
 
     private function projectedBalanceAfter(LeaveRequest $leaveRequest): int
     {
-        if ($leaveRequest->leave_type === LeaveRequest::TYPE_LWP || $leaveRequest->leave_type === LeaveRequest::TYPE_DL) {
-            return 0; // LWP and Duty Leave have no balance limit (always allowed)
+        // Fetch leave type config from DB
+        $leaveTypeConfig = null;
+        try {
+            $leaveTypeConfig = $this->leaveTypeModel->findByCode($leaveRequest->leave_type);
+        } catch (\Throwable) {
+            // table may not exist in isolated test DBs
         }
 
-        $year          = (int) (new \DateTimeImmutable((string) $leaveRequest->start_date))->format('Y');
-        $allocationKey = self::ALLOCATION_CONFIG_KEYS[$leaveRequest->leave_type] ?? null;
+        // If balance_check is disabled OR no leave type config, allow unlimited
+        if ($leaveTypeConfig === null || ! $leaveTypeConfig['balance_check']) {
+            return 0; // treat as unlimited — always pass balance check
+        }
 
-        $allocation = match ($leaveRequest->leave_type) {
-            LeaveRequest::TYPE_ML => 180,
-            default               => $allocationKey === null ? 0 : (int) $this->configurationService->getNumber($allocationKey),
-        };
+        $maxDays = (int) $leaveTypeConfig['max_days_per_year'];
+        if ($maxDays === 0) {
+            return 0; // explicit unlimited
+        }
 
-        $consumed   = $this->leaveRequestModel->sumApprovedDaysByEmployeeTypeYear($leaveRequest->employee_id, $leaveRequest->leave_type, $year);
-        $thisRequest = (new \DateTimeImmutable((string) $leaveRequest->start_date))
-            ->diff(new \DateTimeImmutable((string) $leaveRequest->end_date))->days + 1;
+        $year = (int) (new \DateTimeImmutable((string) $leaveRequest->start_date))->format('Y');
 
-        return $allocation - $consumed - $thisRequest;
+        // Per-type sandwich rule
+        $sandwichRule = $leaveTypeConfig['sandwich_rule'] !== null
+            ? (bool) $leaveTypeConfig['sandwich_rule']
+            : $this->getGlobalSandwichRule();
+
+        $holidays    = $sandwichRule ? [] : $this->getHolidaysForYear($year);
+        $consumed    = $this->leaveRequestModel->sumApprovedDaysByEmployeeTypeYear($leaveRequest->employee_id, $leaveRequest->leave_type, $year, $sandwichRule, $holidays);
+        $thisRequest = LeaveRequestModel::calculateDays((string) $leaveRequest->start_date, (string) $leaveRequest->end_date, $sandwichRule, $holidays);
+
+        return $maxDays - $consumed - $thisRequest;
+    }
+
+    public function cancelLeaveRequest(int $id, string $reason): LeaveRequestResponse
+    {
+        $leaveRequest = $this->requireLeaveRequest($id);
+
+        $this->moduleAuthorizer->assertManageOrOwner(self::PERMISSION_MANAGE, 'EMPLOYEE', $leaveRequest->employee_id);
+
+        if ($leaveRequest->status !== LeaveRequest::STATUS_PENDING) {
+            throw new BusinessRuleException(
+                'LEAVE_REQUEST_NOT_PENDING',
+                'Only pending leave requests can be cancelled.'
+            );
+        }
+
+        $this->leaveRequestModel->update($id, [
+            'status' => LeaveRequest::STATUS_CANCELLED,
+            'reason' => trim($leaveRequest->reason . "\n[Cancelled: " . $reason . "]"),
+        ]);
+
+        $after = $this->leaveRequestModel->find($id);
+
+        $this->auditService->record('LeaveRequest', $id, AuditLog::ACTION_UPDATE, $leaveRequest->toRawArray(), $after->toRawArray(), 'Cancelled: ' . $reason);
+
+        // Notify HR Managers
+        try {
+            $db = \Config\Database::connect();
+            $hrUsers = $db->table('users')
+                ->select('users.owner_ref_id')
+                ->join('roles', 'users.role_id = roles.role_id')
+                ->where('users.owner_type', 'EMPLOYEE')
+                ->like('roles.permission_set', 'hr_payroll.manage')
+                ->get()
+                ->getResultArray();
+
+            $notificationService = \Config\Services::notificationLogService();
+            $employee = $this->employeeModel->find($leaveRequest->employee_id);
+            $empName = $employee !== null ? $employee->full_name : "Staff member";
+
+            foreach ($hrUsers as $hrUser) {
+                $response = $notificationService->createInternal(new \App\Modules\Communication\DTOs\CreateNotificationLogRequest(
+                    \App\Modules\Communication\Entities\NotificationLog::RECIPIENT_EMPLOYEE,
+                    (int) $hrUser['owner_ref_id'],
+                    \App\Modules\Communication\Entities\NotificationLog::CHANNEL_SMS,
+                    'Leave Request Cancelled',
+                    "Leave request submitted by {$empName} has been cancelled by the employee. Reason: {$reason}."
+                ));
+                $notificationService->dispatchInternal($response->notificationLogId);
+            }
+        } catch (\Throwable $e) {
+            log_message('error', 'Failed to dispatch leave cancellation notification: ' . $e->getMessage());
+        }
+
+        return $this->buildResponse($after);
+    }
+
+    private function buildResponse(LeaveRequest $lr): LeaveRequestResponse
+    {
+        $startDate = new \DateTimeImmutable((string) $lr->start_date);
+        $endDate = new \DateTimeImmutable((string) $lr->end_date);
+        $appliedDays = (int) $startDate->diff($endDate)->format('%a') + 1;
+
+        $leaveTypeConfig = null;
+        try {
+            $leaveTypeConfig = $this->leaveTypeModel->findByCode($lr->leave_type);
+        } catch (\Throwable $e) {}
+
+        $sandwichRule = $leaveTypeConfig !== null && $leaveTypeConfig['sandwich_rule'] !== null
+            ? (bool) $leaveTypeConfig['sandwich_rule']
+            : $this->getGlobalSandwichRule();
+
+        $year = (int) $startDate->format('Y');
+        $holidays = $sandwichRule ? [] : $this->getHolidaysForYear($year);
+        $deductibleDays = LeaveRequestModel::calculateDays((string) $lr->start_date, (string) $lr->end_date, $sandwichRule, $holidays);
+
+        return new LeaveRequestResponse($lr, $appliedDays, $deductibleDays);
     }
 
     private function requireLeaveRequest(int $id): LeaveRequest

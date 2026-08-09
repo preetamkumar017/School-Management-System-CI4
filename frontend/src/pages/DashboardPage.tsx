@@ -36,33 +36,122 @@ export default function DashboardPage() {
   const [summary, setSummary] = useState<SummaryData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [pendingLeaves, setPendingLeaves] = useState(0);
+  const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
 
   const canViewReports = user?.permissionSet.includes("reports.manage");
 
   useEffect(() => {
     let cancelled = false;
 
-    if (!canViewReports) {
+    if (canViewReports) {
+      api
+        .get<{ data: SummaryData }>("/reports/summary")
+        .then((response) => {
+          if (!cancelled) setSummary(response.data.data);
+        })
+        .catch((err) => {
+          if (!cancelled) setError(apiErrorMessage(err));
+        })
+        .finally(() => {
+          if (!cancelled) setIsLoading(false);
+        });
+    } else {
       setIsLoading(false);
-      return;
     }
 
-    api
-      .get<{ data: SummaryData }>("/reports/summary")
-      .then((response) => {
-        if (!cancelled) setSummary(response.data.data);
-      })
-      .catch((err) => {
-        if (!cancelled) setError(apiErrorMessage(err));
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
-      });
+    const fetchPendingLeaves = () => {
+      if (user?.permissionSet.includes("hr_payroll.manage")) {
+        api
+          .get<{ data: any[] }>("/hr-payroll/leave-requests")
+          .then((res) => {
+            if (!cancelled) {
+              setPendingLeaves(res.data.data.filter((r) => r.status === "Pending").length);
+            }
+          })
+          .catch(() => {});
+      }
+    };
+
+    fetchPendingLeaves();
+    const interval = setInterval(fetchPendingLeaves, 10000);
 
     return () => {
       cancelled = true;
+      clearInterval(interval);
     };
-  }, [canViewReports]);
+  }, [canViewReports, user]);
+
+  // Dismiss action helper
+  const dismissAlert = (key: string) => {
+    setDismissedAlerts((prev) => [...prev, key]);
+  };
+
+  // Helper to render modular pending Action Center
+  const renderActionCenter = () => {
+    const alertsList: { key: string; icon: string; title: string; desc: string; link: string }[] = [];
+
+    if (pendingLeaves > 0 && !dismissedAlerts.includes("leaves")) {
+      alertsList.push({
+        key: "leaves",
+        icon: "📩",
+        title: "Pending Leave Requests",
+        desc: `${pendingLeaves} staff leave requests awaiting your decision.`,
+        link: "/hr-payroll",
+      });
+    }
+
+    if (alertsList.length === 0) return null;
+
+    return (
+      <div className="mb-6 space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+            ⚡ Action Center
+          </h3>
+          <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+            {alertsList.length} Action{alertsList.length > 1 ? "s" : ""} Required
+          </span>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {alertsList.map((alert) => (
+            <div
+              key={alert.key}
+              className="relative flex flex-col justify-between rounded-xl border border-amber-200/80 bg-amber-50/50 p-4 transition-all hover:border-amber-300 dark:border-amber-900/40 dark:bg-amber-950/10"
+            >
+              {/* Dismiss Button */}
+              <button
+                onClick={() => dismissAlert(alert.key)}
+                className="absolute right-3 top-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 text-xs font-bold"
+                title="Dismiss"
+              >
+                ✕
+              </button>
+              <div className="pr-6">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-base">{alert.icon}</span>
+                  <h4 className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                    {alert.title}
+                  </h4>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  {alert.desc}
+                </p>
+              </div>
+              <div className="mt-4">
+                <Link
+                  to="/hr-payroll?tab=leave_management&sub=requests"
+                  className="inline-block rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white hover:bg-slate-800 dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-slate-200"
+                >
+                  Review Action →
+                </Link>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
 
   if (!canViewReports) {
     return (
@@ -73,6 +162,8 @@ export default function DashboardPage() {
             Access your personal employee profile, leave applications, attendance, and payslips below.
           </p>
         </div>
+
+        {renderActionCenter()}
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Link
@@ -94,6 +185,8 @@ export default function DashboardPage() {
   return (
     <div>
       <h1 className="mb-6 text-lg font-semibold text-slate-900 dark:text-slate-100">Institutional Overview Dashboard</h1>
+
+      {renderActionCenter()}
 
       {isLoading && <p className="text-sm text-slate-500 dark:text-slate-400">Loading…</p>}
 

@@ -498,5 +498,134 @@ class DevDataSeeder extends Seeder
                 ]);
             }
         }
+
+        // 9. Seed School Holidays (2026 Indian Gazetted + School Holidays)
+        $holidays = [
+            ['date' => '2026-01-01', 'name' => 'New Year Day',          'type' => 'School',    'desc' => 'School Holiday'],
+            ['date' => '2026-01-14', 'name' => 'Makar Sankranti',       'type' => 'Gazetted',  'desc' => 'Harvest festival'],
+            ['date' => '2026-01-26', 'name' => 'Republic Day',          'type' => 'Gazetted',  'desc' => 'National Holiday', 'recurring' => 1],
+            ['date' => '2026-03-25', 'name' => 'Holi',                  'type' => 'Gazetted',  'desc' => 'Festival of Colours'],
+            ['date' => '2026-04-02', 'name' => 'Ram Navami',            'type' => 'Gazetted',  'desc' => 'Hindu Festival'],
+            ['date' => '2026-04-03', 'name' => 'Good Friday',           'type' => 'Gazetted',  'desc' => 'Christian Holiday'],
+            ['date' => '2026-04-14', 'name' => 'Dr Ambedkar Jayanti',   'type' => 'Gazetted',  'desc' => 'National Holiday'],
+            ['date' => '2026-05-01', 'name' => 'Labour Day',            'type' => 'Gazetted',  'desc' => 'International Workers Day'],
+            ['date' => '2026-06-11', 'name' => 'Summer Vacation Ends',  'type' => 'School',    'desc' => 'School resumes after summer break'],
+            ['date' => '2026-08-15', 'name' => 'Independence Day',      'type' => 'Gazetted',  'desc' => 'National Holiday', 'recurring' => 1],
+            ['date' => '2026-09-05', 'name' => 'Teachers Day',          'type' => 'School',    'desc' => 'Dr Radhakrishnan Birthday'],
+            ['date' => '2026-09-21', 'name' => 'Milad un Nabi',         'type' => 'Gazetted',  'desc' => 'Prophet Birthday'],
+            ['date' => '2026-10-02', 'name' => 'Gandhi Jayanti',        'type' => 'Gazetted',  'desc' => 'National Holiday', 'recurring' => 1],
+            ['date' => '2026-10-20', 'name' => 'Dussehra',              'type' => 'Gazetted',  'desc' => 'Vijayadashami'],
+            ['date' => '2026-11-05', 'name' => 'Diwali',                'type' => 'Gazetted',  'desc' => 'Festival of Lights'],
+            ['date' => '2026-11-06', 'name' => 'Diwali (2nd day)',      'type' => 'School',    'desc' => 'School Holiday'],
+            ['date' => '2026-11-15', 'name' => 'Guru Nanak Jayanti',    'type' => 'Gazetted',  'desc' => 'Sikh Festival'],
+            ['date' => '2026-12-25', 'name' => 'Christmas Day',         'type' => 'Gazetted',  'desc' => 'Christian Holiday', 'recurring' => 1],
+            ['date' => '2026-12-31', 'name' => 'School Year Closing',   'type' => 'School',    'desc' => 'Annual closing day'],
+        ];
+
+        foreach ($holidays as $h) {
+            $exists = $db->table('school_holidays')->where('holiday_date', $h['date'])->get()->getRow();
+            if ($exists === null) {
+                $db->table('school_holidays')->insert([
+                    'holiday_date' => $h['date'],
+                    'name'         => $h['name'],
+                    'type'         => $h['type'],
+                    'description'  => $h['desc'] ?? null,
+                    'is_recurring' => $h['recurring'] ?? 0,
+                    'created_at'   => date('Y-m-d H:i:s'),
+                    'updated_at'   => date('Y-m-d H:i:s'),
+                ]);
+            }
+        }
+
+        // 10. Seed Default Leave Types (can be customised per school)
+        // sandwich_rule: NULL=inherit global, 1=calendar days, 0=working days only
+        $leaveTypes = [
+            [
+                'code'              => 'CL',
+                'name'              => 'Casual Leave',
+                'description'       => 'Short-duration personal leave for casual reasons',
+                'max_days_per_year' => 12,
+                'is_paid'           => 1,
+                'balance_check'     => 1,
+                'sandwich_rule'     => 0,   // Working days only — skip Sundays & holidays
+                'color_hex'         => '#3b82f6',
+                'sort_order'        => 1,
+            ],
+            [
+                'code'              => 'SL',
+                'name'              => 'Sick Leave',
+                'description'       => 'Leave for medical illness or health conditions',
+                'max_days_per_year' => 10,
+                'is_paid'           => 1,
+                'balance_check'     => 1,
+                'sandwich_rule'     => null, // Inherit global setting
+                'color_hex'         => '#f59e0b',
+                'sort_order'        => 2,
+            ],
+            [
+                'code'              => 'EL',
+                'name'              => 'Earned Leave',
+                'description'       => 'Leave earned through service (carry-forward eligible)',
+                'max_days_per_year' => 15,
+                'is_paid'           => 1,
+                'balance_check'     => 1,
+                'sandwich_rule'     => 1,   // Calendar days — sandwich rule applies
+                'color_hex'         => '#10b981',
+                'sort_order'        => 3,
+            ],
+            [
+                'code'              => 'ML',
+                'name'              => 'Maternity Leave',
+                'description'       => '26 weeks paid maternity leave as per Maternity Benefit Act',
+                'max_days_per_year' => 180,
+                'is_paid'           => 1,
+                'balance_check'     => 0,   // No balance check — always approve
+                'sandwich_rule'     => 1,   // Calendar days
+                'color_hex'         => '#ec4899',
+                'sort_order'        => 4,
+            ],
+            [
+                'code'              => 'LWP',
+                'name'              => 'Leave Without Pay',
+                'description'       => 'Unpaid leave — deducted from salary',
+                'max_days_per_year' => 0,   // 0 = unlimited
+                'is_paid'           => 0,
+                'balance_check'     => 0,
+                'sandwich_rule'     => 0,   // Working days only
+                'color_hex'         => '#ef4444',
+                'sort_order'        => 5,
+            ],
+            [
+                'code'              => 'DL',
+                'name'              => 'Duty Leave',
+                'description'       => 'Leave for official duties, training, or seminars',
+                'max_days_per_year' => 0,   // Unlimited
+                'is_paid'           => 1,
+                'balance_check'     => 0,
+                'sandwich_rule'     => null, // Inherit global
+                'color_hex'         => '#8b5cf6',
+                'sort_order'        => 6,
+            ],
+        ];
+
+        foreach ($leaveTypes as $lt) {
+            $exists = $db->table('leave_types')->where('code', $lt['code'])->get()->getRow();
+            if ($exists === null) {
+                $db->table('leave_types')->insert([
+                    'code'              => $lt['code'],
+                    'name'              => $lt['name'],
+                    'description'       => $lt['description'],
+                    'max_days_per_year' => $lt['max_days_per_year'],
+                    'is_paid'           => $lt['is_paid'],
+                    'balance_check'     => $lt['balance_check'],
+                    'sandwich_rule'     => $lt['sandwich_rule'],
+                    'color_hex'         => $lt['color_hex'],
+                    'sort_order'        => $lt['sort_order'],
+                    'is_active'         => 1,
+                    'created_at'        => date('Y-m-d H:i:s'),
+                    'updated_at'        => date('Y-m-d H:i:s'),
+                ]);
+            }
+        }
     }
 }

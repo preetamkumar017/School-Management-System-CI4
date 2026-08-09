@@ -13,6 +13,8 @@ export interface Employee {
   department_id: number;
   designation_id: number;
   staff_type?: string;
+  cbse_classification?: "PRT" | "TGT" | "PGT" | "None";
+  cbse_teacher_code?: string;
   qualification?: string;
   aadhaar_number?: string;
   pan_number?: string;
@@ -35,6 +37,8 @@ interface FormState {
   department_id: string;
   designation_id: string;
   staff_type: string;
+  cbse_classification: "PRT" | "TGT" | "PGT" | "None";
+  cbse_teacher_code: string;
   qualification: string;
   aadhaar_number: string;
   pan_number: string;
@@ -52,6 +56,8 @@ const EMPTY_FORM: FormState = {
   department_id: "",
   designation_id: "",
   staff_type: "Teaching",
+  cbse_classification: "None",
+  cbse_teacher_code: "",
   qualification: "",
   aadhaar_number: "",
   pan_number: "",
@@ -97,6 +103,24 @@ export default function EmployeesPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Leave Balances states
+  const [balanceEmployee, setBalanceEmployee] = useState<Employee | null>(null);
+  const [employeeBalances, setEmployeeBalances] = useState<any>(null);
+  const [balanceLoading, setBalanceLoading] = useState(false);
+
+  function handleViewBalance(emp: Employee) {
+    setBalanceEmployee(emp);
+    setBalanceLoading(true);
+    setEmployeeBalances(null);
+    api.get(`/hr-payroll/leave-requests/balance?employee_id=${emp.employee_id}`)
+      .then((res) => {
+        // Handle both format envelopes
+        setEmployeeBalances(res.data.balances || res.data.data?.balances || res.data.data);
+      })
+      .catch(() => {})
+      .finally(() => setBalanceLoading(false));
+  }
+
   function departmentName(id: number): string {
     return departments.find((d) => d.department_id === id)?.department_name ?? `Dept #${id}`;
   }
@@ -133,6 +157,8 @@ export default function EmployeesPage() {
         department_id: Number(form.department_id),
         designation_id: Number(form.designation_id),
         staff_type: form.staff_type,
+        cbse_classification: form.cbse_classification,
+        cbse_teacher_code: form.cbse_teacher_code || null,
         qualification: form.qualification || null,
         aadhaar_number: form.aadhaar_number || null,
         pan_number: form.pan_number || null,
@@ -217,9 +243,16 @@ export default function EmployeesPage() {
                     <td className="px-4 py-2 text-slate-900 dark:text-slate-100">{e.employee_code}</td>
                     <td className="px-4 py-2 text-slate-900 dark:text-slate-100 font-medium">{e.full_name}</td>
                     <td className="px-4 py-2">
-                      <span className="rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-800 dark:bg-blue-950 dark:text-blue-300">
-                        {e.staff_type || "Teaching"}
-                      </span>
+                      <div className="flex flex-col gap-1">
+                        <span className="inline-block rounded bg-blue-100 px-2 py-0.5 text-xs text-blue-800 dark:bg-blue-950 dark:text-blue-300 w-max">
+                          {e.staff_type || "Teaching"}
+                        </span>
+                        {e.cbse_classification && e.cbse_classification !== "None" && (
+                          <span className="inline-block rounded bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 w-max">
+                            🎓 {e.cbse_classification} {e.cbse_teacher_code ? `(${e.cbse_teacher_code})` : ""}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{departmentName(e.department_id)}</td>
                     <td className="px-4 py-2 text-slate-500 dark:text-slate-400">{designationName(e.designation_id)}</td>
@@ -235,14 +268,23 @@ export default function EmployeesPage() {
                         {e.status}
                       </span>
                     </td>
-                    <td className="px-4 py-2 text-right">
-                      <button
-                        type="button"
-                        onClick={() => setEditing(e)}
-                        className="text-xs text-slate-600 hover:underline dark:text-slate-400"
-                      >
-                        Edit
-                      </button>
+                     <td className="px-4 py-2 text-right">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleViewBalance(e)}
+                          className="text-xs text-indigo-600 hover:underline dark:text-indigo-400 font-semibold"
+                        >
+                          Leave Balances
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setEditing(e)}
+                          className="text-xs text-slate-600 hover:underline dark:text-slate-400"
+                        >
+                          Edit
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -283,7 +325,7 @@ export default function EmployeesPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-4 gap-3">
               <div>
                 <label className={labelClass}>Staff Type</label>
                 <select
@@ -297,6 +339,29 @@ export default function EmployeesPage() {
                   <option value="Support">Support</option>
                   <option value="Administrative">Administrative</option>
                 </select>
+              </div>
+              <div>
+                <label className={labelClass}>CBSE Category</label>
+                <select
+                  required
+                  value={form.cbse_classification}
+                  onChange={(e) => setForm({ ...form, cbse_classification: e.target.value as any })}
+                  className={inputClass}
+                >
+                  <option value="None">None (Non-teaching)</option>
+                  <option value="PRT">PRT (Primary)</option>
+                  <option value="TGT">TGT (Trained Grad)</option>
+                  <option value="PGT">PGT (Post Grad)</option>
+                </select>
+              </div>
+              <div>
+                <label className={labelClass}>CBSE Code</label>
+                <input
+                  placeholder="e.g. T-9921"
+                  value={form.cbse_teacher_code}
+                  onChange={(e) => setForm({ ...form, cbse_teacher_code: e.target.value })}
+                  className={inputClass}
+                />
               </div>
               <div>
                 <label className={labelClass}>Department</label>
@@ -468,6 +533,70 @@ export default function EmployeesPage() {
             reload();
           }}
         />
+      )}
+
+      {/* HR View Employee Leave Balances Modal */}
+      {balanceEmployee && (
+        <Modal title={`Leave Balances - ${balanceEmployee.full_name}`} onClose={() => setBalanceEmployee(null)} maxWidth="lg">
+          {balanceLoading ? (
+            <p className="text-center py-6 text-slate-500">Loading balances...</p>
+          ) : employeeBalances ? (
+            <div className="space-y-4">
+              <div className="text-xs text-slate-500">
+                Employee Code: <span className="font-semibold">{balanceEmployee.employee_code}</span> • Year: <span className="font-semibold">{new Date().getFullYear()}</span>
+              </div>
+              <div className="overflow-hidden rounded-lg border border-slate-200 dark:border-slate-800">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 text-slate-500 dark:bg-slate-900 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                    <tr>
+                      <th className="px-3 py-2 font-medium">Leave Type</th>
+                      <th className="px-3 py-2 font-medium text-center">Allocated</th>
+                      <th className="px-3 py-2 font-medium text-center">Consumed</th>
+                      <th className="px-3 py-2 font-medium text-center">Remaining</th>
+                      <th className="px-3 py-2 font-medium">Type</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {Object.entries(employeeBalances).map(([code, details]: [string, any]) => (
+                      <tr key={code} className="border-b border-slate-100 last:border-0 dark:border-slate-900">
+                        <td className="px-3 py-2 font-medium text-slate-900 dark:text-slate-100 flex items-center gap-1.5">
+                          <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: details.color_hex || "#6366f1" }} />
+                          {details.name} ({code})
+                        </td>
+                        <td className="px-3 py-2 text-center text-slate-700 dark:text-slate-300 font-semibold">
+                          {details.no_limit ? "∞" : details.allocation}
+                        </td>
+                        <td className="px-3 py-2 text-center text-red-600 dark:text-red-400 font-semibold">
+                          {details.consumed}
+                        </td>
+                        <td className="px-3 py-2 text-center text-green-600 dark:text-green-400 font-bold">
+                          {details.no_limit ? "∞" : details.remaining}
+                        </td>
+                        <td className="px-3 py-2">
+                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${details.is_paid ? 'bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-400' : 'bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-400'}`}>
+                            {details.is_paid ? 'Paid' : 'Unpaid'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : (
+            <p className="text-center py-6 text-red-500">Failed to fetch leave balances.</p>
+          )}
+
+          <div className="flex justify-end pt-4">
+            <button
+              type="button"
+              onClick={() => setBalanceEmployee(null)}
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-900"
+            >
+              Close
+            </button>
+          </div>
+        </Modal>
       )}
     </div>
   );

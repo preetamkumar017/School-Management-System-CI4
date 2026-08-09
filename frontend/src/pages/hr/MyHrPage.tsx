@@ -7,10 +7,10 @@ import { inputClass, labelClass, primaryButtonClass, secondaryButtonClass } from
 
 interface LeaveRequest {
   leave_request_id: number;
-  leave_type: "CL" | "SL" | "EL";
+  leave_type: string;
   start_date: string;
   end_date: string;
-  status: "Pending" | "Approved" | "Rejected";
+  status: "Pending" | "Approved" | "Rejected" | "Cancelled";
 }
 
 interface LeaveBalances {
@@ -36,6 +36,7 @@ const LEAVE_STATUS_STYLES: Record<LeaveRequest["status"], string> = {
   Pending: "bg-slate-100 text-slate-600 dark:bg-slate-900 dark:text-slate-400",
   Approved: "bg-green-100 text-green-800 dark:bg-green-950 dark:text-green-400",
   Rejected: "bg-red-100 text-red-800 dark:bg-red-950 dark:text-red-400",
+  Cancelled: "bg-orange-100 text-orange-800 dark:bg-orange-950 dark:text-orange-400",
 };
 
 export default function MyHrPage() {
@@ -49,22 +50,35 @@ export default function MyHrPage() {
   const [message, setMessage] = useState<string | null>(null);
 
   const [isApplying, setIsApplying] = useState(false);
-  const [leaveType, setLeaveType] = useState<"CL" | "SL" | "EL">("CL");
+  const [leaveType, setLeaveType] = useState<string>("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [reason, setReason] = useState("");
+  const [dbLeaveTypes, setDbLeaveTypes] = useState<any[]>([]);
   const [applyError, setApplyError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Cancellation States
+  const [cancellingRequest, setCancellingRequest] = useState<LeaveRequest | null>(null);
+  const [cancellationReason, setCancellationReason] = useState("");
+  const [cancelError, setCancelError] = useState<string | null>(null);
+  const [isCancellingSubmit, setIsCancellingSubmit] = useState(false);
 
   function reload(employeeId: number) {
     Promise.all([
       api.get<{ data: LeaveRequest[] }>("/hr-payroll/leave-requests", { params: { employee_id: employeeId } }),
       api.get<{ data: LeaveBalances }>("/hr-payroll/leave-requests/balance", { params: { employee_id: employeeId } }),
       api.get<{ data: PayrollRun[] }>("/hr-payroll/payroll-runs", { params: { employee_id: employeeId } }),
+      api.get<{ data: any[] }>("/hr-payroll/leave-types?active=1"),
     ])
-      .then(([leaveResponse, balanceResponse, payrollResponse]) => {
+      .then(([leaveResponse, balanceResponse, payrollResponse, typesResponse]) => {
         setLeaveRequests(leaveResponse.data.data);
         setBalances(balanceResponse.data.data);
         setPayrollRuns(payrollResponse.data.data);
+        setDbLeaveTypes(typesResponse.data.data);
+        if (typesResponse.data.data.length > 0) {
+          setLeaveType(typesResponse.data.data[0].code);
+        }
       })
       .catch((err) => setMessage(apiErrorMessage(err)));
   }
@@ -84,15 +98,36 @@ export default function MyHrPage() {
         leave_type: leaveType,
         start_date: startDate,
         end_date: endDate,
+        reason: reason,
       });
       setIsApplying(false);
       setStartDate("");
       setEndDate("");
+      setReason("");
       reload(employee.employee_id);
     } catch (err) {
       setApplyError(apiErrorMessage(err));
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function handleCancelLeave(event: FormEvent) {
+    event.preventDefault();
+    if (!employee || !cancellingRequest) return;
+    setCancelError(null);
+    setIsCancellingSubmit(true);
+    try {
+      await api.post(`/hr-payroll/leave-requests/${cancellingRequest.leave_request_id}/cancel`, {
+        reason: cancellationReason,
+      });
+      setCancellingRequest(null);
+      setCancellationReason("");
+      reload(employee.employee_id);
+    } catch (err) {
+      setCancelError(apiErrorMessage(err));
+    } finally {
+      setIsCancellingSubmit(false);
     }
   }
 
@@ -187,12 +222,13 @@ export default function MyHrPage() {
 
         <div className="overflow-x-auto rounded-lg border border-slate-200 dark:border-slate-800">
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
+             <thead className="border-b border-slate-200 bg-slate-50 text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
               <tr>
                 <th className="px-4 py-2 font-medium">Type</th>
                 <th className="px-4 py-2 font-medium">From</th>
                 <th className="px-4 py-2 font-medium">To</th>
                 <th className="px-4 py-2 font-medium">Status</th>
+                <th className="px-4 py-2" />
               </tr>
             </thead>
             <tbody>
@@ -205,6 +241,21 @@ export default function MyHrPage() {
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${LEAVE_STATUS_STYLES[r.status]}`}>
                       {r.status}
                     </span>
+                  </td>
+                  <td className="px-4 py-2 text-right">
+                    {r.status === "Pending" && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCancellingRequest(r);
+                          setCancellationReason("");
+                          setCancelError(null);
+                        }}
+                        className="text-xs text-red-600 hover:underline dark:text-red-400 font-semibold"
+                      >
+                        Cancel
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -270,10 +321,12 @@ export default function MyHrPage() {
           <form onSubmit={handleApply} className="space-y-4">
             <div>
               <label className={labelClass}>Leave type</label>
-              <select value={leaveType} onChange={(e) => setLeaveType(e.target.value as "CL" | "SL" | "EL")} className={inputClass}>
-                <option value="CL">Casual Leave</option>
-                <option value="SL">Sick Leave</option>
-                <option value="EL">Earned Leave</option>
+              <select value={leaveType} onChange={(e) => setLeaveType(e.target.value)} className={inputClass}>
+                {dbLeaveTypes.map((t) => (
+                  <option key={t.leave_type_id} value={t.code}>
+                    {t.name} ({t.code})
+                  </option>
+                ))}
               </select>
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -285,6 +338,16 @@ export default function MyHrPage() {
                 <label className={labelClass}>End date</label>
                 <input required type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className={inputClass} />
               </div>
+            </div>
+            <div>
+              <label className={labelClass}>Reason (Karan)</label>
+              <textarea
+                required
+                placeholder="Write your leave reason here..."
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                className={`${inputClass} h-20 resize-none`}
+              />
             </div>
 
             {applyError && (
@@ -299,6 +362,56 @@ export default function MyHrPage() {
               </button>
               <button type="submit" disabled={isSubmitting} className={primaryButtonClass}>
                 {isSubmitting ? "Submitting…" : "Submit"}
+              </button>
+            </div>
+          </form>
+        </Modal>
+      )}
+      {cancellingRequest && (
+        <Modal title="Cancel Leave Request" onClose={() => setCancellingRequest(null)}>
+          <form onSubmit={handleCancelLeave} className="space-y-4">
+            <div className="rounded-lg bg-orange-50 p-3 text-xs text-orange-800 dark:bg-orange-950/20 dark:text-orange-400">
+              ⚠️ <strong>Warning:</strong> Ek baar cancel karne ke baad aap is request ko restore nahi kar sakenge.
+            </div>
+
+            <div>
+              <label className={labelClass}>Leave Period</label>
+              <div className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+                {cancellingRequest.leave_type} : {cancellingRequest.start_date} to {cancellingRequest.end_date}
+              </div>
+            </div>
+
+            <div>
+              <label className={labelClass}>Cancellation Reason (Karan)</label>
+              <textarea
+                required
+                placeholder="Explain why you are cancelling this leave request..."
+                value={cancellationReason}
+                onChange={(e) => setCancellationReason(e.target.value)}
+                className={`${inputClass} h-24 resize-none`}
+              />
+            </div>
+
+            {cancelError && (
+              <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+                {cancelError}
+              </p>
+            )}
+
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setCancellingRequest(null)}
+                className={secondaryButtonClass}
+              >
+                No, Keep it
+              </button>
+              <button
+                type="submit"
+                disabled={isCancellingSubmit || !cancellationReason.trim()}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700 disabled:opacity-50"
+              >
+                {isCancellingSubmit ? "Cancelling…" : "Yes, Cancel Request"}
               </button>
             </div>
           </form>

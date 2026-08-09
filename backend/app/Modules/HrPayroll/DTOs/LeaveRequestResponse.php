@@ -20,8 +20,10 @@ final class LeaveRequestResponse
     public readonly ?string $dutyLeaveReference;
     public readonly string $status;
     public readonly ?int $approverId;
+    public readonly int $appliedDays;
+    public readonly int $deductibleDays;
 
-    public function __construct(LeaveRequest $leaveRequest)
+    public function __construct(LeaveRequest $leaveRequest, int $appliedDays = 0, int $deductibleDays = 0)
     {
         $this->leaveRequestId     = $leaveRequest->leave_request_id;
         $this->employeeId         = $leaveRequest->employee_id;
@@ -32,6 +34,8 @@ final class LeaveRequestResponse
         $this->dutyLeaveReference = $leaveRequest->duty_leave_reference;
         $this->status             = $leaveRequest->status;
         $this->approverId         = $leaveRequest->approver_id;
+        $this->appliedDays        = $appliedDays;
+        $this->deductibleDays     = $deductibleDays;
     }
 
     /**
@@ -49,6 +53,8 @@ final class LeaveRequestResponse
             'duty_leave_reference' => $this->dutyLeaveReference,
             'status'               => $this->status,
             'approver_id'          => $this->approverId,
+            'applied_days'         => $this->appliedDays,
+            'deductible_days'      => $this->deductibleDays,
         ];
     }
 }

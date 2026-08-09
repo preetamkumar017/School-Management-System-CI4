@@ -18,6 +18,92 @@ use Tests\Support\Fees\FeesTestCase;
  */
 abstract class HrPayrollTestCase extends FeesTestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Seed default leave types for test execution
+        $db = \Config\Database::connect();
+        $leaveTypes = [
+            [
+                'code'              => 'CL',
+                'name'              => 'Casual Leave',
+                'description'       => 'Casual Leave',
+                'max_days_per_year' => 12,
+                'is_paid'           => 1,
+                'balance_check'     => 1,
+                'sandwich_rule'     => null,
+                'color_hex'         => '#3b82f6',
+                'sort_order'        => 1,
+                'is_active'         => 1,
+            ],
+            [
+                'code'              => 'SL',
+                'name'              => 'Sick Leave',
+                'description'       => 'Sick Leave',
+                'max_days_per_year' => 10,
+                'is_paid'           => 1,
+                'balance_check'     => 1,
+                'sandwich_rule'     => null,
+                'color_hex'         => '#f59e0b',
+                'sort_order'        => 2,
+                'is_active'         => 1,
+            ],
+            [
+                'code'              => 'EL',
+                'name'              => 'Earned Leave',
+                'description'       => 'Earned Leave',
+                'max_days_per_year' => 15,
+                'is_paid'           => 1,
+                'balance_check'     => 1,
+                'sandwich_rule'     => null,
+                'color_hex'         => '#10b981',
+                'sort_order'        => 3,
+                'is_active'         => 1,
+            ],
+            [
+                'code'              => 'ML',
+                'name'              => 'Maternity Leave',
+                'description'       => 'Maternity Leave',
+                'max_days_per_year' => 180,
+                'is_paid'           => 1,
+                'balance_check'     => 0,
+                'sandwich_rule'     => null,
+                'color_hex'         => '#ec4899',
+                'sort_order'        => 4,
+                'is_active'         => 1,
+            ],
+            [
+                'code'              => 'LWP',
+                'name'              => 'Leave Without Pay',
+                'description'       => 'Leave Without Pay',
+                'max_days_per_year' => 0,
+                'is_paid'           => 0,
+                'balance_check'     => 0,
+                'sandwich_rule'     => null,
+                'color_hex'         => '#ef4444',
+                'sort_order'        => 5,
+                'is_active'         => 1,
+            ],
+            [
+                'code'              => 'DL',
+                'name'              => 'Duty Leave',
+                'description'       => 'Duty Leave',
+                'max_days_per_year' => 0,
+                'is_paid'           => 1,
+                'balance_check'     => 0,
+                'sandwich_rule'     => null,
+                'color_hex'         => '#8b5cf6',
+                'sort_order'        => 6,
+                'is_active'         => 1,
+            ],
+        ];
+
+        foreach ($leaveTypes as $lt) {
+            $db->table('leave_types')->insert($lt);
+        }
+    }
+
     protected function createDepartmentFixture(?string $name = null): int
     {
         return (new DepartmentModel())->insert(['department_name' => $name ?? ('Dept ' . uniqid('', true))], true);

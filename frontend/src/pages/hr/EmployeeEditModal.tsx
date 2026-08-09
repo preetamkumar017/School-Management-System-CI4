@@ -22,6 +22,8 @@ export default function EmployeeEditModal({
   const [departmentId, setDepartmentId] = useState(String(employee.department_id));
   const [designationId, setDesignationId] = useState(String(employee.designation_id));
   const [staffType, setStaffType] = useState(employee.staff_type || "Teaching");
+  const [cbseClassification, setCbseClassification] = useState(employee.cbse_classification || "None");
+  const [cbseTeacherCode, setCbseTeacherCode] = useState(employee.cbse_teacher_code || "");
   const [qualification, setQualification] = useState(employee.qualification || "");
   const [aadhaarNumber, setAadhaarNumber] = useState(employee.aadhaar_number || "");
   const [panNumber, setPanNumber] = useState(employee.pan_number || "");
@@ -52,6 +54,8 @@ export default function EmployeeEditModal({
         department_id: Number(departmentId),
         designation_id: Number(designationId),
         staff_type: staffType,
+        cbse_classification: cbseClassification,
+        cbse_teacher_code: cbseTeacherCode || null,
         qualification: qualification || null,
         aadhaar_number: aadhaarNumber || null,
         pan_number: panNumber || null,
@@ -79,7 +83,7 @@ export default function EmployeeEditModal({
           <input required value={fullName} onChange={(e) => setFullName(e.target.value)} className={inputClass} />
         </div>
 
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-5 gap-3">
           <div>
             <label className={labelClass}>Staff Type</label>
             <select required value={staffType} onChange={(e) => setStaffType(e.target.value)} className={inputClass}>
@@ -88,6 +92,24 @@ export default function EmployeeEditModal({
               <option value="Support">Support</option>
               <option value="Administrative">Administrative</option>
             </select>
+          </div>
+          <div>
+            <label className={labelClass}>CBSE Category</label>
+            <select required value={cbseClassification} onChange={(e) => setCbseClassification(e.target.value as any)} className={inputClass}>
+              <option value="None">None</option>
+              <option value="PRT">PRT (Primary)</option>
+              <option value="TGT">TGT (Trained Grad)</option>
+              <option value="PGT">PGT (Post Grad)</option>
+            </select>
+          </div>
+          <div>
+            <label className={labelClass}>CBSE Code</label>
+            <input
+              placeholder="e.g. T-9921"
+              value={cbseTeacherCode}
+              onChange={(e) => setCbseTeacherCode(e.target.value)}
+              className={inputClass}
+            />
           </div>
           <div>
             <label className={labelClass}>Department</label>

@@ -96,6 +96,11 @@ class NotificationLogService
     {
         $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
 
+        return $this->dispatchInternal($id);
+    }
+
+    public function dispatchInternal(int $id): NotificationLogResponse
+    {
         $before = $this->requireNotificationLog($id);
 
         if ($before->channel === NotificationLog::CHANNEL_PUSH) {

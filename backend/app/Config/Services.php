@@ -70,12 +70,16 @@ use App\Modules\HrPayroll\Models\AttendanceClosureModel;
 use App\Modules\HrPayroll\Models\DepartmentModel;
 use App\Modules\HrPayroll\Models\DesignationModel;
 use App\Modules\HrPayroll\Models\EmployeeModel;
+use App\Modules\HrPayroll\Models\HolidayModel;
 use App\Modules\HrPayroll\Models\LeaveRequestModel;
+use App\Modules\HrPayroll\Models\LeaveTypeModel;
 use App\Modules\HrPayroll\Models\PayrollRunModel;
 use App\Modules\HrPayroll\Services\DepartmentService;
 use App\Modules\HrPayroll\Services\DesignationService;
 use App\Modules\HrPayroll\Services\EmployeeService;
+use App\Modules\HrPayroll\Services\HolidayService;
 use App\Modules\HrPayroll\Services\LeaveRequestService;
+use App\Modules\HrPayroll\Services\LeaveTypeService;
 use App\Modules\HrPayroll\Services\PayrollRunService;
 use App\Modules\Library\Models\BookIssueModel;
 use App\Modules\Library\Models\BookModel;
@@ -535,7 +539,25 @@ class Services extends BaseService
             return static::getSharedInstance('leaveRequestService');
         }
 
-        return new LeaveRequestService(new LeaveRequestModel(), new EmployeeModel(), static::auditService(), static::configurationService(), static::moduleAuthorizer());
+        return new LeaveRequestService(new LeaveRequestModel(), new EmployeeModel(), new HolidayModel(), new LeaveTypeModel(), static::auditService(), static::configurationService(), static::moduleAuthorizer());
+    }
+
+    public static function leaveTypeService(bool $getShared = true): LeaveTypeService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('leaveTypeService');
+        }
+
+        return new LeaveTypeService(new LeaveTypeModel());
+    }
+
+    public static function holidayService(bool $getShared = true): HolidayService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('holidayService');
+        }
+
+        return new HolidayService(new HolidayModel());
     }
 
     public static function bookService(bool $getShared = true): BookService

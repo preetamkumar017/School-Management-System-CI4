@@ -16,6 +16,8 @@ final class UpdateEmployeeRequest
         public readonly array $salaryStructureJson,
         public readonly ?string $exitDate = null,
         public readonly ?string $staffType = null,
+        public readonly ?string $cbseClassification = null,
+        public readonly ?string $cbseTeacherCode = null,
         public readonly ?string $qualification = null,
         public readonly ?string $aadhaarNumber = null,
         public readonly ?string $panNumber = null,
