@@ -213,7 +213,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
       {/* Real-time Slide-in Toast Notification for regular notices */}
       {!activeAlert && activeToast && (
-        <div className="fixed bottom-5 right-5 z-[9999] flex w-96 flex-col rounded-2xl bg-slate-900 p-5 text-white shadow-2xl transition-all duration-300 animate-slide-in border border-slate-700 dark:bg-slate-950">
+        <div className="fixed bottom-5 left-5 right-5 sm:left-auto z-[9999] flex max-w-full sm:w-96 flex-col rounded-2xl bg-slate-900 p-5 text-white shadow-2xl transition-all duration-300 animate-slide-in border border-slate-700 dark:bg-slate-950">
           <div className="flex items-start justify-between mb-2">
             <div className="flex items-center gap-2">
               <span className="text-lg">📢</span>
@@ -236,7 +236,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
       {/* Legacy System Toast (if any) */}
       {toast && !activeAlert && !activeToast && (
-        <div className="fixed bottom-5 right-5 z-[9999] flex w-80 items-center justify-between gap-3 rounded-2xl bg-slate-900 p-4 text-white shadow-2xl transition-all duration-300 animate-slide-in border border-slate-700 dark:bg-slate-950">
+        <div className="fixed bottom-5 left-5 right-5 sm:left-auto z-[9999] flex max-w-full sm:w-80 items-center justify-between gap-3 rounded-2xl bg-slate-900 p-4 text-white shadow-2xl transition-all duration-300 animate-slide-in border border-slate-700 dark:bg-slate-950">
           <div className="flex-1">
             <h5 className="text-xs font-bold text-amber-400">{toast.title}</h5>
             <p className="text-[11px] text-slate-300 mt-0.5">{toast.desc}</p>
