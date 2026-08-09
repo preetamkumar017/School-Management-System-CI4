@@ -11,6 +11,7 @@ use App\Modules\HrPayroll\Models\StaffCommunicationReadModel;
 use App\Modules\HrPayroll\Models\EmployeeModel;
 use App\Core\Authz\ModuleAuthorizer;
 use App\Modules\Administration\Models\UserModel;
+use App\Core\Http\RequestContext;
 
 class StaffCommunicationController extends BaseController
 {
@@ -33,7 +34,7 @@ class StaffCommunicationController extends BaseController
 
     public function unread()
     {
-        $userId = request()->user->userId;
+        $userId = RequestContext::getUserId();
         return $this->respondSuccess($this->service->getUnreadCommunications($userId));
     }
 
@@ -44,7 +45,7 @@ class StaffCommunicationController extends BaseController
 
     public function markRead(int $id)
     {
-        $userId = request()->user->userId;
+        $userId = RequestContext::getUserId();
         $this->service->markAsRead($userId, $id);
         return $this->respondSuccess(['message' => 'Marked as read']);
     }
