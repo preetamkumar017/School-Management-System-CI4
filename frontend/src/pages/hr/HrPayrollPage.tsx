@@ -5,14 +5,18 @@ import PayrollRunsPage from "./PayrollRunsPage";
 import LeaveRequestsPage from "./LeaveRequestsPage";
 import HolidaysPage from "./HolidaysPage";
 import LeaveTypesPage from "./LeaveTypesPage";
+import DailyAttendancePage from "../attendance/DailyAttendancePage";
+import AttendanceSettingsPage from "../attendance/AttendanceSettingsPage";
 import { api } from "../../lib/api";
 
-type TabKey = "employees" | "org" | "payroll" | "leave_management";
+type TabKey = "employees" | "org" | "payroll" | "leave_management" | "time_attendance";
 type LeaveSubTabKey = "requests" | "holidays" | "leavetypes";
+type TimeSubTabKey = "daily" | "rules";
 
 export default function HrPayrollPage() {
   const [tab, setTab] = useState<TabKey>("employees");
   const [leaveSubTab, setLeaveSubTab] = useState<LeaveSubTabKey>("requests");
+  const [timeSubTab, setTimeSubTab] = useState<TimeSubTabKey>("daily");
   const [pendingCount, setPendingCount] = useState(0);
 
   const fetchPendingCount = () => {
@@ -32,6 +36,7 @@ export default function HrPayrollPage() {
     { key: "employees", label: "Employees" },
     { key: "org", label: "Departments/Designations" },
     { key: "payroll", label: "Payroll Runs" },
+    { key: "time_attendance", label: "Time & Attendance" },
     { key: "leave_management", label: "Leave Management" },
   ] as const;
 
@@ -108,6 +113,39 @@ export default function HrPayrollPage() {
             {leaveSubTab === "requests" && <LeaveRequestsPage />}
             {leaveSubTab === "holidays" && <HolidaysPage />}
             {leaveSubTab === "leavetypes" && <LeaveTypesPage />}
+          </div>
+        </div>
+      )}
+
+      {tab === "time_attendance" && (
+        <div className="space-y-6">
+          {/* Sub Navigation Tabs */}
+          <div className="flex gap-2 rounded-xl bg-slate-100 p-1 dark:bg-slate-800/60 w-max">
+            <button
+              onClick={() => setTimeSubTab("daily")}
+              className={`rounded-lg px-4 py-1.5 text-xs font-semibold transition-all ${
+                timeSubTab === "daily"
+                  ? "bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-slate-100"
+                  : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
+              }`}
+            >
+              📊 Daily HR View
+            </button>
+            <button
+              onClick={() => setTimeSubTab("rules")}
+              className={`rounded-lg px-4 py-1.5 text-xs font-semibold transition-all ${
+                timeSubTab === "rules"
+                  ? "bg-white text-slate-900 shadow-sm dark:bg-slate-900 dark:text-slate-100"
+                  : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
+              }`}
+            >
+              ⚙️ Attendance Rules
+            </button>
+          </div>
+
+          <div className="mt-4">
+            {timeSubTab === "daily" && <DailyAttendancePage />}
+            {timeSubTab === "rules" && <AttendanceSettingsPage />}
           </div>
         </div>
       )}
