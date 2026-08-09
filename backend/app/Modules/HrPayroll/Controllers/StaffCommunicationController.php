@@ -34,7 +34,7 @@ class StaffCommunicationController extends BaseController
 
     public function unread()
     {
-        $userId = RequestContext::getUserId();
+        $userId = RequestContext::userId();
         return $this->respondSuccess($this->service->getUnreadCommunications($userId));
     }
 
@@ -45,7 +45,7 @@ class StaffCommunicationController extends BaseController
 
     public function markRead(int $id)
     {
-        $userId = RequestContext::getUserId();
+        $userId = RequestContext::userId();
         $this->service->markAsRead($userId, $id);
         return $this->respondSuccess(['message' => 'Marked as read']);
     }
@@ -55,6 +55,12 @@ class StaffCommunicationController extends BaseController
         $data = $this->request->getJSON(true);
         $communication = $this->service->createCommunication($data);
         return $this->respondSuccess($communication);
+    }
+
+    public function delete(int $id)
+    {
+        $this->service->deleteCommunication($id);
+        return $this->respondSuccess(['message' => 'Deleted successfully']);
     }
 
     public function getEvents()

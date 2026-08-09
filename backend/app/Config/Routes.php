@@ -253,6 +253,7 @@ $routes->group('api/v1/hr-payroll', ['namespace' => 'App\Modules\HrPayroll\Contr
     $routes->get('communications/unread', 'StaffCommunicationController::unread');
     $routes->post('communications/(:num)/read', 'StaffCommunicationController::markRead/$1');
     $routes->post('communications', 'StaffCommunicationController::create');
+    $routes->delete('communications/(:num)', 'StaffCommunicationController::delete/$1');
     $routes->get('communications/events', 'StaffCommunicationController::getEvents');
 
     $routes->post('leave-requests', 'LeaveRequestController::create');

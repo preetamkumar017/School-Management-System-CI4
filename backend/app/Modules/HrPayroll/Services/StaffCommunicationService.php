@@ -117,6 +117,12 @@ class StaffCommunicationService
         return $this->communicationModel->find($id)->toArray();
     }
 
+    public function deleteCommunication(int $id): void
+    {
+        $this->moduleAuthorizer->assertManage('hr_payroll.manage');
+        $this->communicationModel->delete($id);
+    }
+
     public function getUpcomingEvents(): array
     {
         $this->moduleAuthorizer->assertAnyManage(['hr_payroll.manage', 'hr_payroll.view']);

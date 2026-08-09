@@ -13,6 +13,7 @@ export default function NoticeBoard() {
     message: "",
     target_audience: "All Staff",
     publish_date: new Date().toISOString().split('T')[0],
+    expiry_date: "",
     is_pinned: false
   });
 
@@ -34,9 +35,24 @@ export default function NoticeBoard() {
 
   const handleCreate = async () => {
     try {
-      await api.post("/hr-payroll/communications", formData);
+      // Send null if empty string
+      const payload = {
+        ...formData,
+        expiry_date: formData.expiry_date || null
+      };
+      await api.post("/hr-payroll/communications", payload);
       setIsCreating(false);
-      setFormData({ ...formData, title: "", message: "", is_pinned: false });
+      setFormData({ ...formData, title: "", message: "", expiry_date: "", is_pinned: false });
+      fetchCommunications();
+    } catch (err) {
+      setError(apiErrorMessage(err));
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm("Are you sure you want to delete this notice?")) return;
+    try {
+      await api.delete(`/hr-payroll/communications/${id}`);
       fetchCommunications();
     } catch (err) {
       setError(apiErrorMessage(err));
@@ -89,6 +105,16 @@ export default function NoticeBoard() {
               </select>
             </div>
           </div>
+          <div className="grid grid-cols-2 gap-4 mb-3">
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Publish Date</label>
+              <input type="date" className="w-full rounded border p-2 text-sm dark:bg-slate-900 dark:border-slate-700" value={formData.publish_date} onChange={(e) => setFormData({ ...formData, publish_date: e.target.value })} />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Expiry Date (Optional)</label>
+              <input type="date" className="w-full rounded border p-2 text-sm dark:bg-slate-900 dark:border-slate-700" value={formData.expiry_date} onChange={(e) => setFormData({ ...formData, expiry_date: e.target.value })} />
+            </div>
+          </div>
           <div className="mb-3">
             <label className="block text-xs font-medium text-slate-500 mb-1">Title</label>
             <input type="text" className="w-full rounded border p-2 text-sm dark:bg-slate-900 dark:border-slate-700" value={formData.title} onChange={(e) => setFormData({ ...formData, title: e.target.value })} placeholder="E.g. Public Holiday Announcement" />
@@ -120,12 +146,15 @@ export default function NoticeBoard() {
                   {comm.is_pinned && <span className="text-indigo-600">📌</span>}
                   <h3 className="font-bold text-slate-900 dark:text-white">{comm.title}</h3>
                 </div>
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${getTypeBadge(comm.type)}`}>{comm.type}</span>
+                <div className="flex items-center gap-2">
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider ${getTypeBadge(comm.type)}`}>{comm.type}</span>
+                  <button onClick={() => handleDelete(comm.communication_id)} className="text-red-500 hover:text-red-700 text-sm font-medium" title="Delete Notice">🗑️</button>
+                </div>
               </div>
               <p className="text-sm text-slate-600 dark:text-slate-400 whitespace-pre-wrap mb-3">{comm.message}</p>
               <div className="flex items-center justify-between text-xs text-slate-500 border-t border-slate-100 dark:border-slate-800 pt-3">
                 <span>Audience: <strong>{comm.target_audience}</strong></span>
-                <span>Published: {comm.publish_date}</span>
+                <span>Published: {comm.publish_date} {comm.expiry_date ? `| Expires: ${comm.expiry_date}` : ''}</span>
               </div>
             </div>
           ))}
