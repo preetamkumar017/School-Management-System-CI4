@@ -38,6 +38,7 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [pendingLeaves, setPendingLeaves] = useState(0);
   const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
+  const [notices, setNotices] = useState<any[]>([]);
 
   const canViewReports = user?.permissionSet.includes("reports.manage");
 
@@ -73,7 +74,17 @@ export default function DashboardPage() {
       }
     };
 
+    const fetchNotices = () => {
+      api
+        .get<{ data: any[] }>("/hr-payroll/communications/feed")
+        .then((res) => {
+          if (!cancelled) setNotices(res.data.data);
+        })
+        .catch(() => {});
+    };
+
     fetchPendingLeaves();
+    fetchNotices();
     const interval = setInterval(fetchPendingLeaves, 10000);
 
     return () => {
@@ -178,6 +189,29 @@ export default function DashboardPage() {
             </p>
           </Link>
         </div>
+        
+        {/* School Notice Board for Regular Users */}
+        {notices.length > 0 && (
+          <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 mt-6">
+            <h2 className="mb-4 text-lg font-bold text-slate-900 dark:text-white">📌 School Notice Board</h2>
+            <div className="space-y-4">
+              {notices.slice(0, 3).map((notice) => (
+                <div key={notice.communication_id} className={`rounded-lg p-4 border ${notice.is_pinned ? 'border-indigo-200 bg-indigo-50/50 dark:border-indigo-900/50 dark:bg-indigo-900/10' : 'border-slate-100 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/30'}`}>
+                  <div className="flex justify-between items-start mb-2">
+                    <h3 className="font-semibold text-slate-900 dark:text-white">{notice.title}</h3>
+                    <span className="text-xs bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full dark:bg-slate-700 dark:text-slate-300">
+                      {notice.type}
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 whitespace-pre-wrap">{notice.message}</p>
+                  <div className="mt-2 text-xs text-slate-500">
+                    Published: {notice.publish_date}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -207,6 +241,29 @@ export default function DashboardPage() {
               <p className="mt-1 text-2xl font-semibold text-slate-900 dark:text-slate-100">{summary[tile.key]}</p>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* School Notice Board for Admin Users */}
+      {notices.length > 0 && (
+        <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 mt-6">
+          <h2 className="mb-4 text-lg font-bold text-slate-900 dark:text-white">📌 School Notice Board</h2>
+          <div className="space-y-4">
+            {notices.slice(0, 3).map((notice) => (
+              <div key={notice.communication_id} className={`rounded-lg p-4 border ${notice.is_pinned ? 'border-indigo-200 bg-indigo-50/50 dark:border-indigo-900/50 dark:bg-indigo-900/10' : 'border-slate-100 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/30'}`}>
+                <div className="flex justify-between items-start mb-2">
+                  <h3 className="font-semibold text-slate-900 dark:text-white">{notice.title}</h3>
+                  <span className="text-xs bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full dark:bg-slate-700 dark:text-slate-300">
+                    {notice.type}
+                  </span>
+                </div>
+                <p className="text-sm text-slate-600 dark:text-slate-400 whitespace-pre-wrap">{notice.message}</p>
+                <div className="mt-2 text-xs text-slate-500">
+                  Published: {notice.publish_date}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

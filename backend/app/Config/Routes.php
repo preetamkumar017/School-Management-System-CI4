@@ -249,6 +249,7 @@ $routes->group('api/v1/hr-payroll', ['namespace' => 'App\Modules\HrPayroll\Contr
     $routes->post('appraisals/(:num)/manager', 'PerformanceAppraisalController::submitManager/$1');
 
     $routes->get('communications', 'StaffCommunicationController::index');
+    $routes->get('communications/feed', 'StaffCommunicationController::feed');
     $routes->post('communications', 'StaffCommunicationController::create');
     $routes->get('communications/events', 'StaffCommunicationController::getEvents');
 

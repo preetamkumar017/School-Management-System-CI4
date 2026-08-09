@@ -29,6 +29,11 @@ class StaffCommunicationController extends BaseController
         return $this->respondSuccess($this->service->getCommunications());
     }
 
+    public function feed()
+    {
+        return $this->respondSuccess($this->service->getActiveFeed());
+    }
+
     public function create()
     {
         $data = $this->request->getJSON(true);

@@ -28,6 +28,24 @@ class StaffCommunicationService
             ->findAll();
     }
 
+    public function getActiveFeed(): array
+    {
+        // For all authenticated users
+        $today = date('Y-m-d');
+        
+        $builder = $this->communicationModel
+            ->where('status', 'Published')
+            ->where('publish_date <=', $today)
+            ->groupStart()
+                ->where('expiry_date IS NULL', null, false)
+                ->orWhere('expiry_date >=', $today)
+            ->groupEnd()
+            ->orderBy('is_pinned', 'DESC')
+            ->orderBy('publish_date', 'DESC');
+
+        return $builder->findAll();
+    }
+
     public function createCommunication(array $data): array
     {
         $this->moduleAuthorizer->assertManage('hr_payroll.manage');
