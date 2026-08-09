@@ -37,7 +37,7 @@ class PerformanceAppraisalController extends BaseController
     {
         $data = $this->request->getJSON(true);
         $cycle = $this->service->createCycle($data);
-        return $this->respondSuccess($cycle, 201);
+        return $this->respondSuccess($cycle);
     }
 
     public function getAppraisals(int $cycleId)

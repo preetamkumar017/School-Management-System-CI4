@@ -33,7 +33,7 @@ class StaffCommunicationController extends BaseController
     {
         $data = $this->request->getJSON(true);
         $communication = $this->service->createCommunication($data);
-        return $this->respondSuccess($communication, 201);
+        return $this->respondSuccess($communication);
     }
 
     public function getEvents()
