@@ -169,6 +169,7 @@ $routes->group('api/v1/attendance', ['namespace' => 'App\Modules\Attendance\Cont
     $routes->post('staff-attendance', 'StaffAttendanceRecordController::create');
     $routes->post('staff-attendance/reconcile', 'StaffAttendanceRecordController::reconcile');
     $routes->post('staff-attendance/close-period', 'StaffAttendanceRecordController::closePeriod');
+    $routes->get('staff-attendance/daily', 'StaffAttendanceRecordController::daily');
     $routes->get('staff-attendance', 'StaffAttendanceRecordController::index');
 });
 
