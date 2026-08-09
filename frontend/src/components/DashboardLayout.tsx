@@ -39,6 +39,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const [pendingCount, setPendingCount] = useState(0);
   const [toast, setToast] = useState<{ title: string; desc: string } | null>(null);
   const [unreadComms, setUnreadComms] = useState<any[]>([]);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
   const prevCountRef = useRef<number>(0);
   const isFirstLoad = useRef<boolean>(true);
 
@@ -128,16 +129,26 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-slate-50 dark:bg-slate-900">
-      <aside className="w-60 shrink-0 border-r border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950">
-        <div className="border-b border-slate-200 px-4 py-4 dark:border-slate-800">
+      {/* Mobile Sidebar Overlay */}
+      {isMobileOpen && (
+        <div 
+          onClick={() => setIsMobileOpen(false)}
+          className="fixed inset-0 z-40 bg-slate-900/50 backdrop-blur-sm md:hidden"
+        />
+      )}
+
+      <aside className={`fixed inset-y-0 left-0 z-50 w-60 shrink-0 border-r border-slate-200 bg-white transition-transform md:static md:translate-x-0 dark:border-slate-800 dark:bg-slate-950 ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+        <div className="border-b border-slate-200 px-4 py-4 dark:border-slate-800 flex items-center justify-between">
           <span className="text-sm font-semibold text-slate-900 dark:text-slate-100">School ERP</span>
+          <button onClick={() => setIsMobileOpen(false)} className="md:hidden text-slate-500 hover:text-slate-700 text-lg">✕</button>
         </div>
-        <nav className="flex flex-col gap-0.5 p-2">
+        <nav className="flex flex-col gap-0.5 p-2 max-h-[calc(100vh-4rem)] overflow-y-auto">
           {visibleNavSections.map((section) => (
             <NavLink
               key={section.to}
               to={section.to}
               end={section.to === "/"}
+              onClick={() => setIsMobileOpen(false)}
               className={({ isActive }) =>
                 `rounded-md px-3 py-2 text-sm transition flex items-center justify-between ${
                   isActive
@@ -157,9 +168,12 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         </nav>
       </aside>
 
-      <div className="flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col md:pl-0">
         <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3 dark:border-slate-800 dark:bg-slate-950">
-          <div />
+          <button onClick={() => setIsMobileOpen(true)} className="md:hidden rounded p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-300">
+            <span className="text-xl">☰</span>
+          </button>
+          <div className="hidden md:block" />
           <div className="flex items-center gap-4 text-sm">
             {user && (
               <NavLink
