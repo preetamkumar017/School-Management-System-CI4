@@ -248,6 +248,10 @@ $routes->group('api/v1/hr-payroll', ['namespace' => 'App\Modules\HrPayroll\Contr
     $routes->post('appraisals/(:num)/self', 'PerformanceAppraisalController::submitSelf/$1');
     $routes->post('appraisals/(:num)/manager', 'PerformanceAppraisalController::submitManager/$1');
 
+    $routes->get('communications', 'StaffCommunicationController::index');
+    $routes->post('communications', 'StaffCommunicationController::create');
+    $routes->get('communications/events', 'StaffCommunicationController::getEvents');
+
     $routes->post('leave-requests', 'LeaveRequestController::create');
     $routes->post('leave-requests/(:num)/decide', 'LeaveRequestController::decide/$1');
     $routes->post('leave-requests/(:num)/cancel', 'LeaveRequestController::cancel/$1');

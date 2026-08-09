@@ -9,9 +9,10 @@ import DailyAttendancePage from "../attendance/DailyAttendancePage";
 import AttendanceSettingsPage from "../attendance/AttendanceSettingsPage";
 import TeacherWorkloadDashboard from "./workload/TeacherWorkloadDashboard";
 import AppraisalDashboard from "./appraisal/AppraisalDashboard";
+import CommunicationDashboard from "./communication/CommunicationDashboard";
 import { api } from "../../lib/api";
 
-type TabKey = "employees" | "org" | "payroll" | "leave_management" | "time_attendance" | "workload" | "appraisal";
+type TabKey = "employees" | "org" | "payroll" | "leave_management" | "time_attendance" | "workload" | "appraisal" | "communication";
 type LeaveSubTabKey = "requests" | "holidays" | "leavetypes";
 type TimeSubTabKey = "daily" | "rules";
 
@@ -42,6 +43,7 @@ export default function HrPayrollPage() {
     { key: "workload", label: "Teacher Workload" },
     { key: "appraisal", label: "Performance & Appraisal" },
     { key: "leave_management", label: "Leave Management" },
+    { key: "communication", label: "Staff Communication" },
   ] as const;
 
   return (
@@ -156,6 +158,7 @@ export default function HrPayrollPage() {
 
       {tab === "workload" && <TeacherWorkloadDashboard />}
       {tab === "appraisal" && <AppraisalDashboard />}
+      {tab === "communication" && <CommunicationDashboard />}
     </div>
   );
 }
