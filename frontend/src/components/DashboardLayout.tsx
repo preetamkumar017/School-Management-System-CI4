@@ -128,7 +128,18 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         <header className="flex items-center justify-between border-b border-slate-200 bg-white px-6 py-3 dark:border-slate-800 dark:bg-slate-950">
           <div />
           <div className="flex items-center gap-4 text-sm">
-            {user && <span className="text-slate-500 dark:text-slate-400">User #{user.userId}</span>}
+            {user && (
+              <NavLink
+                to="/profile"
+                className={({ isActive }) =>
+                  `flex items-center gap-1.5 font-medium transition hover:text-indigo-600 ${
+                    isActive ? "text-indigo-600" : "text-slate-500 dark:text-slate-400"
+                  }`
+                }
+              >
+                <span>👤 Profile (User #{user.userId})</span>
+              </NavLink>
+            )}
             <button
               type="button"
               onClick={handleLogout}

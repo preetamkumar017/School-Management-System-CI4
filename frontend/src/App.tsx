@@ -17,6 +17,7 @@ import LibraryPage from "./pages/library/LibraryPage";
 import TransportPage from "./pages/transport/TransportPage";
 import CommunicationPage from "./pages/communication/CommunicationPage";
 import ReportsPage from "./pages/reports/ReportsPage";
+import ProfilePage from "./pages/ProfilePage";
 
 export default function App() {
   return (
@@ -44,6 +45,7 @@ export default function App() {
                     <Route path="/transport" element={<TransportPage />} />
                     <Route path="/communication" element={<CommunicationPage />} />
                     <Route path="/reports" element={<ReportsPage />} />
+                    <Route path="/profile" element={<ProfilePage />} />
                   </Routes>
                 </DashboardLayout>
               </ProtectedRoute>
