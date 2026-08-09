@@ -124,13 +124,29 @@ export default function OnboardingModal({
     }
   }
 
-  function downloadPdf(type: "appointment-letter" | "id-card") {
-    const url = `${import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8080/api/v1"}/hr-payroll/employees/${employee.employee_id}/${type}`;
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${type}-${employee.employee_code}.pdf`;
-    // open in new tab instead (requires auth header — for dev convenience)
-    window.open(url, "_blank");
+  const [downloading, setDownloading] = useState<string | null>(null);
+
+  async function downloadPdf(type: "appointment-letter" | "id-card") {
+    setDownloading(type);
+    try {
+      const res = await api.get(
+        `/hr-payroll/employees/${employee.employee_id}/${type}`,
+        { responseType: "blob" }
+      );
+      const blob = new Blob([res.data as BlobPart], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${type}-${employee.employee_code}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setError(apiErrorMessage(err));
+    } finally {
+      setDownloading(null);
+    }
   }
 
   const progressColor =
@@ -146,15 +162,17 @@ export default function OnboardingModal({
       <div className="flex gap-2 mb-4 pb-3 border-b border-slate-100 dark:border-slate-800">
         <button
           onClick={() => downloadPdf("appointment-letter")}
-          className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition"
+          disabled={downloading !== null}
+          className="flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-blue-700 transition disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          📄 Download Appointment Letter
+          {downloading === "appointment-letter" ? "⏳ Generating…" : "📄 Download Appointment Letter"}
         </button>
         <button
           onClick={() => downloadPdf("id-card")}
-          className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 transition"
+          disabled={downloading !== null}
+          className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 transition disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          🪪 Download ID Card
+          {downloading === "id-card" ? "⏳ Generating…" : "🪪 Download ID Card"}
         </button>
       </div>
 
