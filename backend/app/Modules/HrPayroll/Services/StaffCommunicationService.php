@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Modules\HrPayroll\Services;
 
 use App\Modules\HrPayroll\Models\StaffCommunicationModel;
+use App\Modules\HrPayroll\Models\StaffCommunicationReadModel;
 use App\Modules\HrPayroll\Models\EmployeeModel;
 use App\Core\Authz\ModuleAuthorizer;
 
@@ -12,6 +13,7 @@ class StaffCommunicationService
 {
     public function __construct(
         private readonly StaffCommunicationModel $communicationModel,
+        private readonly StaffCommunicationReadModel $readModel,
         private readonly EmployeeModel $employeeModel,
         private readonly ModuleAuthorizer $moduleAuthorizer
     ) {
@@ -44,6 +46,65 @@ class StaffCommunicationService
             ->orderBy('publish_date', 'DESC');
 
         return $builder->findAll();
+    }
+
+    public function getUnreadCommunications(int $userId): array
+    {
+        // First get all active communications for this user
+        // (Currently target_audience logic is simple, let's just get all active first)
+        $today = date('Y-m-d');
+        
+        $activeComms = $this->communicationModel
+            ->where('status', 'Published')
+            ->where('publish_date <=', $today)
+            ->groupStart()
+                ->where('expiry_date IS NULL', null, false)
+                ->orWhere('expiry_date >=', $today)
+            ->groupEnd()
+            ->findAll();
+
+        if (empty($activeComms)) {
+            return [];
+        }
+
+        $activeIds = array_map(fn($c) => $c->communication_id, $activeComms);
+
+        // Get reads by this user
+        $reads = $this->readModel
+            ->where('user_id', $userId)
+            ->whereIn('communication_id', $activeIds)
+            ->findAll();
+
+        $readIds = array_map(fn($r) => $r['communication_id'], $reads);
+
+        // Filter unread
+        $unread = array_filter($activeComms, fn($c) => !in_array($c->communication_id, $readIds));
+
+        // Sort: Alerts first, then pinned, then newest
+        usort($unread, function($a, $b) {
+            if ($a->type === 'Alert' && $b->type !== 'Alert') return -1;
+            if ($b->type === 'Alert' && $a->type !== 'Alert') return 1;
+            if ($a->is_pinned != $b->is_pinned) return $b->is_pinned <=> $a->is_pinned;
+            return $b->publish_date <=> $a->publish_date;
+        });
+
+        return array_values($unread);
+    }
+
+    public function markAsRead(int $userId, int $communicationId): void
+    {
+        $existing = $this->readModel
+            ->where('user_id', $userId)
+            ->where('communication_id', $communicationId)
+            ->first();
+
+        if (!$existing) {
+            $this->readModel->insert([
+                'user_id' => $userId,
+                'communication_id' => $communicationId,
+                'read_at' => date('Y-m-d H:i:s')
+            ]);
+        }
     }
 
     public function createCommunication(array $data): array

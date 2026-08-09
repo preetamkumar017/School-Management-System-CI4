@@ -38,8 +38,41 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
 
   const [pendingCount, setPendingCount] = useState(0);
   const [toast, setToast] = useState<{ title: string; desc: string } | null>(null);
+  const [unreadComms, setUnreadComms] = useState<any[]>([]);
   const prevCountRef = useRef<number>(0);
   const isFirstLoad = useRef<boolean>(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const pollUnread = () => {
+      api.get<{ data: any[] }>("/hr-payroll/communications/unread")
+        .then(res => {
+          if (!cancelled) setUnreadComms(res.data.data);
+        })
+        .catch(() => {});
+    };
+
+    pollUnread();
+    const interval = setInterval(pollUnread, 15000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, []);
+
+  const handleMarkRead = async (id: number) => {
+    try {
+      await api.post(`/hr-payroll/communications/${id}/read`);
+      setUnreadComms(prev => prev.filter(c => c.communication_id !== id));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const activeAlert = unreadComms.find(c => c.type === 'Alert');
+  const activeToast = !activeAlert && unreadComms.length > 0 ? unreadComms[0] : null;
 
   const playBeep = () => {
     try {
@@ -153,8 +186,56 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
         <main className="flex-1 p-6">{children}</main>
       </div>
 
-      {/* Real-time Slide-in Toast Notification */}
-      {toast && (
+      {/* Mandatory Full-Screen Alert Overlay */}
+      {activeAlert && (
+        <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-red-950/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl dark:bg-slate-900 border-2 border-red-500 overflow-hidden animate-slide-in">
+            <div className="bg-red-500 px-6 py-4 flex items-center gap-3 text-white">
+              <span className="text-2xl">🚨</span>
+              <h2 className="text-xl font-black uppercase tracking-widest text-white">Critical Alert</h2>
+            </div>
+            <div className="p-8">
+              <h3 className="text-2xl font-bold text-slate-900 dark:text-white mb-4">{activeAlert.title}</h3>
+              <p className="text-lg text-slate-700 dark:text-slate-300 whitespace-pre-wrap">{activeAlert.message}</p>
+              
+              <div className="mt-10 flex justify-end">
+                <button
+                  onClick={() => handleMarkRead(activeAlert.communication_id)}
+                  className="rounded-lg bg-red-600 px-8 py-3 font-bold text-white shadow-lg hover:bg-red-700 hover:scale-105 transition-all"
+                >
+                  I Acknowledge & Understand
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Real-time Slide-in Toast Notification for regular notices */}
+      {!activeAlert && activeToast && (
+        <div className="fixed bottom-5 right-5 z-[9999] flex w-96 flex-col rounded-2xl bg-slate-900 p-5 text-white shadow-2xl transition-all duration-300 animate-slide-in border border-slate-700 dark:bg-slate-950">
+          <div className="flex items-start justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">📢</span>
+              <h5 className="text-sm font-bold text-indigo-400">{activeToast.title}</h5>
+            </div>
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 uppercase tracking-wider">{activeToast.type}</span>
+          </div>
+          <p className="text-xs text-slate-300 line-clamp-3 mb-4">{activeToast.message}</p>
+          <div className="flex items-center justify-between mt-auto">
+            <span className="text-[10px] text-slate-500">{unreadComms.length - 1 > 0 ? `+${unreadComms.length - 1} more unread` : 'New Notification'}</span>
+            <button
+              onClick={() => handleMarkRead(activeToast.communication_id)}
+              className="rounded bg-indigo-600 px-4 py-1.5 text-xs font-bold text-white hover:bg-indigo-500 transition shadow-sm"
+            >
+              Mark as Read
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Legacy System Toast (if any) */}
+      {toast && !activeAlert && !activeToast && (
         <div className="fixed bottom-5 right-5 z-[9999] flex w-80 items-center justify-between gap-3 rounded-2xl bg-slate-900 p-4 text-white shadow-2xl transition-all duration-300 animate-slide-in border border-slate-700 dark:bg-slate-950">
           <div className="flex-1">
             <h5 className="text-xs font-bold text-amber-400">{toast.title}</h5>

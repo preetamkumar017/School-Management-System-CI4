@@ -250,6 +250,8 @@ $routes->group('api/v1/hr-payroll', ['namespace' => 'App\Modules\HrPayroll\Contr
 
     $routes->get('communications', 'StaffCommunicationController::index');
     $routes->get('communications/feed', 'StaffCommunicationController::feed');
+    $routes->get('communications/unread', 'StaffCommunicationController::unread');
+    $routes->post('communications/(:num)/read', 'StaffCommunicationController::markRead/$1');
     $routes->post('communications', 'StaffCommunicationController::create');
     $routes->get('communications/events', 'StaffCommunicationController::getEvents');
 
