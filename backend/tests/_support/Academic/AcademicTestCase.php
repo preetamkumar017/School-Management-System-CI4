@@ -50,8 +50,11 @@ abstract class AcademicTestCase extends AdministrationTestCase
     protected function createSubject(?string $subjectName = null, ?string $subjectCode = null): int
     {
         return (new SubjectModel())->insert([
-            'subject_name' => $subjectName ?? ('Subject ' . uniqid('', true)),
-            'subject_code' => $subjectCode ?? ('S' . random_int(100000, 999999)),
+            'subject_name'        => $subjectName ?? ('Subject ' . uniqid('', true)),
+            'subject_code'        => $subjectCode ?? ('S' . random_int(100000, 999999)),
+            'subject_category_id' => null,
+            'is_language_subject' => 0,
+            'stream_applicability' => 'ALL',
         ], true);
     }
 

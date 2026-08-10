@@ -20,6 +20,12 @@ use App\Modules\Academic\Services\ClassSubjectMapService;
 use App\Modules\Academic\Services\GradingSchemeService;
 use App\Modules\Academic\Services\SectionService;
 use App\Modules\Academic\Services\SubjectService;
+use App\Modules\Academic\Models\SubjectCategoryModel;
+use App\Modules\Academic\Models\ClassBoardFrameworkMapModel;
+use App\Modules\Academic\Models\TeacherClassSubjectMapModel;
+use App\Modules\Academic\Services\SubjectCategoryService;
+use App\Modules\Academic\Services\ClassBoardFrameworkMapService;
+use App\Modules\Academic\Services\TeacherClassSubjectMapService;
 use App\Modules\Admission\Models\ApplicationModel;
 use App\Modules\Admission\Models\SeatAllocationModel;
 use App\Modules\Admission\Services\ApplicationService;
@@ -108,6 +114,7 @@ use App\Modules\Sis\Models\StudentGuardianLinkModel;
 use App\Modules\Sis\Models\StudentModel;
 use App\Modules\Sis\Services\GuardianService;
 use App\Modules\Sis\Services\StudentGuardianLinkService;
+use App\Modules\Sis\Services\StudentService;
 use App\Modules\Attendance\Services\AttendanceCalculationEngine;
 use App\Modules\Attendance\Services\StaffPunchService;
 use App\Modules\Attendance\Models\StaffPunchModel;
@@ -308,7 +315,7 @@ class Services extends BaseService
             return static::getSharedInstance('subjectService');
         }
 
-        return new SubjectService(new SubjectModel(), static::auditService(), static::moduleAuthorizer());
+        return new SubjectService(new SubjectModel(), new SubjectCategoryModel(), static::auditService(), static::moduleAuthorizer());
     }
 
     public static function gradingSchemeService(bool $getShared = true): GradingSchemeService
@@ -330,8 +337,55 @@ class Services extends BaseService
             new ClassSubjectMapModel(),
             new ClassModel(),
             new SubjectModel(),
+            new AcademicSessionModel(),
             static::auditService(),
             static::moduleAuthorizer(),
+        );
+    }
+
+    public static function subjectCategoryService(bool $getShared = true): SubjectCategoryService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('subjectCategoryService');
+        }
+
+        return new SubjectCategoryService(
+            new SubjectCategoryModel(),
+            new SubjectModel(),
+            static::auditService(),
+            static::moduleAuthorizer()
+        );
+    }
+
+    public static function classBoardFrameworkMapService(bool $getShared = true): ClassBoardFrameworkMapService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('classBoardFrameworkMapService');
+        }
+
+        return new ClassBoardFrameworkMapService(
+            new ClassBoardFrameworkMapModel(),
+            new ClassModel(),
+            new AcademicSessionModel(),
+            static::auditService(),
+            static::moduleAuthorizer()
+        );
+    }
+
+    public static function teacherClassSubjectMapService(bool $getShared = true): TeacherClassSubjectMapService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('teacherClassSubjectMapService');
+        }
+
+        return new TeacherClassSubjectMapService(
+            new TeacherClassSubjectMapModel(),
+            new ClassModel(),
+            new SectionModel(),
+            new SubjectModel(),
+            new AcademicSessionModel(),
+            static::auditService(),
+            static::moduleAuthorizer()
         );
     }
 

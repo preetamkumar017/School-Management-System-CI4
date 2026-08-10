@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace App\Modules\Academic\DTOs;
 
-final class ClassSubjectMapRequest
+final class CreateTeacherClassSubjectMapRequest
 {
     public function __construct(
         public readonly int $academicSessionId,
         public readonly int $classId,
+        public readonly int $sectionId,
         public readonly int $subjectId,
-        public readonly int $isMandatory = 1,
+        public readonly int $employeeId,
     ) {
     }
 }

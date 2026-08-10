@@ -5,6 +5,7 @@ import DashboardLayout from "./components/DashboardLayout";
 import LoginPage from "./pages/LoginPage";
 import DashboardPage from "./pages/DashboardPage";
 import AdministrationPage from "./pages/administration/AdministrationPage";
+import AcademicPage from "./pages/academic/AcademicPage";
 import StudentsPage from "./pages/sis/StudentsPage";
 import AdmissionPage from "./pages/admission/AdmissionPage";
 import FeesPage from "./pages/fees/FeesPage";
@@ -33,6 +34,7 @@ export default function App() {
                   <Routes>
                     <Route path="/" element={<DashboardPage />} />
                     <Route path="/administration" element={<AdministrationPage />} />
+                    <Route path="/academic" element={<AcademicPage />} />
                     <Route path="/students" element={<StudentsPage />} />
                     <Route path="/admission" element={<AdmissionPage />} />
                     <Route path="/fees" element={<FeesPage />} />

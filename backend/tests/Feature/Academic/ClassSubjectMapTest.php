@@ -17,24 +17,30 @@ final class ClassSubjectMapTest extends AcademicTestCase
         $user      = $this->createUser();
         $tokens    = $this->loginAs($user['username']);
         $headers   = $this->authHeaders($tokens['access_token']);
+        $sessionId = $this->createAcademicSession();
         $classId   = $this->createClassFixture();
         $subjectId = $this->createSubject();
 
         $map = $this->withHeaders($headers)->withBodyFormat('json')->post('api/v1/academic/class-subject-map', [
-            'class_id'   => $classId,
-            'subject_id' => $subjectId,
+            'academic_session_id' => $sessionId,
+            'class_id'            => $classId,
+            'subject_id'          => $subjectId,
+            'is_mandatory'        => 1,
         ]);
         $map->assertStatus(201);
 
-        $list = $this->withHeaders($headers)->get("api/v1/academic/class-subject-map/by-class/{$classId}");
+        $list = $this->withHeaders($headers)->get("api/v1/academic/class-subject-map/by-class/{$sessionId}/{$classId}");
         $list->assertStatus(200);
         $this->assertCount(1, $this->decode($list)['data']);
         $this->assertSame($subjectId, $this->decode($list)['data'][0]['subject_id']);
 
-        $this->withHeaders($headers)->delete("api/v1/academic/class-subject-map/{$classId}/{$subjectId}")
+        $listMappings = $this->withHeaders($headers)->get("api/v1/academic/class-subject-map/list/{$sessionId}/{$classId}");
+        $listMappings->assertStatus(200);
+
+        $this->withHeaders($headers)->delete("api/v1/academic/class-subject-map/{$sessionId}/{$classId}/{$subjectId}")
             ->assertStatus(200);
 
-        $listAfter = $this->withHeaders($headers)->get("api/v1/academic/class-subject-map/by-class/{$classId}");
+        $listAfter = $this->withHeaders($headers)->get("api/v1/academic/class-subject-map/by-class/{$sessionId}/{$classId}");
         $this->assertCount(0, $this->decode($listAfter)['data']);
     }
 
@@ -43,18 +49,21 @@ final class ClassSubjectMapTest extends AcademicTestCase
         $user      = $this->createUser();
         $tokens    = $this->loginAs($user['username']);
         $headers   = $this->authHeaders($tokens['access_token']);
+        $sessionId = $this->createAcademicSession();
         $classId   = $this->createClassFixture();
         $subjectId = $this->createSubject();
 
         $this->withHeaders($headers)->withBodyFormat('json')->post('api/v1/academic/class-subject-map', [
-            'class_id'   => $classId,
-            'subject_id' => $subjectId,
+            'academic_session_id' => $sessionId,
+            'class_id'            => $classId,
+            'subject_id'          => $subjectId,
         ])->assertStatus(201);
 
         $this->assertApiException(
             fn () => $this->withHeaders($headers)->withBodyFormat('json')->post('api/v1/academic/class-subject-map', [
-                'class_id'   => $classId,
-                'subject_id' => $subjectId,
+                'academic_session_id' => $sessionId,
+                'class_id'            => $classId,
+                'subject_id'          => $subjectId,
             ]),
             BusinessRuleException::class,
             'CLASS_SUBJECT_MAPPING_ALREADY_EXISTS',
@@ -64,15 +73,15 @@ final class ClassSubjectMapTest extends AcademicTestCase
 
     public function testUnmappingANonExistentMappingIsRejected(): void
     {
-        $user    = $this->createUser();
-        $tokens  = $this->loginAs($user['username']);
-        $headers = $this->authHeaders($tokens['access_token']);
-
+        $user      = $this->createUser();
+        $tokens    = $this->loginAs($user['username']);
+        $headers   = $this->authHeaders($tokens['access_token']);
+        $sessionId = $this->createAcademicSession();
         $classId   = $this->createClassFixture();
         $subjectId = $this->createSubject();
 
         $this->assertApiException(
-            fn () => $this->withHeaders($headers)->delete("api/v1/academic/class-subject-map/{$classId}/{$subjectId}"),
+            fn () => $this->withHeaders($headers)->delete("api/v1/academic/class-subject-map/{$sessionId}/{$classId}/{$subjectId}"),
             BusinessRuleException::class,
             'CLASS_SUBJECT_MAPPING_NOT_FOUND',
             422,

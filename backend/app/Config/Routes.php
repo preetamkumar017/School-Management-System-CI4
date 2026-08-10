@@ -81,16 +81,19 @@ $routes->group('api/v1/academic', ['namespace' => 'App\Modules\Academic\Controll
 
     $routes->post('classes', 'ClassController::create');
     $routes->patch('classes/(:num)', 'ClassController::update/$1');
+    $routes->delete('classes/(:num)', 'ClassController::delete/$1');
     $routes->get('classes/(:num)', 'ClassController::show/$1');
     $routes->get('classes', 'ClassController::index');
 
     $routes->post('sections', 'SectionController::create');
     $routes->patch('sections/(:num)', 'SectionController::update/$1');
+    $routes->delete('sections/(:num)', 'SectionController::delete/$1');
     $routes->get('sections/(:num)', 'SectionController::show/$1');
     $routes->get('sections', 'SectionController::index');
 
     $routes->post('subjects', 'SubjectController::create');
     $routes->patch('subjects/(:num)', 'SubjectController::update/$1');
+    $routes->delete('subjects/(:num)', 'SubjectController::delete/$1');
     $routes->get('subjects/(:num)', 'SubjectController::show/$1');
     $routes->get('subjects', 'SubjectController::index');
 
@@ -100,8 +103,27 @@ $routes->group('api/v1/academic', ['namespace' => 'App\Modules\Academic\Controll
     $routes->get('grading-schemes', 'GradingSchemeController::index');
 
     $routes->post('class-subject-map', 'ClassSubjectMapController::create');
-    $routes->delete('class-subject-map/(:num)/(:num)', 'ClassSubjectMapController::delete/$1/$2');
-    $routes->get('class-subject-map/by-class/(:num)', 'ClassSubjectMapController::byClass/$1');
+    $routes->delete('class-subject-map/(:num)/(:num)/(:num)', 'ClassSubjectMapController::delete/$1/$2/$3');
+    $routes->get('class-subject-map/by-class/(:num)/(:num)', 'ClassSubjectMapController::byClass/$1/$2');
+    $routes->get('class-subject-map/list/(:num)/(:num)', 'ClassSubjectMapController::listMappings/$1/$2');
+
+    $routes->post('subject-categories', 'SubjectCategoryController::create');
+    $routes->patch('subject-categories/(:num)', 'SubjectCategoryController::update/$1');
+    $routes->delete('subject-categories/(:num)', 'SubjectCategoryController::delete/$1');
+    $routes->get('subject-categories/(:num)', 'SubjectCategoryController::show/$1');
+    $routes->get('subject-categories', 'SubjectCategoryController::index');
+
+    $routes->post('class-board-maps', 'ClassBoardFrameworkMapController::create');
+    $routes->patch('class-board-maps/(:num)', 'ClassBoardFrameworkMapController::update/$1');
+    $routes->delete('class-board-maps/(:num)', 'ClassBoardFrameworkMapController::delete/$1');
+    $routes->get('class-board-maps/(:num)', 'ClassBoardFrameworkMapController::show/$1');
+    $routes->get('class-board-maps', 'ClassBoardFrameworkMapController::index');
+
+    $routes->post('teacher-maps', 'TeacherClassSubjectMapController::create');
+    $routes->patch('teacher-maps/(:num)', 'TeacherClassSubjectMapController::update/$1');
+    $routes->delete('teacher-maps/(:num)', 'TeacherClassSubjectMapController::delete/$1');
+    $routes->get('teacher-maps/(:num)', 'TeacherClassSubjectMapController::show/$1');
+    $routes->get('teacher-maps', 'TeacherClassSubjectMapController::index');
 });
 
 // docs/design/admission/Phase-5-Controller-Design.md

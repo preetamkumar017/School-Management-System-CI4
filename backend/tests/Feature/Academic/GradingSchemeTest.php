@@ -85,6 +85,8 @@ final class GradingSchemeTest extends AcademicTestCase
             \Config\Services::moduleAuthorizer(),
         );
 
+        \App\Core\Http\RequestContext::setPermissionSet(['academic.manage']);
+
         $this->assertApiException(
             fn () => $service->updateGradingScheme($schemeId, new \App\Modules\Academic\DTOs\UpdateGradingSchemeRequest(
                 'CBSE',

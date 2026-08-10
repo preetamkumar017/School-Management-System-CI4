@@ -4,24 +4,21 @@ declare(strict_types=1);
 
 namespace App\Modules\Academic\DTOs;
 
-use App\Modules\Academic\Entities\ClassSubjectMap;
+use App\Modules\Academic\Entities\ClassBoardFrameworkMap;
 
-/**
- * docs/design/academic/Phase-3-DTO-Design.md
- */
-final class ClassSubjectMapResponse
+final class ClassBoardFrameworkMapResponse
 {
+    public readonly int $classBoardMapId;
     public readonly int $academicSessionId;
     public readonly int $classId;
-    public readonly int $subjectId;
-    public readonly int $isMandatory;
+    public readonly int $frameworkId;
 
-    public function __construct(ClassSubjectMap $map)
+    public function __construct(ClassBoardFrameworkMap $map)
     {
+        $this->classBoardMapId   = $map->class_board_map_id;
         $this->academicSessionId = $map->academic_session_id;
         $this->classId           = $map->class_id;
-        $this->subjectId         = $map->subject_id;
-        $this->isMandatory       = $map->is_mandatory;
+        $this->frameworkId       = $map->framework_id;
     }
 
     /**
@@ -30,10 +27,10 @@ final class ClassSubjectMapResponse
     public function toArray(): array
     {
         return [
+            'class_board_map_id'  => $this->classBoardMapId,
             'academic_session_id' => $this->academicSessionId,
             'class_id'            => $this->classId,
-            'subject_id'          => $this->subjectId,
-            'is_mandatory'        => $this->isMandatory,
+            'framework_id'        => $this->frameworkId,
         ];
     }
 }

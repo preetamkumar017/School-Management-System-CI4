@@ -15,17 +15,6 @@ use App\Modules\Academic\Models\SectionModel;
 use App\Modules\Administration\Entities\AuditLog;
 use App\Modules\Administration\Services\AuditService;
 
-/**
- * docs/design/academic/Phase-4-Service-Design.md
- * getSection is the method Admission/SIS call (via this Service, never
- * SectionModel directly) to validate a section_id and read its capacity
- * during their own orchestration (DG-SIS-001, resolved by ADR-004) — that
- * cross-module call is a foreign-key/capacity check, not a user-facing
- * Academic read, so it stays ungated (ADR-024 Phase 1 Addendum's
- * "existence/count helper" precedent).
- *
- * RBAC (ADR-024 §3, Phase 2): `academic.manage` (Tier 1 only) gates writes.
- */
 class SectionService
 {
     public const PERMISSION_MANAGE = 'academic.manage';
@@ -51,6 +40,10 @@ class SectionService
                 'SECTION_NAME_ALREADY_TAKEN_IN_CLASS',
                 'This section name is already taken within this class.',
             );
+        }
+
+        if ($request->capacity <= 0) {
+            throw new BusinessRuleException('INVALID_SECTION_CAPACITY', 'Section capacity must be greater than zero.');
         }
 
         $id = $this->sectionModel->insert([
@@ -79,6 +72,26 @@ class SectionService
             );
         }
 
+        if ($request->capacity <= 0) {
+            throw new BusinessRuleException('INVALID_SECTION_CAPACITY', 'Section capacity must be greater than zero.');
+        }
+
+        // Check if capacity is reduced below current enrolled count
+        $db = \Config\Database::connect();
+        if ($db->tableExists('student_enrollments')) {
+            $enrolledCount = $db->table('student_enrollments')
+                ->where('section_id', $id)
+                ->where('status', 'ACTIVE')
+                ->countAllResults();
+
+            if ($request->capacity < $enrolledCount) {
+                throw new BusinessRuleException(
+                    'CAPACITY_REDUCTION_BLOCKED',
+                    "Cannot reduce section capacity below current enrolled student count ({$enrolledCount})."
+                );
+            }
+        }
+
         $this->sectionModel->update($id, [
             'section_name' => $request->sectionName,
             'capacity'     => $request->capacity,
@@ -95,6 +108,19 @@ class SectionService
         );
 
         return new SectionResponse($after);
+    }
+
+    public function deleteSection(int $id): void
+    {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
+        $before = $this->requireSection($id);
+
+        $this->assertNoOperationalReferences($id);
+
+        $this->sectionModel->delete($id);
+
+        $this->auditService->record('Section', $id, AuditLog::ACTION_DELETE, $before->toRawArray(), null);
     }
 
     public function getSection(int $id): SectionResponse
@@ -122,5 +148,54 @@ class SectionService
         }
 
         return $section;
+    }
+
+    private function assertNoOperationalReferences(int $id): void
+    {
+        $db = \Config\Database::connect();
+
+        // 1. Check student enrollments
+        if ($db->tableExists('student_enrollments')) {
+            $count = $db->table('student_enrollments')->where('section_id', $id)->where('status', 'ACTIVE')->countAllResults();
+            if ($count > 0) {
+                throw new BusinessRuleException(
+                    'SECTION_HAS_ACTIVE_REFERENCES',
+                    'Cannot delete section as it has active student enrollments.'
+                );
+            }
+        }
+
+        // 2. Check timetable entries
+        if ($db->tableExists('timetable_entries')) {
+            $count = $db->table('timetable_entries')->where('section_id', $id)->where('is_deleted', 0)->countAllResults();
+            if ($count > 0) {
+                throw new BusinessRuleException(
+                    'SECTION_HAS_ACTIVE_REFERENCES',
+                    'Cannot delete section as it has active timetable entries.'
+                );
+            }
+        }
+
+        // 3. Check attendance records
+        if ($db->tableExists('attendance_records')) {
+            $count = $db->table('attendance_records')->where('section_id', $id)->countAllResults();
+            if ($count > 0) {
+                throw new BusinessRuleException(
+                    'SECTION_HAS_ACTIVE_REFERENCES',
+                    'Cannot delete section as it has associated attendance records.'
+                );
+            }
+        }
+
+        // 4. Check teacher assignments
+        if ($db->tableExists('teacher_class_subject_map')) {
+            $count = $db->table('teacher_class_subject_map')->where('section_id', $id)->where('is_deleted', 0)->countAllResults();
+            if ($count > 0) {
+                throw new BusinessRuleException(
+                    'SECTION_HAS_ACTIVE_REFERENCES',
+                    'Cannot delete section as it has teacher assignments.'
+                );
+            }
+        }
     }
 }

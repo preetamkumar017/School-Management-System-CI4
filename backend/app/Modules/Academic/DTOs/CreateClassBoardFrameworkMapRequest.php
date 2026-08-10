@@ -4,13 +4,12 @@ declare(strict_types=1);
 
 namespace App\Modules\Academic\DTOs;
 
-final class ClassSubjectMapRequest
+final class CreateClassBoardFrameworkMapRequest
 {
     public function __construct(
         public readonly int $academicSessionId,
         public readonly int $classId,
-        public readonly int $subjectId,
-        public readonly int $isMandatory = 1,
+        public readonly int $frameworkId,
     ) {
     }
 }

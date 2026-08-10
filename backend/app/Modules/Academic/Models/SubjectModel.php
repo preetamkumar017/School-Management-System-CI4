@@ -20,6 +20,9 @@ class SubjectModel extends BaseModel
     protected $allowedFields = [
         'subject_name',
         'subject_code',
+        'subject_category_id',
+        'is_language_subject',
+        'stream_applicability',
         'created_by',
         'updated_by',
     ];

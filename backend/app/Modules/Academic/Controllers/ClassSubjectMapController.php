@@ -8,32 +8,22 @@ use App\Core\BaseController;
 use App\Core\Exceptions\ValidationException;
 use App\Modules\Academic\DTOs\ClassSubjectMapRequest;
 use Config\Services;
-use OpenApi\Attributes as OA;
 
-/**
- * docs/design/academic/Phase-5-Controller-Design.md
- * Base path /api/v1/academic/class-subject-map
- */
-#[OA\Tag(name: 'Class-Subject Mapping')]
 class ClassSubjectMapController extends BaseController
 {
-    #[OA\Post(
-        path: '/academic/class-subject-map',
-        tags: ['Class-Subject Mapping'],
-        security: [['bearerAuth' => []]],
-        requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(ref: '#/components/schemas/ClassSubjectMapRequest')),
-        responses: [
-            new OA\Response(response: 201, description: 'Created.', content: new OA\JsonContent(ref: '#/components/schemas/ClassSubjectMapResponse')),
-            new OA\Response(response: 422, description: 'CLASS_NOT_FOUND, SUBJECT_NOT_FOUND, or CLASS_SUBJECT_MAPPING_ALREADY_EXISTS.', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
-        ],
-    )]
     public function create()
     {
-        $body      = $this->request->getJSON(true) ?? [];
-        $classId   = (int) ($body['class_id'] ?? 0);
-        $subjectId = (int) ($body['subject_id'] ?? 0);
+        $body        = $this->request->getJSON(true) ?? [];
+        $sessionId   = (int) ($body['academic_session_id'] ?? 0);
+        $classId     = (int) ($body['class_id'] ?? 0);
+        $subjectId   = (int) ($body['subject_id'] ?? 0);
+        $isMandatory = isset($body['is_mandatory']) ? (int) $body['is_mandatory'] : 1;
 
         $fields = [];
+
+        if ($sessionId <= 0) {
+            $fields['academic_session_id'] = 'academic_session_id is required.';
+        }
 
         if ($classId <= 0) {
             $fields['class_id'] = 'class_id is required.';
@@ -48,49 +38,27 @@ class ClassSubjectMapController extends BaseController
         }
 
         $response = Services::classSubjectMapService()->mapSubjectToClass(
-            new ClassSubjectMapRequest($classId, $subjectId),
+            new ClassSubjectMapRequest($sessionId, $classId, $subjectId, $isMandatory),
         );
 
         return $this->respondCreated($response->toArray());
     }
 
-    #[OA\Delete(
-        path: '/academic/class-subject-map/{classId}/{subjectId}',
-        tags: ['Class-Subject Mapping'],
-        security: [['bearerAuth' => []]],
-        parameters: [
-            new OA\Parameter(name: 'classId', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
-            new OA\Parameter(name: 'subjectId', in: 'path', required: true, schema: new OA\Schema(type: 'integer')),
-        ],
-        responses: [
-            new OA\Response(response: 200, description: 'Unmapped.'),
-            new OA\Response(response: 422, description: 'CLASS_SUBJECT_MAPPING_NOT_FOUND.', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
-        ],
-    )]
-    public function delete(int $classId, int $subjectId)
+    public function delete(int $sessionId, int $classId, int $subjectId)
     {
-        Services::classSubjectMapService()->unmapSubjectFromClass($classId, $subjectId);
-
+        Services::classSubjectMapService()->unmapSubjectFromClass($sessionId, $classId, $subjectId);
         return $this->respondSuccess();
     }
 
-    #[OA\Get(
-        path: '/academic/class-subject-map/by-class/{classId}',
-        tags: ['Class-Subject Mapping'],
-        security: [['bearerAuth' => []]],
-        parameters: [new OA\Parameter(name: 'classId', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
-        responses: [
-            new OA\Response(
-                response: 200,
-                description: 'OK — subjects mapped to this class.',
-                content: new OA\JsonContent(type: 'array', items: new OA\Items(ref: '#/components/schemas/SubjectResponse')),
-            ),
-        ],
-    )]
-    public function byClass(int $classId)
+    public function byClass(int $sessionId, int $classId)
     {
-        $responses = Services::classSubjectMapService()->listSubjectsForClass($classId);
+        $responses = Services::classSubjectMapService()->listSubjectsForClass($sessionId, $classId);
+        return $this->respondSuccess(array_map(static fn ($response) => $response->toArray(), $responses));
+    }
 
+    public function listMappings(int $sessionId, int $classId)
+    {
+        $responses = Services::classSubjectMapService()->listMappingsForSessionAndClass($sessionId, $classId);
         return $this->respondSuccess(array_map(static fn ($response) => $response->toArray(), $responses));
     }
 }

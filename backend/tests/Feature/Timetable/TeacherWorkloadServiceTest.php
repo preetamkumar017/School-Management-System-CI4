@@ -35,7 +35,8 @@ class TeacherWorkloadServiceTest extends CIUnitTestCase
         $service = new TeacherWorkloadService(
             $timetableModel,
             new \App\Modules\Timetable\Models\SubstitutionModel(),
-            new \App\Modules\HrPayroll\Models\EmployeeModel()
+            new \App\Modules\HrPayroll\Models\EmployeeModel(),
+            \Config\Services::moduleAuthorizer()
         );
 
         $freePeriods = $service->getFreePeriods(1, 'MONDAY');

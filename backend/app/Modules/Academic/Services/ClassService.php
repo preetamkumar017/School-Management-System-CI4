@@ -14,17 +14,6 @@ use App\Modules\Academic\Models\ClassModel;
 use App\Modules\Administration\Entities\AuditLog;
 use App\Modules\Administration\Services\AuditService;
 
-/**
- * docs/design/academic/Phase-4-Service-Design.md
- * No delete operation is exposed — a Class is "never hard-deleted... only
- * deactivated" (Phase 1); the only removal path is the standard
- * soft-delete, not modeled here since no approved document routes an API
- * call to it yet.
- *
- * RBAC (ADR-024 §3, Phase 2): `academic.manage` (Tier 1 only) gates every
- * write — Academic's master/reference data has no per-caller owner. Reads
- * stay open to any authenticated user, unchanged.
- */
 class ClassService
 {
     public const PERMISSION_MANAGE = 'academic.manage';
@@ -92,6 +81,19 @@ class ClassService
         return new ClassResponse($after);
     }
 
+    public function deleteClass(int $id): void
+    {
+        $this->moduleAuthorizer->assertManage(self::PERMISSION_MANAGE);
+
+        $before = $this->requireClass($id);
+
+        $this->assertNoOperationalReferences($id);
+
+        $this->classModel->delete($id);
+
+        $this->auditService->record('Class', $id, AuditLog::ACTION_DELETE, $before->toRawArray(), null);
+    }
+
     public function getClass(int $id): ClassResponse
     {
         return new ClassResponse($this->requireClass($id));
@@ -117,5 +119,54 @@ class ClassService
         }
 
         return $class;
+    }
+
+    private function assertNoOperationalReferences(int $id): void
+    {
+        $db = \Config\Database::connect();
+
+        // 1. Check sections
+        if ($db->tableExists('sections')) {
+            $count = $db->table('sections')->where('class_id', $id)->where('is_deleted', 0)->countAllResults();
+            if ($count > 0) {
+                throw new BusinessRuleException(
+                    'CLASS_HAS_ACTIVE_REFERENCES',
+                    'Cannot delete class as it contains active sections.'
+                );
+            }
+        }
+
+        // 2. Check class_subject_map
+        if ($db->tableExists('class_subject_map')) {
+            $count = $db->table('class_subject_map')->where('class_id', $id)->countAllResults();
+            if ($count > 0) {
+                throw new BusinessRuleException(
+                    'CLASS_HAS_ACTIVE_REFERENCES',
+                    'Cannot delete class as it is mapped to subjects.'
+                );
+            }
+        }
+
+        // 3. Check student enrollments
+        if ($db->tableExists('student_enrollments')) {
+            $count = $db->table('student_enrollments')->where('class_id', $id)->where('is_deleted', 0)->countAllResults();
+            if ($count > 0) {
+                throw new BusinessRuleException(
+                    'CLASS_HAS_ACTIVE_REFERENCES',
+                    'Cannot delete class as it has active student enrollments.'
+                );
+            }
+        }
+
+        // 4. Check exams
+        if ($db->tableExists('exams')) {
+            $count = $db->table('exams')->where('class_id', $id)->where('is_deleted', 0)->countAllResults();
+            if ($count > 0) {
+                throw new BusinessRuleException(
+                    'CLASS_HAS_ACTIVE_REFERENCES',
+                    'Cannot delete class as it has associated exams.'
+                );
+            }
+        }
     }
 }

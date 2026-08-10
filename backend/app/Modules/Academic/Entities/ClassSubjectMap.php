@@ -8,16 +8,18 @@ use CodeIgniter\Entity\Entity;
 
 /**
  * docs/design/academic/Phase-1-Domain-Model.md — junction `ClassSubjectMap`.
- * Extends CodeIgniter\Entity\Entity directly, not App\Core\BaseEntity —
- * no surrogate PK, no audit-column baseline (same choice as AuditLog).
  *
+ * @property int $academic_session_id
  * @property int $class_id
  * @property int $subject_id
+ * @property int $is_mandatory
  */
 class ClassSubjectMap extends Entity
 {
     protected $casts = [
-        'class_id'   => 'integer',
-        'subject_id' => 'integer',
+        'academic_session_id' => 'integer',
+        'class_id'            => 'integer',
+        'subject_id'          => 'integer',
+        'is_mandatory'        => 'integer',
     ];
 }

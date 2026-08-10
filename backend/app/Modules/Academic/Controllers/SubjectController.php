@@ -9,91 +9,63 @@ use App\Core\Exceptions\ValidationException;
 use App\Modules\Academic\DTOs\CreateSubjectRequest;
 use App\Modules\Academic\DTOs\UpdateSubjectRequest;
 use Config\Services;
-use OpenApi\Attributes as OA;
 
-/**
- * docs/design/academic/Phase-5-Controller-Design.md
- * Base path /api/v1/academic/subjects
- */
-#[OA\Tag(name: 'Subjects')]
 class SubjectController extends BaseController
 {
-    #[OA\Post(
-        path: '/academic/subjects',
-        tags: ['Subjects'],
-        security: [['bearerAuth' => []]],
-        requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(ref: '#/components/schemas/SubjectRequest')),
-        responses: [
-            new OA\Response(response: 201, description: 'Created.', content: new OA\JsonContent(ref: '#/components/schemas/SubjectResponse')),
-            new OA\Response(response: 422, description: 'SUBJECT_CODE_ALREADY_TAKEN.', content: new OA\JsonContent(ref: '#/components/schemas/ErrorResponse')),
-        ],
-    )]
     public function create()
     {
-        [$subjectName, $subjectCode] = $this->validateFields($this->request->getJSON(true) ?? []);
+        $body = $this->request->getJSON(true) ?? [];
+        [$subjectName, $subjectCode, $categoryId, $isLanguage, $stream] = $this->validateFields($body);
 
-        $response = Services::subjectService()->createSubject(new CreateSubjectRequest($subjectName, $subjectCode));
+        $response = Services::subjectService()->createSubject(
+            new CreateSubjectRequest($subjectName, $subjectCode, $categoryId, $isLanguage, $stream)
+        );
 
         return $this->respondCreated($response->toArray());
     }
 
-    #[OA\Patch(
-        path: '/academic/subjects/{id}',
-        tags: ['Subjects'],
-        security: [['bearerAuth' => []]],
-        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
-        requestBody: new OA\RequestBody(required: true, content: new OA\JsonContent(ref: '#/components/schemas/SubjectRequest')),
-        responses: [new OA\Response(response: 200, description: 'Updated.', content: new OA\JsonContent(ref: '#/components/schemas/SubjectResponse'))],
-    )]
     public function update(int $id)
     {
-        [$subjectName, $subjectCode] = $this->validateFields($this->request->getJSON(true) ?? []);
+        $body = $this->request->getJSON(true) ?? [];
+        [$subjectName, $subjectCode, $categoryId, $isLanguage, $stream] = $this->validateFields($body);
 
-        $response = Services::subjectService()->updateSubject($id, new UpdateSubjectRequest($subjectName, $subjectCode));
+        $response = Services::subjectService()->updateSubject(
+            $id,
+            new UpdateSubjectRequest($subjectName, $subjectCode, $categoryId, $isLanguage, $stream)
+        );
 
         return $this->respondSuccess($response->toArray());
     }
 
-    #[OA\Get(
-        path: '/academic/subjects/{id}',
-        tags: ['Subjects'],
-        security: [['bearerAuth' => []]],
-        parameters: [new OA\Parameter(name: 'id', in: 'path', required: true, schema: new OA\Schema(type: 'integer'))],
-        responses: [new OA\Response(response: 200, description: 'OK.', content: new OA\JsonContent(ref: '#/components/schemas/SubjectResponse'))],
-    )]
+    public function delete(int $id)
+    {
+        Services::subjectService()->deleteSubject($id);
+        return $this->respondSuccess(null, [], 204);
+    }
+
     public function show(int $id)
     {
         return $this->respondSuccess(Services::subjectService()->getSubject($id)->toArray());
     }
 
-    #[OA\Get(
-        path: '/academic/subjects',
-        tags: ['Subjects'],
-        security: [['bearerAuth' => []]],
-        responses: [
-            new OA\Response(
-                response: 200,
-                description: 'OK.',
-                content: new OA\JsonContent(type: 'array', items: new OA\Items(ref: '#/components/schemas/SubjectResponse')),
-            ),
-        ],
-    )]
     public function index()
     {
         $responses = Services::subjectService()->listSubjects();
-
         return $this->respondSuccess(array_map(static fn ($response) => $response->toArray(), $responses));
     }
 
     /**
      * @param array<string, mixed> $body
      *
-     * @return array{0: string, 1: string}
+     * @return array{0: string, 1: string, 2: ?int, 3: int, 4: string}
      */
     private function validateFields(array $body): array
     {
-        $subjectName = (string) ($body['subject_name'] ?? '');
-        $subjectCode = (string) ($body['subject_code'] ?? '');
+        $subjectName = trim((string) ($body['subject_name'] ?? ''));
+        $subjectCode = trim((string) ($body['subject_code'] ?? ''));
+        $categoryId  = isset($body['subject_category_id']) && $body['subject_category_id'] !== '' ? (int) $body['subject_category_id'] : null;
+        $isLanguage  = isset($body['is_language_subject']) ? (int) $body['is_language_subject'] : 0;
+        $stream      = trim((string) ($body['stream_applicability'] ?? 'ALL'));
         $fields      = [];
 
         if ($subjectName === '') {
@@ -104,10 +76,14 @@ class SubjectController extends BaseController
             $fields['subject_code'] = 'subject_code is required and must be at most 10 characters.';
         }
 
+        if (!in_array($stream, ['ALL', 'SCIENCE', 'COMMERCE', 'ARTS', 'NONE'], true)) {
+            $fields['stream_applicability'] = 'stream_applicability is invalid.';
+        }
+
         if ($fields !== []) {
             throw new ValidationException($fields);
         }
 
-        return [$subjectName, $subjectCode];
+        return [$subjectName, $subjectCode, $categoryId, $isLanguage, $stream];
     }
 }

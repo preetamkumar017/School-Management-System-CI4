@@ -76,6 +76,13 @@ class AcademicSessionService
 
         $before = $this->requireSession($id);
 
+        if (in_array($before->status, [AcademicSession::STATUS_CLOSED, AcademicSession::STATUS_ARCHIVED], true)) {
+            throw new BusinessRuleException(
+                'ACADEMIC_SESSION_CLOSED_OR_ARCHIVED',
+                'Cannot modify a closed or archived academic session.'
+            );
+        }
+
         if ($this->academicSessionModel->existsBySessionNameExceptId($request->sessionName, $id)) {
             throw new BusinessRuleException(
                 'ACADEMIC_SESSION_NAME_ALREADY_TAKEN',

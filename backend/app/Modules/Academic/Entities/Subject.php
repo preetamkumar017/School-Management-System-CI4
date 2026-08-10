@@ -12,6 +12,9 @@ use App\Core\BaseEntity;
  * @property int|null $subject_id
  * @property string   $subject_name
  * @property string   $subject_code
+ * @property int|null $subject_category_id
+ * @property int|null $is_language_subject
+ * @property string|null $stream_applicability
  */
 class Subject extends BaseEntity
 {
@@ -21,7 +24,9 @@ class Subject extends BaseEntity
     public function __construct(?array $data = null)
     {
         $this->casts = array_merge($this->casts, [
-            'subject_id' => 'integer',
+            'subject_id'          => 'integer',
+            'subject_category_id' => 'integer',
+            'is_language_subject' => 'integer',
         ]);
 
         parent::__construct($data);
