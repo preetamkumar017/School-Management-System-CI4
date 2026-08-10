@@ -17,6 +17,8 @@ Authoritative, current-state design documentation. Each file reflects the latest
 - [ADR-002](../ADR/ADR-002-sis-guardian-ownership-and-br-sis-004-deferral.md) — SIS owns Guardian/StudentGuardianLink; BR-SIS-004 deferred
 - [ADR-003](../ADR/ADR-003-student-stub-creation-ownership.md) — Admission owns Student stub-creation trigger; SIS owns entity/maintenance
 - [ADR-004](../ADR/ADR-004-student-stub-creation-shape-and-section-id-timing.md) — Resolves `section_id` timing (DG-SIS-001), the concrete `createStudentStub` contract, the single-transaction Confirm Enrollment boundary, and the Confirm Enrollment operation identity
+- [ADR-025](../ADR/ADR-025-administration-module-feature-scope.md) — Finalized 32-feature Administration Module Scope Specification
+
 
 ## Documentation Gaps
 - [DG-SIS-001](sis/DG-SIS-001.md) — `Student.section_id` creation-time timing/mechanism. **Resolved 2026-08-06, see ADR-004.**
