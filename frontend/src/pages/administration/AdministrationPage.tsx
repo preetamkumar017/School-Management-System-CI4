@@ -1,10 +1,12 @@
 import { useState } from "react";
 import UsersPage from "./UsersPage";
 import RolesPage from "./RolesPage";
+import SchoolProfilePage from "./SchoolProfilePage";
 
 const TABS = [
   { key: "users", label: "Users" },
   { key: "roles", label: "Roles" },
+  { key: "profile", label: "School Profile" },
 ] as const;
 
 type TabKey = (typeof TABS)[number]["key"];
@@ -33,6 +35,7 @@ export default function AdministrationPage() {
 
       {tab === "users" && <UsersPage />}
       {tab === "roles" && <RolesPage />}
+      {tab === "profile" && <SchoolProfilePage />}
     </div>
   );
 }

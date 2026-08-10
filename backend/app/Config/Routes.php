@@ -41,6 +41,13 @@ $routes->group('api/v1/administration', ['namespace' => 'App\Modules\Administrat
     $routes->get('documents/(:num)/download', 'DocumentController::download/$1');
     $routes->get('documents/(:num)', 'DocumentController::show/$1');
     $routes->get('documents', 'DocumentController::index');
+
+    // School Profile & Branding (Feature #1)
+    $routes->get('school-profile', 'SchoolProfileController::show');
+    $routes->post('school-profile', 'SchoolProfileController::save');
+    $routes->get('states', 'SchoolProfileController::getStates');
+    $routes->get('states/(:num)/districts', 'SchoolProfileController::getDistricts/$1');
+    $routes->get('districts/(:num)/blocks', 'SchoolProfileController::getBlocks/$1');
 });
 
 // docs/design/academic/Phase-5-Controller-Design.md

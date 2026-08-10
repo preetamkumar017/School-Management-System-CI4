@@ -30,12 +30,17 @@ use App\Modules\Administration\Models\DocumentModel;
 use App\Modules\Administration\Models\RefreshTokenModel;
 use App\Modules\Administration\Models\RoleModel;
 use App\Modules\Administration\Models\UserModel;
+use App\Modules\Administration\Models\SchoolProfileModel;
+use App\Modules\Administration\Models\StateModel;
+use App\Modules\Administration\Models\DistrictModel;
+use App\Modules\Administration\Models\BlockModel;
 use App\Modules\Administration\Services\AuditService;
 use App\Modules\Administration\Services\AuthService;
 use App\Modules\Administration\Services\ConfigurationService;
 use App\Modules\Administration\Services\DocumentService;
 use App\Modules\Administration\Services\RoleService;
 use App\Modules\Administration\Services\UserService;
+use App\Modules\Administration\Services\SchoolProfileService;
 use App\Modules\Attendance\Models\AttendanceRecordModel;
 use App\Modules\Attendance\Models\StaffAttendanceRecordModel;
 use App\Modules\Attendance\Services\AttendanceService;
@@ -218,6 +223,21 @@ class Services extends BaseService
         }
 
         return new UserService(new UserModel(), static::auditService(), static::authService(), static::moduleAuthorizer());
+    }
+
+    public static function schoolProfileService(bool $getShared = true): SchoolProfileService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('schoolProfileService');
+        }
+
+        return new SchoolProfileService(
+            new SchoolProfileModel(),
+            static::documentService(),
+            static::auditService(),
+            static::moduleAuthorizer(),
+            new EmployeeModel()
+        );
     }
 
     public static function roleService(bool $getShared = true): RoleService
