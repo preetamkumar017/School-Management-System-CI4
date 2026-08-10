@@ -83,38 +83,75 @@ This feature defines the school's master identity, address, categories, board re
 
 ## 2. Board & Academic Framework
 
-### 2.1 Board Master (Core - India Specific)
-Configurable dictionary of school boards:
-* CBSE (Central Board of Secondary Education)
-* ICSE (Indian Certificate of Secondary Education)
-* State Boards (e.g., UP Board, Maharashtra Board, Bihar Board)
-* Other boards (e.g., IB, Cambridge CIE)
+### 2.1 Feature Tree
+```text
+Board & Academic Framework
+├── Board Master Configuration (Dictionary of Boards)
+├── School Board Affiliation (One active Board per Branch + Session)
+├── Academic Framework & Track Mapping
+├── Grading & Assessment Framework
+├── Pass Criteria Configuration (Subject & Overall targets)
+├── Configurable Grace Marks Policy (Subject/Overall options, Configurable Rounding)
+├── Subject Requirement Framework
+├── Language & Medium Master Configuration
+├── Framework Versioning & Reusability Mapping
+└── Role-based Approval & Activation Workflow (Maker-Checker, Alternate Approver fallback)
+```
 
-### 2.2 School Board Affiliation (Core - India Specific)
-* Board affiliation mapping per branch/institution
-* Affiliation Number / Code
-* Registration details
-* Affiliation validity start and end dates
+### 2.2 Feature Master Table
 
-### 2.3 Academic Framework (Core - India Specific)
-* Academic structure tracking (K-12 division, primary, middle, secondary, senior secondary levels)
-* Educational tracks/divisions mapping
-* Board-to-framework constraints mapping
+| # | Category | Feature / Field | Priority | Required | Conditional | Configurable | India Specific | Role Controlled | Approval | Versioned |
+| :-: | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| 1 | Board Master | Board Name & Type | Core | Yes | No | Yes | Yes | Yes | Yes | No |
+| 2 | Board Affiliation | Active Board Link | Core | Yes | No | Yes | Yes | Yes | Yes | Yes |
+| 3 | Academic Framework | K-12 divisions / Tracks | Core | Yes | No | Yes | Yes | Yes | Yes | Yes |
+| 4 | Grading Framework | Grading Scheme Reference | Core | Yes | No | Yes | Yes | Yes | Yes | Yes |
+| 5 | Pass Criteria | Min Subject/Overall Pass % | Core | Yes | No | Yes | Yes | Yes | Yes | Yes |
+| 6 | Grace Marks Policy | Subject/Overall Grace Rules | Important | No | Yes | Yes | Yes | Yes | Yes | Yes |
+| 7 | Grace Marks Policy | Rounding Policy | Important | Yes | No | Yes | No | Yes | Yes | Yes |
+| 8 | Subject Req. | Min Mandatory Subjects | Core | Yes | No | Yes | Yes | Yes | Yes | Yes |
+| 9 | Versioning | Reusable Session Mappings | Core | Yes | No | Yes | No | Yes | Yes | Yes |
+| 10| Config Settings | Configurable Approver Designation | Core | Yes | No | Yes | No | Yes | No | No |
+| 11| Config Settings | Configurable Alternate Approver | Core | Yes | No | Yes | No | Yes | No | No |
 
-### 2.4 Grading System Configuration (Core - India Specific)
-* Grade scale definitions (e.g., 10-point scale, 5-point scale)
-* Percentage-to-Grade boundaries
-* GPA calculation variables configuration
+### 2.3 Role-based Access & Permission Matrix
+* **View Board Framework**: Restricted to authorized academic/administrative roles (Default: `Academic Admin`, `Principal/Head`, `Examination/Academic In-charge`). Teachers do not have access.
+* **Create/Edit Draft (Maker)**: Mapped to authorized Maker roles (Default: `Academic Admin` / `authorized Administration role`).
+* **Approve/Publish (Approver)**: Mapped to primary configured approver designation (Default: `Principal / Head of Institution`).
+* **Maker-Checker Block**: System enforces that the creator of a draft cannot be its approver/publisher.
+* **Alternate Approver Fallback**: Mapped to configured Alternate Approver Designation if primary is unavailable. Super Admin bypass is disabled.
 
-### 2.5 Board-Specific Academic Rules (Core - India Specific)
-* Promotion criteria mapping (minimum pass percentage requirements, grade filters)
-* Gating rules for final exams
-* Board-specific academic eligibility flags
+### 2.4 Approval & Maker-Checker Workflow
+1. **Creation**: Maker drafts a framework or updates a version.
+2. **Submission**: Draft is locked and submitted for review.
+3. **Verification**: Configured primary Approver Designation (or configured Alternate Approver if primary is unavailable) reviews the draft.
+4. **Activation**: Approver publishes the framework. The system verifies the creator is not the publisher (Maker-Checker segregation of duties).
+5. **No Super Admin Bypass**: Super Admin cannot bypass academic approval gating.
 
-### 2.6 Board-Specific Subject / Academic Requirements (Core - India Specific)
-* Mandatory regional/second language course rules
-* Elective subject group limits
-* Board-prescribed subject catalog guidelines
+### 2.5 Grace Marks Policy & Rounding Modes
+* **Preservation**: Raw marks are always preserved.
+* **Rounding Options**: Configurable rounding rules within the framework:
+  * *No rounding*
+  * *Round before grace calculation*
+  * *Round after grace calculation*
+* **Rounding Precision**: Determined by the specific board/framework configuration.
+
+### 2.6 Versioning & Session Reusability Rules
+* **Reusability**: A single framework can be mapped to multiple Academic Sessions.
+* **Immutability**: Once a version is active in any session (or has associated exam data), it becomes immutable.
+* **Modification**: Adjustments spawn a new version tag (e.g. `v1` ➔ `v2`).
+* **History**: Historical academic reports remain linked to their original version.
+
+### 2.7 India/State Board Configurability
+* Generic mechanism supporting CBSE, ICSE/CISCE, and multiple State Boards (e.g. Chhattisgarh State Board) without hardcoding board-specific logic in the source code.
+
+### 2.8 Cross-Module Boundaries & Dependencies
+* **Feature #1 Boundary**: Geographic masters and branding elements belong to Feature #1.
+* **Feature #3 Boundary**: The actual operational tables (`classes`, `sections`, `subjects`, and `class_subject_maps`) belong to Feature #3. Feature #2 only establishes the rules (e.g., "A class must have at least 5 subjects mapping to CBSE tracks").
+* **Examination Dependency**: The exam processing pipeline consumes Feature #2 rules for report card outcomes.
+
+### 2.9 Business Decisions Pending
+* **None** (All functional requirements and business decisions resolved).
 
 ---
 

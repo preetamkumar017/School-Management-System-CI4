@@ -34,6 +34,10 @@ use App\Modules\Administration\Models\SchoolProfileModel;
 use App\Modules\Administration\Models\StateModel;
 use App\Modules\Administration\Models\DistrictModel;
 use App\Modules\Administration\Models\BlockModel;
+use App\Modules\Administration\Models\BoardModel;
+use App\Modules\Administration\Models\BoardAffiliationModel;
+use App\Modules\Administration\Models\AcademicFrameworkModel;
+use App\Modules\Administration\Models\FrameworkSessionMappingModel;
 use App\Modules\Administration\Services\AuditService;
 use App\Modules\Administration\Services\AuthService;
 use App\Modules\Administration\Services\ConfigurationService;
@@ -41,6 +45,7 @@ use App\Modules\Administration\Services\DocumentService;
 use App\Modules\Administration\Services\RoleService;
 use App\Modules\Administration\Services\UserService;
 use App\Modules\Administration\Services\SchoolProfileService;
+use App\Modules\Administration\Services\BoardFrameworkService;
 use App\Modules\Attendance\Models\AttendanceRecordModel;
 use App\Modules\Attendance\Models\StaffAttendanceRecordModel;
 use App\Modules\Attendance\Services\AttendanceService;
@@ -237,6 +242,27 @@ class Services extends BaseService
             static::auditService(),
             static::moduleAuthorizer(),
             new EmployeeModel()
+        );
+    }
+
+    public static function boardFrameworkService(bool $getShared = true): BoardFrameworkService
+    {
+        if ($getShared) {
+            return static::getSharedInstance('boardFrameworkService');
+        }
+
+        return new BoardFrameworkService(
+            new BoardModel(),
+            new BoardAffiliationModel(),
+            new AcademicFrameworkModel(),
+            new FrameworkSessionMappingModel(),
+            static::auditService(),
+            static::moduleAuthorizer(),
+            new EmployeeModel(),
+            new DesignationModel(),
+            new UserModel(),
+            new AcademicSessionModel(),
+            new GradingSchemeModel()
         );
     }
 

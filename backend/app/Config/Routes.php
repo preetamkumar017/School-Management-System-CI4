@@ -48,6 +48,26 @@ $routes->group('api/v1/administration', ['namespace' => 'App\Modules\Administrat
     $routes->get('states', 'SchoolProfileController::getStates');
     $routes->get('states/(:num)/districts', 'SchoolProfileController::getDistricts/$1');
     $routes->get('districts/(:num)/blocks', 'SchoolProfileController::getBlocks/$1');
+
+    // Board & Academic Framework (Feature #2)
+    $routes->get('boards', 'BoardFrameworkController::getBoards');
+    $routes->post('boards', 'BoardFrameworkController::createBoard');
+    $routes->patch('boards/(:num)', 'BoardFrameworkController::updateBoard/$1');
+    $routes->delete('boards/(:num)', 'BoardFrameworkController::deleteBoard/$1');
+
+    $routes->get('board-affiliations', 'BoardFrameworkController::getBoardAffiliations');
+    $routes->post('board-affiliations', 'BoardFrameworkController::createBoardAffiliation');
+    $routes->patch('board-affiliations/(:num)', 'BoardFrameworkController::updateBoardAffiliation/$1');
+    $routes->delete('board-affiliations/(:num)', 'BoardFrameworkController::deleteBoardAffiliation/$1');
+
+    $routes->get('academic-frameworks', 'BoardFrameworkController::getAcademicFrameworks');
+    $routes->get('academic-frameworks/(:num)', 'BoardFrameworkController::getAcademicFramework/$1');
+    $routes->post('academic-frameworks', 'BoardFrameworkController::createAcademicFramework');
+    $routes->patch('academic-frameworks/(:num)', 'BoardFrameworkController::updateAcademicFramework/$1');
+    $routes->delete('academic-frameworks/(:num)', 'BoardFrameworkController::deleteAcademicFramework/$1');
+    $routes->post('academic-frameworks/(:num)/submit', 'BoardFrameworkController::submitAcademicFramework/$1');
+    $routes->post('academic-frameworks/(:num)/approve', 'BoardFrameworkController::approveAcademicFramework/$1');
+    $routes->post('academic-frameworks/(:num)/reject', 'BoardFrameworkController::rejectAcademicFramework/$1');
 });
 
 // docs/design/academic/Phase-5-Controller-Design.md
